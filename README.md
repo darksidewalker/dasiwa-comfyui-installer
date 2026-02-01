@@ -1,21 +1,45 @@
-# Intriduction
+# Introduction
 
-This is a installer script for my comfyui workflows that will:
-1. Install comfyui
-2. Create a virtual python environment "venv"
-3. Install all dependencies
-4. Install all custom_nodes needed for my workflows + all the dependencies
+This is an installer script for my DaSiWa ComfyUI workflows that automates the following steps:
+
+   1. ComfyUI Core: Clones the latest version of ComfyUI.
+
+   2. Performance: Installs uv for lightning-fast package management.
+
+   3. Environment: Creates a virtual Python 3.12 environment (venv).
+
+   4. GPU Setup: Automatically detects NVIDIA GPUs and installs the correct PyTorch version (or halts for manual AMD setup).
+
+   5. Custom Nodes: Installs a predefined list of custom nodes and their specific dependencies.
+
+# Prerequisites
+
+   1. Python 3.12 (Recommended)
+
+   2. Git installed and added to your PATH.
+
+   3. An NVIDIA GPU (for the automated Torch installation).
 
 # Installation
 
-1. Open console/bash/terminal inside a directory you want to install
+Open your terminal/bash/PowerShell and run:
+```
+git clone https://github.com/darksidewalker/dasiwa-comfyui-installer && cd dasiwa-comfyui-installer && python install_comfyui.py
+```
+## Follow the prompts:
 
-2. Clone the repository:
-```
-git clone https://github.com/darksidewalker/dasiwa-comfyui-installer
-```
+   - The script will ask you for an installation path.
+   - Press Enter to install it in the current directory or provide a specific path.
+   - The script will check if a ComfyUI folder already exists to prevent overwriting.
 
-3. Run in console/bash/terminal
+## After Installation
+
+Once finished, you can start ComfyUI by navigating into the new ComfyUI folder and running:
+### Windows
 ```
-python install_comfyui.py
+venv\Scripts\python.exe main.py
+```
+### Linux 
+```
+./venv/bin/python main.py
 ```
