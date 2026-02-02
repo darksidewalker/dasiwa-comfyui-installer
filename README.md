@@ -25,7 +25,7 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 Open your terminal/bash/PowerShell and run:
 `BASH`
 ```
-git clone https://github.com/darksidewalker/dasiwa-comfyui-installer && cd dasiwa-comfyui-installer && python install_comfyui.py
+git clone https://github.com/darksidewalker/dasiwa-comfyui-installer && cd dasiwa-comfyui-installer && python install_comfyui.py && cd ..
 ```
 ### Option B: The "Easy Way" (Recommended)
 
