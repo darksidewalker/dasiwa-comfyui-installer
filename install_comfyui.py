@@ -4,10 +4,11 @@ import sys
 import os
 from pathlib import Path
 
-# Konfiguration
+# --- KONFIGURATION ---
+# Nutzt direkt die Raw-URLs von GitHub
 REMOTE_LOGIC_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/setup_logic.py"
-LOCAL_LOGIC_NAME = "setup_logic.py"
-CURRENT_VERSION = 1.2 
+LOCAL_LOGIC_NAME = "temp_setup_logic.py"
+CURRENT_VERSION = 1.2
 
 def get_remote_version(url):
     try:
@@ -20,59 +21,61 @@ def get_remote_version(url):
     return None
 
 def main():
-    print(f"--- DaSiWa ComfyUI Installer (Wrapper v{CURRENT_VERSION}) ---")
+    print(f"--- DaSiWa ComfyUI Stand-alone Installer (v{CURRENT_VERSION}) ---")
     
-    # --- NEU: Verhindere kaskadierte Installation ---
+    # 1. Pfad-Check: Verhindere Installation IM Installer-Ordner, falls doch geklont wurde
     current_path = Path.cwd()
-    if current_path.name == "dasiwa-comfyui-installer" and (current_path / LOCAL_LOGIC_NAME).exists():
-        # Wenn wir schon im Installer-Ordner sind, wollen wir nicht noch tiefer installieren
-        # Wir setzen das Arbeitsverzeichnis eins höher, damit ComfyUI NEBEN dem Installer landet
-        print("[!] Hinweis: Installer-Ordner erkannt. Installation erfolgt im übergeordneten Verzeichnis.")
+    if current_path.name == "dasiwa-comfyui-installer":
+        print("[!] Hinweis: Du befindest dich in einem Installer-Ordner.")
+        print("[*] Wechsel eine Ebene höher, um ComfyUI sauber zu installieren...")
         os.chdir("..")
 
-    # --- NEU: Check ob ComfyUI bereits hier installiert ist ---
+    # 2. Prüfe ob ComfyUI schon da ist
     if (Path.cwd() / "ComfyUI").exists():
-        print(f"\n[!] ComfyUI wurde bereits im Verzeichnis '{Path.cwd()}' gefunden.")
-        choice = input("Möchtest du das Script trotzdem ausführen? (Update/Reparatur nicht garantiert) (y/n): ")
+        print(f"\n[!] ComfyUI wurde bereits in '{Path.cwd()}' gefunden.")
+        choice = input("Möchtest du fortfahren? (y/n): ")
         if choice.lower() != 'y':
-            print("Abgebrochen.")
             sys.exit(0)
 
-    # --- Update Logik ---
-    remote_version = get_remote_version(REMOTE_LOGIC_URL)
-    should_download = False
-    
-    if not os.path.exists(LOCAL_LOGIC_NAME):
-        should_download = True
-    elif remote_version and remote_version > CURRENT_VERSION:
-        print(f"[*] Update verfügbar (v{remote_version}).")
-        should_download = True
-
-    if should_download:
-        try:
-            urllib.request.urlretrieve(REMOTE_LOGIC_URL, LOCAL_LOGIC_NAME)
-        except Exception as e:
-            print(f"[-] Download-Fehler: {e}")
-            if not os.path.exists(LOCAL_LOGIC_NAME): sys.exit(1)
-
-    # Führe die Logik aus
-    print("--- Starte Installations-Logik ---\n")
+    # 3. Lade die aktuellste Logik herunter
+    print("[*] Lade Installations-Logik von GitHub...")
     try:
+        urllib.request.urlretrieve(REMOTE_LOGIC_URL, LOCAL_LOGIC_NAME)
+    except Exception as e:
+        print(f"[-] Fehler beim Laden der Logik: {e}")
+        sys.exit(1)
+
+    # 4. Führe die Logik aus
+    print("--- Starte Installation ---\n")
+    try:
+        # Wir übergeben den aktuellen Pfad als Argument, falls die Logik ihn braucht
         subprocess.run([sys.executable, LOCAL_LOGIC_NAME], check=True)
-        
-        # --- BEREINIGUNG NACH ERFOLG ---
+        success = True
+    except Exception as e:
+        print(f"\n[!] Fehler während der Installation: {e}")
+        success = False
+
+    # 5. --- SELF-DESTRUCT & CLEANUP ---
+    print("\n--- Bereinigung ---")
+    try:
         if os.path.exists(LOCAL_LOGIC_NAME):
             os.remove(LOCAL_LOGIC_NAME)
-            
-        print("\n" + "="*40)
-        print("BEREINIGUNG: Temporäre Installationsdateien wurden entfernt.")
-        print("Du kannst diesen Terminal-Ordner nun schließen.")
-        print("="*40)
+            print("[+] Temporäre Logik gelöscht.")
         
-    except subprocess.CalledProcessError:
-        print("\n[!] Installation abgebrochen. Dateien für Fehlerdiagnose behalten.")
-    except Exception as e:
-        print(f"\n[!] Fehler: {e}")
+        # Optional: Das Script löscht sich selbst (der Wrapper)
+        # Wenn du das Script behalten willst, kommentiere die nächste Zeile aus
+        script_path = __file__
+        if success:
+            print("[+] Installation erfolgreich abgeschlossen.")
+            # os.remove(script_path) # Aktivieren für totalen Self-Destruct
+    except:
+        pass
+
+    if success:
+        print("\n" + "="*40)
+        print("FERTIG! Du kannst dieses Fenster nun schließen.")
+        print("Deine Installation befindet sich im Ordner 'ComfyUI'.")
+        print("="*40)
 
 if __name__ == "__main__":
     main()
