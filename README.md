@@ -22,16 +22,17 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 # 📥 Installation
 
 ## Choose the method that fits your operating system:
-### Windows (Easy Way)
 
 1. Download this repository as a ZIP or clone it.
+ 
+### Windows (Easy Way)
 2. Double-click install.bat.
 3. Follow the on-screen prompts.
 
 ### Linux (Easy Way)
-1. Open your terminal in the folder.
-2. Make the script executable and run it `Bash`
-3.
+2. Open your terminal in the folder.
+3. Make the script executable and run it `Bash`
+4.
 ```
 chmod +x install.sh && ./install.sh
 ```
