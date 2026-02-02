@@ -22,6 +22,18 @@ This is an installer script for my DaSiWa ComfyUI workflows that automates the f
 
 # Installation
 
+## Alternative: Easy Entry (Auto-Check)
+
+If you don't want to check for Python or Git manually, use these wrappers:
+
+### Windows
+Double-click `install.bat`. It will check for Git/Python and offer to install them via `winget` if they are missing.
+
+### Linux
+1. Make it executable: `chmod +x install.sh`
+2. Run it: `./install.sh`
+It will detect your distribution (Ubuntu, Arch, Fedora, etc.) and ask if you want to install missing packages via `sudo`.
+
 Open your terminal/bash/PowerShell and run:
 ```
 git clone https://github.com/darksidewalker/dasiwa-comfyui-installer && cd dasiwa-comfyui-installer && python install_comfyui.py
