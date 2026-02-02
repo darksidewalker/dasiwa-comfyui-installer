@@ -13,8 +13,6 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 
 ## 🛠️ Prerequisites
 
-* **Python 3.12** (Recommended)
-* **Git** installed and added to your PATH.
 * An **NVIDIA GPU** (required for the automated Torch installation).
 
 ---
