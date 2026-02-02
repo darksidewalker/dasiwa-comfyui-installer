@@ -21,23 +21,15 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 
 ## 📥 Installation
 
-### Option A: The "One-Liner" (Pro)
-Open your terminal/bash/PowerShell and run:
-`BASH`
+### Windows (PowerShell)
+`PowerShell`
 ```
-git clone https://github.com/darksidewalker/dasiwa-comfyui-installer && cd dasiwa-comfyui-installer && python install_comfyui.py && cd ..
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py" -OutFile "install.py"; python install.py
 ```
-### Option B: The "Easy Way" (Recommended)
-
-Download or clone this repository.
-
-### Windows:
-Double-click `install.bat`.
-
-### Linux: 
-Run 
+### Linux (Bash/Terminal)
+`Bash`
 ```
-chmod +x install.sh && ./install.sh.
+curl -L -o install.py https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py && python3 install.py
 ```
 
 Follow the prompts:
@@ -49,13 +41,5 @@ Follow the prompts:
 ## 🚀 After Installation
 
 Once finished, navigate into the new ComfyUI folder and start it using the virtual environment:
-### Windows
-`PowerShell`
-```
-.\venv\Scripts\python.exe main.py
-```
-### Linux
-`Bash`
-```
-./venv/bin/python main.py
-```
+
+Use the `run_comfyui` inside your ComfyUI to start.
