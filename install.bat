@@ -9,14 +9,14 @@ echo ===========================================
 :check_git
 where git >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [!] Git wurde nicht gefunden.
-    set /p install_git="Moechtest du Git via winget installieren? (j/n): "
-    if /i "!install_git!"=="j" (
+    echo [!] Git was not found.
+    set /p install_git="Would you like to install Git via winget? (y/n): "
+    if /i "!install_git!"=="y" (
         winget install --id Git.Git -e --source winget
-        echo Bitte starte dieses Script nach der Installation neu.
+        echo [!] Please restart this script after the installation is finished.
         pause & exit
     ) else (
-        echo Bitte installiere Git manuell: https://git-scm.com/
+        echo [!] Please install Git manually: https://git-scm.com/
         pause & exit
     )
 )
@@ -24,18 +24,26 @@ if %errorlevel% neq 0 (
 :check_python
 where python >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [!] Python wurde nicht gefunden.
-    set /p install_py="Moechtest du Python 3.12 via winget installieren? (j/n): "
-    if /i "!install_py!"=="j" (
+    echo [!] Python was not found.
+    set /p install_py="Would you like to install Python 3.12 via winget? (y/n): "
+    if /i "!install_py!"=="y" (
         winget install --id Python.Python.3.12 -e --source winget
-        echo Bitte starte dieses Script nach der Installation neu.
+        echo [!] Please restart this script after the installation is finished.
         pause & exit
     ) else (
-        echo Bitte installiere Python 3.12 manuell.
+        echo [!] Please install Python 3.12 manually.
         pause & exit
     )
 )
 
-echo [+] Voraussetzungen erfuellt.
+echo [+] Prerequisites met.
+echo [*] Checking for installer script...
+
+:: Check if the wrapper already exists, if not, download it
+if not exist install_comfyui.py (
+    echo [!] Installer wrapper not found locally. Downloading...
+    powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py' -OutFile 'install_comfyui.py'"
+)
+
 python install_comfyui.py
 pause
