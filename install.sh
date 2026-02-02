@@ -4,7 +4,7 @@ echo "==========================================="
 echo "    ComfyUI Prerequisites Check (Linux)"
 echo "==========================================="
 
-# Distribution erkennen
+# Detect Distribution
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     OS=$ID
@@ -25,28 +25,32 @@ check_and_prompt() {
     local cmd=$(get_install_cmd)
     
     if ! command -v git &> /dev/null || ! command -v python3 &> /dev/null; then
-        echo "[!] Fehlende Pakete erkannt (Git oder Python3)."
+        echo "[!] Missing dependencies (Git or Python3)."
         
         if [ "$cmd" = "manual_install" ]; then
-            echo "Deine Distribution ($OS) wird nicht automatisch unterstuetzt."
-            echo "Bitte installiere 'git' und 'python3' manuell."
+            echo "Your distribution ($OS) is not automatically supported."
+            echo "Please install 'git' and 'python3' manually."
             exit 1
         fi
 
-        echo "Empfohlener Befehl: sudo $cmd"
-        read -p "Soll ich diesen Befehl jetzt mit sudo ausfuehren? (j/n): " choice
-        if [[ "$choice" =~ ^[Jj]$ ]]; then
+        echo "Recommended command: sudo $cmd"
+        read -p "Would you like to run this command now with sudo? (y/n): " choice
+        if [[ "$choice" =~ ^[Yy]$ ]]; then
             sudo sh -c "$cmd"
         else
-            echo "Installation abgebrochen. Bitte installiere die Pakete manuell."
+            echo "Installation aborted. Please install dependencies manually."
             exit 1
         fi
     fi
 }
 
-# Ablauf
 check_and_prompt
 
-# Starte Installer
-echo "[+] Voraussetzungen erfuellt. Starte Python-Installer..."
+# Download the python wrapper if it doesn't exist
+if [ ! -f "install_comfyui.py" ]; then
+    echo "[!] Downloading installer wrapper..."
+    curl -L -o install_comfyui.py https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py
+fi
+
+echo "[+] Prerequisites met. Launching Python installer..."
 python3 install_comfyui.py
