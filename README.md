@@ -38,7 +38,11 @@ chmod +x install.sh && ./install.sh
 
 ## Pro / Remote Installation (One-Liner)
 
-If you don't want to download the whole repo and just want to start the Python process directly (requires Git and Python 3.12 already installed):
+If you don't want to download the whole repo and just want to start the Python process directly.
+
+Requires already installed: 
+- Git
+- Python 3.12
 
 ### Windows (PowerShell):
 `PowerShell`
