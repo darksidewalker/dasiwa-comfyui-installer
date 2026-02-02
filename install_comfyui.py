@@ -55,12 +55,22 @@ def main():
             print(f"[-] Download-Fehler: {e}")
             if not os.path.exists(LOCAL_LOGIC_NAME): sys.exit(1)
 
-    # Starte Logik
+    # Führe die Logik aus
     print("--- Starte Installations-Logik ---\n")
     try:
         subprocess.run([sys.executable, LOCAL_LOGIC_NAME], check=True)
+        
+        # --- BEREINIGUNG NACH ERFOLG ---
+        if os.path.exists(LOCAL_LOGIC_NAME):
+            os.remove(LOCAL_LOGIC_NAME)
+            
+        print("\n" + "="*40)
+        print("BEREINIGUNG: Temporäre Installationsdateien wurden entfernt.")
+        print("Du kannst diesen Terminal-Ordner nun schließen.")
+        print("="*40)
+        
     except subprocess.CalledProcessError:
-        print("\n[!] Installation abgebrochen.")
+        print("\n[!] Installation abgebrochen. Dateien für Fehlerdiagnose behalten.")
     except Exception as e:
         print(f"\n[!] Fehler: {e}")
 
