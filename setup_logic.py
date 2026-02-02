@@ -1,4 +1,4 @@
-VERSION = 1.6
+VERSION = 1.7
 import subprocess
 import os
 import sys
@@ -27,7 +27,7 @@ def get_venv_env():
         
     full_env["PATH"] = str(venv_path / bin_dir) + os.pathsep + full_env["PATH"]
     return full_env, bin_dir
-
+    
 # --- MODULE ---
 
 def task_create_launchers(bin_dir):
@@ -83,6 +83,24 @@ def task_custom_nodes(env):
     except Exception as e:
         print(f"Hinweis bei Custom Nodes: {e}")
 
+def task_cleanup():
+    """Entfernt temporäre Dateien nach der Installation."""
+    print("\n--- Modul: Bereinigung ---")
+    temp_files = [NODES_LIST_FILE, "setup_logic.py"] # Die Logik-Datei selbst löschen wir erst ganz am Ende
+    
+    for file in temp_files:
+        p = Path(file)
+        if p.exists():
+            try:
+                p.unlink()
+                print(f"[+] Temporäre Datei entfernt: {file}")
+            except:
+                pass
+
+    # Hinweis zum Installer-Ordner
+    installer_folder = Path(__file__).parent.parent # Das Verzeichnis über ComfyUI (wo der git clone landete)
+    print(f"\n[i] Hinweis: Du kannst den ursprünglichen Installer-Ordner jetzt manuell löschen.")
+    
 # --- HAUPTABLAUF ---
 
 def main():
@@ -138,6 +156,9 @@ def main():
     print(f"ComfyUI wurde in {os.getcwd()} installiert.")
     print("Nutze die 'run_comfyui' Datei zum Starten.")
     print("="*40)
+
+    # Alles aufräumen
+    task_cleanup()
 
 if __name__ == "__main__":
     main()
