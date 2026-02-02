@@ -1,11 +1,18 @@
+# --- System & Workflow Management ---
 https://github.com/Comfy-Org/ComfyUI-Manager
 https://github.com/pythongosssss/ComfyUI-Custom-Scripts
-https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite
 https://github.com/rgthree/rgthree-comfy
-https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit
-https://github.com/kijai/ComfyUI-KJNodes
 https://github.com/yolain/ComfyUI-Easy-Use
+
+# --- Essential Tools & GGUF Support ---
+https://github.com/kijai/ComfyUI-KJNodes
 https://github.com/city96/ComfyUI-GGUF
+
+# --- Video & Animation ---
+https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite
+https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit
+
+# --- Audio & Special Media ---
 https://github.com/hkchengrex/MMAudio
 https://github.com/phazei/ComfyUI-HunyuanVideo-Foley
 https://github.com/filliptm/ComfyUI_FL-CosyVoice3
