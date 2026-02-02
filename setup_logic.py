@@ -1,4 +1,4 @@
-VERSION = 1.5
+VERSION = 1.6
 import subprocess
 import os
 import sys
@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 
 # --- ZENTRALE KONFIGURATION ---
-CUDA_VERSION = "cu130" # Standardmäßig cu130, einfach hier anpassen
+CUDA_VERSION = "cu121"  # Zentral steuerbar: cu121, cu124, cu130 etc.
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
 NODES_LIST_FILE = "custom_nodes.txt"
 
@@ -19,43 +19,43 @@ def get_venv_env():
     venv_path = Path.cwd() / "venv"
     full_env = os.environ.copy()
     full_env["VIRTUAL_ENV"] = str(venv_path)
-    bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
+    
+    if platform.system() == "Windows":
+        bin_dir = "Scripts"
+    else:
+        bin_dir = "bin"
+        
     full_env["PATH"] = str(venv_path / bin_dir) + os.pathsep + full_env["PATH"]
     return full_env, bin_dir
 
-# --- MODULE (Einfach erweiterbar) ---
+# --- MODULE ---
 
-def task_install_ffmpeg():
-    """Prüft und installiert FFmpeg (Beispiel für Modularität)."""
-    print("\n--- Modul: FFmpeg Check ---")
-    try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
-        print("[+] FFmpeg ist bereits installiert.")
-    except:
-        print("[!] FFmpeg fehlt. Installation wird empfohlen...")
-        if platform.system() == "Windows":
-            print("Tipp: Nutze 'winget install ffmpeg'")
-        else:
-            print("Tipp: Nutze 'sudo apt install ffmpeg' oder 'pacman -S ffmpeg'")
+def task_create_launchers(bin_dir):
+    """Erstellt Start-Dateien für Windows und Linux."""
+    print("\n--- Modul: Launcher Erstellung ---")
+    
+    # Pfad zum Python in der Venv
+    if platform.system() == "Windows":
+        python_path = f"venv\\{bin_dir}\\python.exe"
+        launcher_name = "run_comfyui.bat"
+        content = f"@echo off\n\"{python_path}\" main.py\npause"
+    else:
+        python_path = f"venv/{bin_dir}/python"
+        launcher_name = "run_comfyui.sh"
+        content = f"#!/bin/bash\n./{python_path} main.py"
 
-def task_setup_uv():
-    print("\n--- Modul: UV Setup ---")
-    try:
-        subprocess.run(["uv", "--version"], check=True, capture_output=True)
-    except:
-        if platform.system() == "Windows":
-            run_cmd("powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
-        else:
-            run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
-        os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
+    launcher_file = Path(launcher_name)
+    launcher_file.write_text(content)
+    
+    # Ausführbar machen (Linux/macOS)
+    if platform.system() != "Windows":
+        os.chmod(launcher_file, 0o755)
+    
+    print(f"[+] Launcher erstellt: {launcher_name}")
 
 def task_install_torch(env):
-    print(f"\n--- Modul: PyTorch (Nvidia {CUDA_VERSION}) ---")
-    
-    # Dynamischer URL-Bau
+    print(f"\n--- Modul: PyTorch ({CUDA_VERSION}) ---")
     extra_index = f"https://download.pytorch.org/whl/{CUDA_VERSION}"
-    
-    # Ausführung mit uv
     run_cmd([
         "uv", "pip", "install", 
         "torch", "torchvision", "torchaudio", 
@@ -73,6 +73,7 @@ def task_custom_nodes(env):
         for repo in repos:
             repo_name = repo.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / repo_name
+            print(f">> Syncing: {repo_name}")
             if not node_dir.exists():
                 run_cmd(["git", "clone", repo, str(node_dir)])
             
@@ -80,36 +81,48 @@ def task_custom_nodes(env):
             if req_file.exists():
                 run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
     except Exception as e:
-        print(f"Fehler bei Custom Nodes: {e}")
+        print(f"Hinweis bei Custom Nodes: {e}")
 
 # --- HAUPTABLAUF ---
 
 def main():
-    # 1. Init & Pfade
+    # 1. Init & Pfad-Abfrage
     default_path = Path.cwd().resolve()
+    print(f"Standard-Installationspfad: {default_path}")
     user_input = input(f"Installationspfad (Enter für {default_path}): ").strip()
     install_base = Path(user_input) if user_input else default_path
     comfy_path = install_base / "ComfyUI"
 
     if comfy_path.exists():
-        print("[!] ComfyUI existiert bereits."); sys.exit(1)
+        print(f"[!] ABBRUCH: {comfy_path} existiert bereits.")
+        sys.exit(1)
 
-    # 2. Infrastruktur
+    # 2. Ordner-Struktur vorbereiten
     os.makedirs(install_base, exist_ok=True)
     os.chdir(install_base)
     
-    # 3. Task-Sequenz
+    # 3. Installation Kern
+    print(f"\n--- Klone ComfyUI nach {comfy_path} ---")
     run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"])
     os.chdir("ComfyUI")
     
-    task_setup_uv()
+    # UV & Venv Setup
+    print("\n--- Infrastruktur Setup ---")
+    try:
+        run_cmd(["uv", "--version"])
+    except:
+        if platform.system() == "Windows":
+            run_cmd("powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
+        else:
+            run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
+        os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
+
     run_cmd(["uv", "venv", "venv", "--python", "3.12"])
     
-    # Venv-Umgebung laden
+    # Umgebung für uv laden
     venv_env, bin_name = get_venv_env()
     
-    # Hier kannst du neue Tasks einfach einfügen:
-    task_install_ffmpeg() 
+    # Tasks ausführen
     task_install_torch(venv_env)
     
     print("\n--- Modul: Core Requirements ---")
@@ -117,10 +130,14 @@ def main():
     
     task_custom_nodes(venv_env)
     
-    # 5. Abschluss
-    python_exe = os.path.join("venv", bin_name, "python")
-    # Launcher-Logik hier... (abgekürzt)
-    print("\n=== SETUP FERTIG ===")
+    # Launcher erstellen
+    task_create_launchers(bin_name)
+    
+    print("\n" + "="*40)
+    print("INSTALLATION ERFOLGREICH!")
+    print(f"ComfyUI wurde in {os.getcwd()} installiert.")
+    print("Nutze die 'run_comfyui' Datei zum Starten.")
+    print("="*40)
 
 if __name__ == "__main__":
     main()
