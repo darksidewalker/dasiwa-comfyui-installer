@@ -7,7 +7,7 @@ from pathlib import Path
 # Konfiguration
 REMOTE_LOGIC_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/setup_logic.py"
 LOCAL_LOGIC_NAME = "setup_logic.py"
-CURRENT_VERSION = 1.1 
+CURRENT_VERSION = 1.2 
 
 def get_remote_version(url):
     try:
