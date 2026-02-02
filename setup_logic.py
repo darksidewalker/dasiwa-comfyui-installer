@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 
 # --- ZENTRALE KONFIGURATION ---
-CUDA_VERSION = "cu121"  # Zentral steuerbar: cu121, cu124, cu130 etc.
+CUDA_VERSION = "cu130"  # Zentral steuerbar: cu121, cu124, cu130 etc.
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
 NODES_LIST_FILE = "custom_nodes.txt"
 
