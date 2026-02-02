@@ -1,4 +1,4 @@
-VERSION = 1.4
+VERSION = 1.5
 import subprocess
 import os
 import sys
@@ -6,7 +6,8 @@ import platform
 import urllib.request
 from pathlib import Path
 
-# --- KONFIGURATION ---
+# --- ZENTRALE KONFIGURATION ---
+CUDA_VERSION = "cu130" # Standardmäßig cu130, einfach hier anpassen
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
 NODES_LIST_FILE = "custom_nodes.txt"
 
@@ -49,8 +50,17 @@ def task_setup_uv():
         os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
 
 def task_install_torch(env):
-    print("\n--- Modul: PyTorch (Nvidia) ---")
-    run_cmd(["uv", "pip", "install", "torch", "torchvision", "torchaudio", "--extra-index-url", "https://download.pytorch.org/whl/cu121"], env=env)
+    print(f"\n--- Modul: PyTorch (Nvidia {CUDA_VERSION}) ---")
+    
+    # Dynamischer URL-Bau
+    extra_index = f"https://download.pytorch.org/whl/{CUDA_VERSION}"
+    
+    # Ausführung mit uv
+    run_cmd([
+        "uv", "pip", "install", 
+        "torch", "torchvision", "torchaudio", 
+        "--extra-index-url", extra_index
+    ], env=env)
 
 def task_custom_nodes(env):
     print("\n--- Modul: Custom Nodes ---")
