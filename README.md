@@ -19,27 +19,49 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 
 ---
 
-## 📥 Installation
+# 📥 Installation
 
-### Windows (PowerShell)
+## Choose the method that fits your operating system:
+### Windows (Easy Way)
+
+1. Download this repository as a ZIP or clone it.
+2. Double-click install.bat.
+3. Follow the on-screen prompts.
+
+### Linux (Easy Way)
+1. Open your terminal in the folder.
+2. Make the script executable and run it `Bash`
+3.
+```
+chmod +x install.sh && ./install.sh
+```
+
+## Pro / Remote Installation (One-Liner)
+
+If you don't want to download the whole repo and just want to start the Python process directly (requires Git and Python 3.12 already installed):
+
+### Windows (PowerShell):
 `PowerShell`
 ```
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py" -OutFile "install.py"; python install.py
 ```
-### Linux (Bash/Terminal)
+### Linux (Bash):
 `Bash`
 ```
 curl -L -o install.py https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py && python3 install.py
 ```
+# 🚀 After Installation
 
-Follow the prompts:
+Once finished, navigate into the new ComfyUI folder. You will find a launcher created by the script:
 
-- The script will ask for an installation path.
-- Press Enter to install in the current directory or provide a specific path.
-- The script will check if a ComfyUI folder already exists to prevent overwriting.
+## Windows: 
+Double-click `run_comfyui.bat`
 
-## 🚀 After Installation
+## Linux: 
+Run `./run_comfyui.sh`
 
-Once finished, navigate into the new ComfyUI folder and start it using the virtual environment:
+# 🛠️ Configuration
 
-Use the `run_comfyui` inside your ComfyUI to start.
+To change the CUDA version or add more nodes, edit these files on your GitHub fork:
+- setup_logic.py -> Change CUDA_VERSION = "cu130"
+- custom_nodes.txt -> Add your GitHub repo links
