@@ -8,7 +8,7 @@ from pathlib import Path
 # Nutzt direkt die Raw-URLs von GitHub
 REMOTE_LOGIC_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/setup_logic.py"
 LOCAL_LOGIC_NAME = "temp_setup_logic.py"
-CURRENT_VERSION = 1.2
+CURRENT_VERSION = 1.3
 
 def get_remote_version(url):
     try:
