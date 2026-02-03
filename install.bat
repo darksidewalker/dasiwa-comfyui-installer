@@ -2,9 +2,6 @@
 SETLOCAL EnableDelayedExpansion
 title DaSiWa ComfyUI Installer
 
-:: ===========================================
-:: ASCII ART & WELCOME
-:: ===========================================
 cls
 echo.
 echo ===========================================
