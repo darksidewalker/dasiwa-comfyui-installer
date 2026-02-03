@@ -1,9 +1,8 @@
 #!/bin/bash
-
 echo "==========================================="
-echo "    ComfyUI Prerequisites Check (Linux)"
+echo "    Welcome to the DaSiWa ComfyUI Installer"
 echo "==========================================="
-
+echo "ComfyUI Prerequisites Check (Linux)"
 # Detect Distribution
 if [ -f /etc/os-release ]; then
     . /etc/os-release
