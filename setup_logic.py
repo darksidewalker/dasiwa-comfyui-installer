@@ -1,4 +1,4 @@
-VERSION = 1.7
+VERSION = 1.8
 import subprocess
 import os
 import sys
@@ -30,6 +30,42 @@ def get_venv_env():
 
 # --- MODULES ---
 
+def get_gpu_vendor():
+    """Identifies the GPU manufacturer across OS platforms."""
+    sys_platform = platform.system()
+    
+    if sys_platform == "Windows":
+        try:
+            # Query Windows Management Instrumentation for the GPU name
+            res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], 
+                                 capture_output=True, text=True)
+            out = res.stdout.upper()
+            if "NVIDIA" in out: return "NVIDIA"
+            if "AMD" in out or "RADEON" in out: return "AMD"
+            if "INTEL" in out or "ARC" in out: return "INTEL"
+        except: pass
+
+    elif sys_platform == "Linux":
+        # Strategy A: Check PCI Vendor IDs (The 'Fail-Proof' way)
+        try:
+            for vendor_file in Path("/sys/class/drm").glob("card*/device/vendor"):
+                v_id = vendor_file.read_text().strip()
+                if "0x10de" in v_id: return "NVIDIA"
+                if "0x1002" in v_id: return "AMD"
+                if "0x8086" in v_id: return "INTEL"
+        except: pass
+        
+        # Strategy B: Check lspci
+        try:
+            res = subprocess.run(["lspci"], capture_output=True, text=True)
+            out = res.stdout.upper()
+            if "NVIDIA" in out: return "NVIDIA"
+            if "AMD" in out: return "AMD"
+            if "INTEL" in out: return "INTEL"
+        except: pass
+
+    return "UNKNOWN"
+
 def task_create_launchers(bin_dir):
     """Creates startup scripts for Windows and Linux."""
     print("\n--- Module: Creating Launchers ---")
@@ -52,13 +88,49 @@ def task_create_launchers(bin_dir):
     print(f"[+] Launcher created: {launcher_name}")
 
 def task_install_torch(env):
-    print(f"\n--- Module: PyTorch ({CUDA_VERSION}) ---")
-    extra_index = f"https://download.pytorch.org/whl/{CUDA_VERSION}"
-    run_cmd([
-        "uv", "pip", "install", 
-        "torch", "torchvision", "torchaudio", 
-        "--extra-index-url", extra_index
-    ], env=env)
+    vendor = get_gpu_vendor()
+    print(f"\n--- Detected Hardware: {vendor} ---")
+    
+    # Defaults
+    index_url = ""
+    extra_index = ""
+    pre_release = False
+
+    if vendor == "NVIDIA":
+        extra_index = f"https://download.pytorch.org/whl/{CUDA_VERSION}"
+        print("[*] Configuring for NVIDIA (CUDA)...")
+        
+    elif vendor == "AMD":
+        print("\nSelect your AMD Gen:")
+        print("1) Linux (ROCm Stable) | 2) RDNA 3 (RX 7000) | 3) RDNA 3.5 | 4) RDNA 4")
+        choice = input("Choice: ").strip()
+        if choice == "1": index_url = "https://download.pytorch.org/whl/rocm6.2"
+        elif choice == "2": 
+            index_url = "https://rocm.nightlies.amd.com/v2/gfx110X-all/"
+            pre_release = True
+        elif choice == "3":
+            index_url = "https://rocm.nightlies.amd.com/v2/gfx1151/"
+            pre_release = True
+        elif choice == "4":
+            index_url = "https://rocm.nightlies.amd.com/v2/gfx120X-all/"
+            pre_release = True
+            
+    elif vendor == "INTEL":
+        index_url = "https://download.pytorch.org/whl/xpu"
+        print("[*] Configuring for Intel Arc (XPU)...")
+        
+    else:
+        print("[!] No GPU detected. Defaulting to CPU (Slow).")
+        index_url = "https://download.pytorch.org/whl/cpu"
+
+    # Build the final command
+    cmd = ["uv", "pip", "install"]
+    if pre_release: cmd.append("--pre")
+    cmd += ["torch", "torchvision", "torchaudio"]
+    if index_url: cmd += ["--index-url", index_url]
+    if extra_index: cmd += ["--extra-index-url", extra_index]
+    
+    run_cmd(cmd, env=env)
 
 def task_custom_nodes(env):
     print("\n--- Module: Custom Nodes ---")
