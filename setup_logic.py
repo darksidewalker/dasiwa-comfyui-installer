@@ -1,4 +1,4 @@
-VERSION = 1.8
+VERSION = 1.9
 import subprocess
 import os
 import sys
