@@ -1,47 +1,61 @@
 @echo off
 SETLOCAL EnableDelayedExpansion
-title ComfyUI Installer Wrapper
+title DaSiWa ComfyUI Installer
 
+:: ===========================================
+:: ASCII ART & WELCOME
+:: ===========================================
+cls
+echo.
 echo ===========================================
-echo    ComfyUI Prerequisites Check (Windows)
+echo    Welcome to the DaSiWa ComfyUI Installer
 echo ===========================================
+echo.
 
+:: Section 1: Set Installation Path
+set "DefaultPath=%cd%"
+echo Where would you like to install ComfyUI?
+echo.
+echo Current path: %DefaultPath%
+echo.
+echo Press ENTER to use the current path.
+echo Or, enter a full path (e.g., D:\ComfyUI) and press ENTER.
+echo.
+set /p "InstallPath=Enter installation path: "
+if "%InstallPath%"=="" set "InstallPath=%DefaultPath%"
+if "%InstallPath:~-1%"=="\" set "InstallPath=%InstallPath:~0,-1%"
+
+echo.
+echo [INFO] Target directory: %InstallPath%
+echo.
+
+:: Section 2: Prerequisites
 :check_git
 where git >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [!] Git was not found.
-    set /p install_git="Would you like to install Git via winget? (y/n): "
+    echo [!] Git not found.
+    set /p install_git="Install Git via winget? (y/n): "
     if /i "!install_git!"=="y" (
         winget install --id Git.Git -e --source winget
-        echo [!] Please restart this script after the installation is finished.
-        pause & exit
-    ) else (
-        echo [!] Please install Git manually: https://git-scm.com/
-        pause & exit
-    )
+        echo Please restart this script after installation. & pause & exit
+    ) else ( exit )
 )
 
 :check_python
 where python >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [!] Python was not found.
-    set /p install_py="Would you like to install Python 3.12 via winget? (y/n): "
+    echo [!] Python not found.
+    set /p install_py="Install Python 3.12 via winget? (y/n): "
     if /i "!install_py!"=="y" (
         winget install --id Python.Python.3.12 -e --source winget
-        echo [!] Please restart this script after the installation is finished.
-        pause & exit
-    ) else (
-        echo [!] Please install Python 3.12 manually.
-        pause & exit
-    )
+        echo Please restart this script after installation. & pause & exit
+    ) else ( exit )
 )
 
-echo [+] Prerequisites met.
-echo [*] Checking for installer script...
-
-:: Check if the wrapper already exists, if not, download it
+:: Section 3: Launch Python Wrapper
+cd /d "%InstallPath%"
 if not exist install_comfyui.py (
-    echo [!] Installer wrapper not found locally. Downloading...
+    echo [INFO] Downloading installer engine...
     powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py' -OutFile 'install_comfyui.py'"
 )
 
