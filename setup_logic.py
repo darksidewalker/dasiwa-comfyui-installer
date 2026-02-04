@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
-VERSION = 2.5
+VERSION = 2.6
 GLOBAL_CUDA_VERSION = "13.0"
 MIN_CUDA_FOR_50XX = "12.8"
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
@@ -69,7 +69,24 @@ def get_gpu_vendor():
 # --- TASK MODULES ---
 def install_torch(env):
     vendor = get_gpu_vendor()
-    print(f"\n[i] Detected Hardware: {vendor}")
+    
+    if vendor == "UNKNOWN":
+        print("\n[!] WARNING: Automatic GPU detection failed.")
+        print("Installing the CPU version is disabled to prevent a broken setup.")
+        print("Please specify your hardware:")
+        print(" [1] NVIDIA (RTX 20, 30, 40, 50-series, etc.)")
+        print(" [2] AMD (Radeon, RX-series)")
+        print(" [3] Intel (Arc)")
+        print(" [A] Abort Installation")
+        
+        choice = input("\nSelect [1/2/3/A]: ").strip().upper()
+        if choice == "1": vendor = "NVIDIA"
+        elif choice == "2": vendor = "AMD"
+        elif choice == "3": vendor = "INTEL"
+        else:
+            print("[!] Installation aborted by user."); sys.exit(0)
+
+    print(f"\n[i] Preparing installation for: {vendor}")
     
     torch_url = "https://download.pytorch.org/whl/"
     target_cu = GLOBAL_CUDA_VERSION
@@ -77,12 +94,16 @@ def install_torch(env):
 
     if vendor == "NVIDIA":
         try:
-            res = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True)
+            # Check for RTX 50-series specifically
+            res = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], 
+                                 capture_output=True, text=True)
             if "RTX 50" in res.stdout:
-                print(f"[!] RTX 50-series detected! Overriding to CUDA {MIN_CUDA_FOR_50XX}...")
+                print(f"[!] Blackwell (RTX 50) detected! Using CUDA {MIN_CUDA_FOR_50XX}...")
                 target_cu = MIN_CUDA_FOR_50XX
                 is_nightly = True
-        except: pass
+        except: 
+            # If nvidia-smi fails but user chose NVIDIA, we stick to stable 12.4
+            pass
 
     cmd = ["uv", "pip", "install"]
     if is_nightly: cmd += ["--pre"]
@@ -95,8 +116,6 @@ def install_torch(env):
         cmd += ["--index-url", f"{torch_url}rocm6.2"]
     elif vendor == "INTEL":
         cmd += ["--index-url", f"{torch_url}xpu"]
-    else:
-        cmd += ["--index-url", f"{torch_url}cpu"]
     
     run_cmd(cmd, env=env)
 
