@@ -63,7 +63,7 @@ Double-click `run_comfyui.bat`
 ## Linux: 
 Run `./run_comfyui.sh`
 
-##💡Hints
+## 💡Hints
 
 - The first start may need some time because of internal comfyui updates, manager pulls and frontend update.
 
