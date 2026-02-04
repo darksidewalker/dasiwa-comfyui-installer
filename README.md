@@ -68,3 +68,6 @@ Run `./run_comfyui.sh`
 To change the CUDA version or add more nodes, edit these files on your GitHub fork:
 - setup_logic.py -> Change CUDA_VERSION = "cu130"
 - custom_nodes.txt -> Add your GitHub repo links
+
+# Why Python 3.12
+While 3.13 is out, many of the specialized wheels for the 5090 or other GPU's (like Triton and SageAttention) are currently most stable on 3.12.
