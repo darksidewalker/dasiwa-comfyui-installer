@@ -1,55 +1,27 @@
 #!/bin/bash
+# DaSiWa ComfyUI - Linux Bootstrapper
+
+# 1. Ensure we are in the script's directory
+cd "$(dirname "$0")"
+
 echo "==========================================="
-echo "    Welcome to the DaSiWa ComfyUI Installer"
+echo "    DaSiWa ComfyUI Installer (Linux)"
 echo "==========================================="
-echo "ComfyUI Prerequisites Check (Linux)"
-# Detect Distribution
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    OS=$ID
+
+# 2. Update Python filename and Download
+# We use setup_logic.py to match your current GitHub structure
+if [ ! -f "setup_logic.py" ]; then
+    echo "[INFO] Downloading installer engine..."
+    curl -L -o setup_logic.py https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/setup_logic.py
+fi
+
+# 3. Launch the Python logic
+# We use python3 specifically as most Linux distros alias it this way
+if command -v python3 &>/dev/null; then
+    python3 setup_logic.py
+elif command -v python &>/dev/null; then
+    python setup_logic.py
 else
-    OS="unknown"
+    echo "[!] Error: Python not found. Please install python3 (e.g., sudo apt install python3)"
+    exit 1
 fi
-
-get_install_cmd() {
-    case "$OS" in
-        ubuntu|debian|pop|mint) echo "apt-get update && apt-get install -y git python3 python3-pip" ;;
-        arch|manjaro)           echo "pacman -Syu --noconfirm git python python-pip" ;;
-        fedora|rhel|centos)     echo "dnf install -y git python3 python3-pip" ;;
-        *)                      echo "manual_install" ;;
-    esac
-}
-
-check_and_prompt() {
-    local cmd=$(get_install_cmd)
-    
-    if ! command -v git &> /dev/null || ! command -v python3 &> /dev/null; then
-        echo "[!] Missing dependencies (Git or Python3)."
-        
-        if [ "$cmd" = "manual_install" ]; then
-            echo "Your distribution ($OS) is not automatically supported."
-            echo "Please install 'git' and 'python3' manually."
-            exit 1
-        fi
-
-        echo "Recommended command: sudo $cmd"
-        read -p "Would you like to run this command now with sudo? (y/n): " choice
-        if [[ "$choice" =~ ^[Yy]$ ]]; then
-            sudo sh -c "$cmd"
-        else
-            echo "Installation aborted. Please install dependencies manually."
-            exit 1
-        fi
-    fi
-}
-
-check_and_prompt
-
-# Download the python wrapper if it doesn't exist
-if [ ! -f "install_comfyui.py" ]; then
-    echo "[!] Downloading installer wrapper..."
-    curl -L -o install_comfyui.py https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py
-fi
-
-echo "[+] Prerequisites met. Launching Python installer..."
-python3 install_comfyui.py
