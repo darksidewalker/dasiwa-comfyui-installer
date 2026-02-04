@@ -14,6 +14,7 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 ## 🛠️ Prerequisites
 
 * An **NVIDIA, AMD or Intel GPU** (required for the automated Torch installation).
+* Python (3.12 prefered)
 
 ---
 
@@ -41,6 +42,7 @@ If you don't want to download the whole repo and just want to start the Python p
 
 Requires already installed: 
 - Python
+- Git
 
 ### Windows (PowerShell):
 `PowerShell`
