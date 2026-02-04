@@ -13,7 +13,7 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 
 ## 🛠️ Prerequisites
 
-* An **NVIDIA GPU** (required for the automated Torch installation).
+* An **NVIDIA, AMD or Intel GPU** (required for the automated Torch installation).
 
 ---
 
