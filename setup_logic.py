@@ -31,20 +31,38 @@ def get_venv_env():
 # --- HARDWARE DETECTION ---
 def get_gpu_vendor():
     if IS_WIN:
+        # Method 1: WMIC (Legacy)
         try:
             res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True)
             out = res.stdout.upper()
             if "NVIDIA" in out: return "NVIDIA"
             if "AMD" in out or "RADEON" in out: return "AMD"
-            if "INTEL" in out or "ARC" in out: return "INTEL"
+        except: pass
+
+        # Method 2: PowerShell (Modern Windows 11)
+        try:
+            ps_cmd = "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"
+            res = subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True)
+            out = res.stdout.upper()
+            if "NVIDIA" in out: return "NVIDIA"
+            if "AMD" in out or "RADEON" in out: return "AMD"
+        except: pass
+
+        # Method 3: Registry Check (Deep Fallback)
+        try:
+            reg_cmd = 'reg query "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}" /s'
+            res = subprocess.run(reg_cmd, capture_output=True, text=True, shell=True)
+            out = res.stdout.upper()
+            if "NVIDIA" in out: return "NVIDIA"
+            if "AMD" in out: return "AMD"
         except: pass
     else:
+        # Linux detection remains the same
         try:
             for v_file in Path("/sys/class/drm").glob("card*/device/vendor"):
                 v_id = v_file.read_text().strip()
                 if "0x10de" in v_id: return "NVIDIA"
                 if "0x1002" in v_id: return "AMD"
-                if "0x8086" in v_id: return "INTEL"
         except: pass
     return "UNKNOWN"
 
