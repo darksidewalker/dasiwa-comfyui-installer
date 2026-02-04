@@ -63,6 +63,10 @@ Double-click `run_comfyui.bat`
 ## Linux: 
 Run `./run_comfyui.sh`
 
+##💡Hints
+
+- The first start may need some time because of internal comfyui updates, manager pulls and frontend update.
+
 # 🛠️ Configuration
 
 To change the CUDA version or add more nodes, edit these files on your GitHub fork:
