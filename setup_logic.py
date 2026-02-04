@@ -6,11 +6,14 @@ import urllib.request
 from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
-VERSION = 2.4
-GLOBAL_CUDA_VERSION = "13.0"  # Default stable for most cards
-MIN_CUDA_FOR_50XX = "12.8"    # Required for Blackwell (RTX 5090/5080)
+VERSION = 2.5
+GLOBAL_CUDA_VERSION = "13.0"
+MIN_CUDA_FOR_50XX = "12.8"
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
 NODES_LIST_FILE = "custom_nodes.txt"
+
+# Global OS check to avoid NameErrors
+IS_WIN = platform.system() == "Windows"
 
 # --- CORE UTILS ---
 def run_cmd(cmd, env=None, shell=False):
@@ -20,14 +23,13 @@ def get_venv_env():
     venv_path = Path.cwd() / "venv"
     full_env = os.environ.copy()
     full_env["VIRTUAL_ENV"] = str(venv_path)
-    bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
+    bin_dir = "Scripts" if IS_WIN else "bin"
     full_env["PATH"] = str(venv_path / bin_dir) + os.pathsep + full_env["PATH"]
     return full_env, bin_dir
 
 # --- HARDWARE DETECTION ---
 def get_gpu_vendor():
-    sys_platform = platform.system()
-    if sys_platform == "Windows":
+    if IS_WIN:
         try:
             res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True)
             out = res.stdout.upper()
@@ -35,7 +37,7 @@ def get_gpu_vendor():
             if "AMD" in out or "RADEON" in out: return "AMD"
             if "INTEL" in out or "ARC" in out: return "INTEL"
         except: pass
-    elif sys_platform == "Linux":
+    else:
         try:
             for v_file in Path("/sys/class/drm").glob("card*/device/vendor"):
                 v_id = v_file.read_text().strip()
@@ -84,20 +86,17 @@ def install_torch(env):
 
 def task_create_launchers(bin_dir):
     print("\n--- Module: Creating Launchers ---")
-    is_win = platform.system() == "Windows"
-    launcher_name = "run_comfyui.bat" if is_win else "run_comfyui.sh"
+    launcher_name = "run_comfyui.bat" if IS_WIN else "run_comfyui.sh"
     url = "http://127.0.0.1:8188"
-    
-    # Combined arguments for Manager and Latest Frontend
     args = "--enable-manager --front-end-version Comfy-Org/ComfyUI_frontend@latest"
 
-    if is_win:
+    if IS_WIN:
         content = (
             f"@echo off\n"
             f"title DaSiWa ComfyUI - Console\n"
             f"echo.\n"
             f"echo [INFO] Opening Browser in 7 seconds...\n"
-            f"echo [INFO] Using Latest Frontend & Manager enabled.\n"
+            f"echo [INFO] Latest Frontend & Manager enabled.\n"
             f"echo.\n"
             f"start /b cmd /c \"timeout /t 7 >nul && start {url}\"\n"
             f"\".\\venv\\{bin_dir}\\python.exe\" main.py {args}\n"
@@ -112,7 +111,7 @@ def task_create_launchers(bin_dir):
         )
 
     Path(launcher_name).write_text(content)
-    if not is_win: os.chmod(launcher_name, 0o755)
+    if not IS_WIN: os.chmod(launcher_name, 0o755)
     print(f"[+] Launcher created: {launcher_name}")
 
 def task_custom_nodes(env):
@@ -151,11 +150,10 @@ def main():
     run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"])
     os.chdir("ComfyUI")
     
-    # UV Setup
     try:
         subprocess.run(["uv", "--version"], check=True, capture_output=True)
     except:
-        if platform.system() == "Windows":
+        if IS_WIN:
             run_cmd("powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
         else:
             run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
@@ -167,25 +165,26 @@ def main():
     install_torch(venv_env)
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
     task_custom_nodes(venv_env)
-    
     task_create_launchers(bin_name)
     
     print("\n" + "="*40 + "\nINSTALLATION COMPLETE!\n" + "="*40)
 
+    # Auto-Launch Prompt
     launch_now = input("\nWould you like to launch ComfyUI now? [Y/n]: ").strip().lower()
     if launch_now in ["", "y", "yes"]:
         print("\n[*] Launching ComfyUI with Latest Frontend...")
-        launcher = "run_comfyui.bat" if is_win else "./run_comfyui.sh"
+        launcher = "run_comfyui.bat" if IS_WIN else "./run_comfyui.sh"
         
-        if is_win:
-            # We call the .bat directly so it inherits the correct title and flags
+        if IS_WIN:
             subprocess.Popen([launcher], creationflags=subprocess.CREATE_NEW_CONSOLE)
         else:
-            subprocess.Popen(["bash", launcher])
+            # On Linux, we use a separate process group so closing the installer won't kill Comfy
+            subprocess.Popen(["bash", launcher], start_new_session=True)
         
         print("[i] ComfyUI started in a new window. You can close this installer.")
     else:
+        launcher_name = "run_comfyui.bat" if IS_WIN else "run_comfyui.sh"
         print(f"\n[i] Setup finished. Use '{launcher_name}' to start later.")
-        
+
 if __name__ == "__main__":
     main()
