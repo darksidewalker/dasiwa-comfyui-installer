@@ -66,7 +66,7 @@ Run `./run_comfyui.sh`
 # 🛠️ Configuration
 
 To change the CUDA version or add more nodes, edit these files on your GitHub fork:
-- setup_logic.py -> Change CUDA_VERSION = "cu130"
+- setup_logic.py -> Change GLOBAL_CUDA_VERSION = "13.0"
 - custom_nodes.txt -> Add your GitHub repo links
 
 # Why Python 3.12
