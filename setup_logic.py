@@ -28,6 +28,31 @@ def get_venv_env():
     full_env["PATH"] = str(venv_path / bin_dir) + os.pathsep + full_env["PATH"]
     return full_env, bin_dir
 
+# --- OFFICIAL GIT BOOTSTRAPPER ---
+def bootstrap_git():
+    if not IS_WIN:
+        print("[!] Git is missing. Please install git using your package manager.")
+        sys.exit(1)
+
+    print("\n[!] Git not found. Bootstrapping Git for Windows...")
+    # URL for the official Git for Windows 64-bit silent installer
+    git_url = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe"
+    installer_path = Path.home() / "git_installer.exe"
+    
+    try:
+        print("[*] Downloading Git...")
+        urllib.request.urlretrieve(git_url, installer_path)
+        print("[*] Installing Git silently (this may take a moment)...")
+        # /VERYSILENT: No UI, /NORESTART: Don't reboot, /NOCANCEL: Force install
+        install_cmd = f'"{installer_path}" /VERYSILENT /NORESTART /NOCANCEL /SP-'
+        subprocess.run(install_cmd, shell=True, check=True)
+        print("[+] Git installed successfully.")
+    except Exception as e:
+        print(f"[!] Critical Error during Git install: {e}")
+        sys.exit(1)
+    finally:
+        if installer_path.exists(): os.remove(installer_path)
+
 # --- OFFICIAL PYTHON BOOTSTRAPPER ---
 def bootstrap_python():
     if not IS_WIN:
@@ -140,15 +165,27 @@ def task_custom_nodes(env):
 
 # --- MAIN ---
 def main():
-    # Verify Python exists and is a real install, not a Store alias
+    # --- PHASE 1: PREREQUISITE GATES ---
+    
+    # Check Python first (since we are already running in Python, 
+    # this usually catches broken MS Store aliases)
     try:
-        res = subprocess.run(["python", "--version"], capture_output=True, text=True)
-        if "Python" not in res.stdout: raise Exception()
+        subprocess.run(["python", "--version"], capture_output=True, text=True)
     except:
         bootstrap_python()
-        print("\n[!] Setup complete. Please restart your Terminal/CMD and run the script again.")
+        print("\n[i] Python installed. Please restart your terminal and run again.")
         sys.exit(0)
 
+    # Check Git second (Critical before we try to clone anything)
+    try:
+        subprocess.run(["git", "--version"], capture_output=True, text=True)
+    except:
+        bootstrap_git()
+        print("\n[i] Git installed. Please restart your terminal and run again.")
+        sys.exit(0)
+
+    # --- PHASE 2: INITIALIZATION ---
+    
     print(f"=== DaSiWa ComfyUI Installer v{VERSION} ===")
     
     default_path = Path.cwd().resolve()
