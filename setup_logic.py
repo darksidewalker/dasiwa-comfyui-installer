@@ -1,4 +1,4 @@
-VERSION = 1.9
+VERSION = 2.0
 import subprocess
 import os
 import sys
@@ -7,7 +7,8 @@ import urllib.request
 from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
-CUDA_VERSION = "cu130"  # Options: cu118, cu121, cu124, cu130 etc.
+GLOBAL_CUDA_VERSION = "13.0"  # High performance default for 2026
+MIN_CUDA_FOR_50XX = "12.8"
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
 NODES_LIST_FILE = "custom_nodes.txt"
 
@@ -19,43 +20,30 @@ def get_venv_env():
     venv_path = Path.cwd() / "venv"
     full_env = os.environ.copy()
     full_env["VIRTUAL_ENV"] = str(venv_path)
-    
-    if platform.system() == "Windows":
-        bin_dir = "Scripts"
-    else:
-        bin_dir = "bin"
-        
+    bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
     full_env["PATH"] = str(venv_path / bin_dir) + os.pathsep + full_env["PATH"]
     return full_env, bin_dir
 
 # --- MODULES ---
 
 def get_gpu_vendor():
-    """Identifies the GPU manufacturer across OS platforms."""
     sys_platform = platform.system()
-    
     if sys_platform == "Windows":
         try:
-            # Query Windows Management Instrumentation for the GPU name
-            res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], 
-                                 capture_output=True, text=True)
+            res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True)
             out = res.stdout.upper()
             if "NVIDIA" in out: return "NVIDIA"
             if "AMD" in out or "RADEON" in out: return "AMD"
             if "INTEL" in out or "ARC" in out: return "INTEL"
         except: pass
-
     elif sys_platform == "Linux":
-        # Strategy A: Check PCI Vendor IDs (The 'Fail-Proof' way)
         try:
-            for vendor_file in Path("/sys/class/drm").glob("card*/device/vendor"):
-                v_id = vendor_file.read_text().strip()
+            for v_file in Path("/sys/class/drm").glob("card*/device/vendor"):
+                v_id = v_file.read_text().strip()
                 if "0x10de" in v_id: return "NVIDIA"
                 if "0x1002" in v_id: return "AMD"
                 if "0x8086" in v_id: return "INTEL"
         except: pass
-        
-        # Strategy B: Check lspci
         try:
             res = subprocess.run(["lspci"], capture_output=True, text=True)
             out = res.stdout.upper()
@@ -63,72 +51,42 @@ def get_gpu_vendor():
             if "AMD" in out: return "AMD"
             if "INTEL" in out: return "INTEL"
         except: pass
-
     return "UNKNOWN"
 
-def task_create_launchers(bin_dir):
-    """Creates startup scripts for Windows and Linux."""
-    print("\n--- Module: Creating Launchers ---")
-    
-    if platform.system() == "Windows":
-        python_path = f"venv\\{bin_dir}\\python.exe"
-        launcher_name = "run_comfyui.bat"
-        content = f"@echo off\n\"{python_path}\" main.py\npause"
-    else:
-        python_path = f"venv/{bin_dir}/python"
-        launcher_name = "run_comfyui.sh"
-        content = f"#!/bin/bash\n./{python_path} main.py"
-
-    launcher_file = Path(launcher_name)
-    launcher_file.write_text(content)
-    
-    if platform.system() != "Windows":
-        os.chmod(launcher_file, 0o755)
-    
-    print(f"[+] Launcher created: {launcher_name}")
-
-def task_install_torch(env):
+def install_torch(env):
     vendor = get_gpu_vendor()
-    print(f"\n--- Detected Hardware: {vendor} ---")
+    print(f"\n[i] Detected Hardware: {vendor}")
     
-    # Defaults
-    index_url = ""
-    extra_index = ""
-    pre_release = False
+    torch_url = "https://download.pytorch.org/whl/"
+    target_cu = GLOBAL_CUDA_VERSION
+    is_nightly = False
 
     if vendor == "NVIDIA":
-        extra_index = f"https://download.pytorch.org/whl/{CUDA_VERSION}"
-        print("[*] Configuring for NVIDIA (CUDA)...")
-        
-    elif vendor == "AMD":
-        print("\nSelect your AMD Gen:")
-        print("1) Linux (ROCm Stable) | 2) RDNA 3 (RX 7000) | 3) RDNA 3.5 | 4) RDNA 4")
-        choice = input("Choice: ").strip()
-        if choice == "1": index_url = "https://download.pytorch.org/whl/rocm6.2"
-        elif choice == "2": 
-            index_url = "https://rocm.nightlies.amd.com/v2/gfx110X-all/"
-            pre_release = True
-        elif choice == "3":
-            index_url = "https://rocm.nightlies.amd.com/v2/gfx1151/"
-            pre_release = True
-        elif choice == "4":
-            index_url = "https://rocm.nightlies.amd.com/v2/gfx120X-all/"
-            pre_release = True
-            
-    elif vendor == "INTEL":
-        index_url = "https://download.pytorch.org/whl/xpu"
-        print("[*] Configuring for Intel Arc (XPU)...")
-        
-    else:
-        print("[!] No GPU detected. Defaulting to CPU (Slow).")
-        index_url = "https://download.pytorch.org/whl/cpu"
+        try:
+            res = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True)
+            if "RTX 50" in res.stdout:
+                # Removed 'packaging' dependency, using direct list compare
+                spec = [int(x) for x in target_cu.split('.')]
+                req = [int(x) for x in MIN_CUDA_FOR_50XX.split('.')]
+                if spec < req:
+                    print(f"[!] Hardware (RTX 50xx) requires CUDA {MIN_CUDA_FOR_50XX}+. Overriding...")
+                    target_cu = MIN_CUDA_FOR_50XX
+                    is_nightly = True
+        except: pass
 
-    # Build the final command
     cmd = ["uv", "pip", "install"]
-    if pre_release: cmd.append("--pre")
+    if is_nightly: cmd += ["--pre"]
     cmd += ["torch", "torchvision", "torchaudio"]
-    if index_url: cmd += ["--index-url", index_url]
-    if extra_index: cmd += ["--extra-index-url", extra_index]
+
+    if vendor == "NVIDIA":
+        cu_suffix = f"cu{target_cu.replace('.', '')}"
+        cmd += ["--extra-index-url", f"{torch_url}{cu_suffix}"]
+    elif vendor == "AMD":
+        cmd += ["--index-url", f"{torch_url}rocm6.2"] # Default stable ROCm
+    elif vendor == "INTEL":
+        cmd += ["--index-url", f"{torch_url}xpu"]
+    else:
+        cmd += ["--index-url", f"{torch_url}cpu"]
     
     run_cmd(cmd, env=env)
 
@@ -153,66 +111,63 @@ def task_custom_nodes(env):
         
         if os.path.exists(NODES_LIST_FILE):
             os.remove(NODES_LIST_FILE)
-            
     except Exception as e:
         print(f"[*] Note regarding Custom Nodes: {e}")
 
-# --- MAIN PROCESS ---
+def task_create_launchers(bin_dir):
+    print("\n--- Module: Creating Launchers ---")
+    is_win = platform.system() == "Windows"
+    launcher_name = "run_comfyui.bat" if is_win else "run_comfyui.sh"
+    
+    if is_win:
+        content = f"@echo off\n\".\\venv\\{bin_dir}\\python.exe\" main.py\npause"
+    else:
+        content = f"#!/bin/bash\n./venv/{bin_dir}/python main.py"
+
+    launcher_file = Path(launcher_name)
+    launcher_file.write_text(content)
+    if not is_win: os.chmod(launcher_file, 0o755)
+    print(f"[+] Launcher created: {launcher_name}")
 
 def main():
-    print("=== DaSiWa ComfyUI Installation Logic ===")
+    print(f"=== DaSiWa ComfyUI Installer v{VERSION} ===")
     
     # 1. Directory Setup
     default_path = Path.cwd().resolve()
-    print(f"Default installation path: {default_path}")
     user_input = input(f"Enter target path (Leave empty for {default_path}): ").strip()
     install_base = Path(user_input) if user_input else default_path
     comfy_path = install_base / "ComfyUI"
 
     if comfy_path.exists():
-        print(f"[!] ABORT: {comfy_path} already exists.")
-        sys.exit(1)
+        print(f"[!] ABORT: {comfy_path} already exists."); sys.exit(1)
 
     os.makedirs(install_base, exist_ok=True)
     os.chdir(install_base)
     
     # 2. Clone Core
-    print(f"\n--- Cloning ComfyUI to {comfy_path} ---")
     run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"])
     os.chdir("ComfyUI")
     
-    # 3. Infrastructure (UV & Venv)
-    print("\n--- Infrastructure Setup ---")
+    # 3. Infrastructure
     try:
         subprocess.run(["uv", "--version"], check=True, capture_output=True)
     except:
-        print("[*] Installing uv...")
         if platform.system() == "Windows":
             run_cmd("powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
         else:
             run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
-        # Update PATH for the current session
         os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
 
     run_cmd(["uv", "venv", "venv", "--python", "3.12"])
-    
-    # Load environment for uv
     venv_env, bin_name = get_venv_env()
     
     # 4. Run Tasks
-    task_install_torch(venv_env)
-    
-    print("\n--- Module: Core Requirements ---")
+    install_torch(venv_env)
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
-    
     task_custom_nodes(venv_env)
     task_create_launchers(bin_name)
     
-    print("\n" + "="*40)
-    print("INSTALLATION SUCCESSFUL!")
-    print(f"Location: {os.getcwd()}")
-    print("Use the 'run_comfyui' file to start the application.")
-    print("="*40)
+    print("\n" + "="*40 + "\nINSTALLATION SUCCESSFUL!\n" + "="*40)
 
 if __name__ == "__main__":
     main()
