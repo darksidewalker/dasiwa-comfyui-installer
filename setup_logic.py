@@ -115,19 +115,40 @@ def task_custom_nodes(env):
         print(f"[*] Note regarding Custom Nodes: {e}")
 
 def task_create_launchers(bin_dir):
+    """Erstellt Launcher, die Logs anzeigen UND den Browser öffnen."""
     print("\n--- Module: Creating Launchers ---")
     is_win = platform.system() == "Windows"
     launcher_name = "run_comfyui.bat" if is_win else "run_comfyui.sh"
-    
+    url = "http://127.0.0.1:8188"
+
     if is_win:
-        content = f"@echo off\n\".\\venv\\{bin_dir}\\python.exe\" main.py\npause"
+        # Windows Version
+        content = (
+            f"@echo off\n"
+            f"title DaSiWa ComfyUI - Console Logs\n"
+            f"echo.\n"
+            f"echo [INFO] Der Browser wird in Kuerze automatisch geoeffnet...\n"
+            f"echo [INFO] Schliesse dieses Fenster, um ComfyUI zu beenden.\n"
+            f"echo.\n"
+            f"start /b cmd /c \"timeout /t 7 >nul && start {url}\"\n"
+            f"\".\\venv\\{bin_dir}\\python.exe\" main.py\n"
+            f"pause"
+        )
     else:
-        content = f"#!/bin/bash\n./venv/{bin_dir}/python main.py"
+        # Linux Version
+        content = (
+            f"#!/bin/bash\n"
+            f"echo 'Launching ComfyUI... Browser opens in 7s'\n"
+            f"(sleep 7 && xdg-open {url}) &\n"
+            f"./venv/{bin_dir}/python main.py"
+        )
 
     launcher_file = Path(launcher_name)
     launcher_file.write_text(content)
-    if not is_win: os.chmod(launcher_file, 0o755)
-    print(f"[+] Launcher created: {launcher_name}")
+    if not is_win: 
+        os.chmod(launcher_file, 0o755)
+    
+    print(f"[+] Launcher erstellt: {launcher_name}")
 
 def main():
     print(f"=== DaSiWa ComfyUI Installer v{VERSION} ===")
