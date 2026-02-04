@@ -40,8 +40,7 @@ chmod +x install.sh && ./install.sh
 If you don't want to download the whole repo and just want to start the Python process directly.
 
 Requires already installed: 
-- Git
-- Python 3.12
+- Python
 
 ### Windows (PowerShell):
 `PowerShell`
