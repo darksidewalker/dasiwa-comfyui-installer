@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
-VERSION = 2.1
+VERSION = 2.2
 GLOBAL_CUDA_VERSION = "13.0"  # Default stable for most cards
 MIN_CUDA_FOR_50XX = "12.8"    # Required for Blackwell (RTX 5090/5080)
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
@@ -166,7 +166,25 @@ def main():
     task_custom_nodes(venv_env)
     task_create_launchers(bin_name)
     
+    task_create_launchers(bin_name)
+    
     print("\n" + "="*40 + "\nINSTALLATION COMPLETE!\n" + "="*40)
 
+    # Auto-Launch Prompt
+    launch_now = input("\nWould you like to launch ComfyUI now? [Y/n]: ").strip().lower()
+    if launch_now in ["", "y", "yes"]:
+        print("\n[*] Launching ComfyUI...")
+        launcher = "run_comfyui.bat" if platform.system() == "Windows" else "./run_comfyui.sh"
+        
+        # This triggers the launcher we just created
+        if platform.system() == "Windows":
+            subprocess.Popen([launcher], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            subprocess.Popen(["bash", launcher])
+        
+        print("[i] ComfyUI started in a new window. You can close this installer.")
+    else:
+        print(f"\n[i] Setup finished. Use '{launcher_name}' to start later.")
+        
 if __name__ == "__main__":
     main()
