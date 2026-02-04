@@ -8,7 +8,7 @@ from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
 VERSION = 2.8
-TARGET_PYTHON_VERSION = "3.12.10"  # <--- NEW: Locked official version
+TARGET_PYTHON_VERSION = "3.12.10"
 GLOBAL_CUDA_VERSION = "13.0"
 MIN_CUDA_FOR_50XX = "12.8"
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
@@ -28,53 +28,46 @@ def get_venv_env():
     full_env["PATH"] = str(venv_path / bin_dir) + os.pathsep + full_env["PATH"]
     return full_env, bin_dir
 
-# --- OFFICIAL GIT BOOTSTRAPPER ---
-def bootstrap_git():
-    if not IS_WIN:
-        print("[!] Git is missing. Please install git using your package manager.")
-        sys.exit(1)
-
-    print("\n[!] Git not found. Bootstrapping Git for Windows...")
-    # URL for the official Git for Windows 64-bit silent installer
-    git_url = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe"
-    installer_path = Path.home() / "git_installer.exe"
-    
-    try:
-        print("[*] Downloading Git...")
-        urllib.request.urlretrieve(git_url, installer_path)
-        print("[*] Installing Git silently (this may take a moment)...")
-        # /VERYSILENT: No UI, /NORESTART: Don't reboot, /NOCANCEL: Force install
-        install_cmd = f'"{installer_path}" /VERYSILENT /NORESTART /NOCANCEL /SP-'
-        subprocess.run(install_cmd, shell=True, check=True)
-        print("[+] Git installed successfully.")
-    except Exception as e:
-        print(f"[!] Critical Error during Git install: {e}")
-        sys.exit(1)
-    finally:
-        if installer_path.exists(): os.remove(installer_path)
-
-# --- OFFICIAL PYTHON BOOTSTRAPPER ---
+# --- BOOTSTRAP GATES (Prerequisites) ---
 def bootstrap_python():
     if not IS_WIN:
-        print("[!] Auto-bootstrap is currently only for Windows. Please install Python 3.12 manually.")
+        print(f"[!] Python not found. Please install Python {TARGET_PYTHON_VERSION} via your package manager.")
         sys.exit(1)
 
-    print(f"\n[!] Python {TARGET_PYTHON_VERSION} not found or MS-Store error.")
+    print(f"\n[!] Python {TARGET_PYTHON_VERSION} missing or corrupted.")
     print("[*] Downloading official installer from Python.org...")
-    
-    # URL for the specific amd64 version
     url = f"https://www.python.org/ftp/python/{TARGET_PYTHON_VERSION}/python-{TARGET_PYTHON_VERSION}-amd64.exe"
     installer_path = Path.home() / "python_installer.exe"
     
     try:
         urllib.request.urlretrieve(url, installer_path)
         print("[*] Running silent installation (PrependPath=1)...")
-        # /quiet: no UI, InstallAllUsers: Program Files, PrependPath: update system PATH
         install_cmd = f'"{installer_path}" /quiet InstallAllUsers=1 PrependPath=1 Include_test=0'
         subprocess.run(install_cmd, shell=True, check=True)
         print("\n[+] Python installed successfully!")
     except Exception as e:
         print(f"[!] Critical Error during Python install: {e}")
+        sys.exit(1)
+    finally:
+        if installer_path.exists(): os.remove(installer_path)
+
+def bootstrap_git():
+    if not IS_WIN:
+        print("[!] Git not found. Please install git (e.g. sudo apt install git).")
+        sys.exit(1)
+
+    print("\n[!] Git not found. Downloading official Git for Windows...")
+    git_url = "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe"
+    installer_path = Path.home() / "git_installer.exe"
+    
+    try:
+        urllib.request.urlretrieve(git_url, installer_path)
+        print("[*] Installing Git silently...")
+        install_cmd = f'"{installer_path}" /VERYSILENT /NORESTART /NOCANCEL /SP-'
+        subprocess.run(install_cmd, shell=True, check=True)
+        print("[+] Git installed successfully.")
+    except Exception as e:
+        print(f"[!] Critical Error during Git install: {e}")
         sys.exit(1)
     finally:
         if installer_path.exists(): os.remove(installer_path)
@@ -98,8 +91,7 @@ def get_gpu_vendor():
         except: pass
     return "UNKNOWN"
 
-# ... (install_torch, task_create_launchers, and task_custom_nodes remain the same) ...
-
+# --- TASK MODULES ---
 def install_torch(env):
     vendor = get_gpu_vendor()
     if vendor == "UNKNOWN":
@@ -119,6 +111,7 @@ def install_torch(env):
         try:
             res = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True)
             if "RTX 50" in res.stdout:
+                print("[!] RTX 50 Blackwell detected. Enabling CUDA 12.8 Nightly...")
                 target_cu = MIN_CUDA_FOR_50XX
                 is_nightly = True
         except: pass
@@ -165,29 +158,24 @@ def task_custom_nodes(env):
 
 # --- MAIN ---
 def main():
-    # --- PHASE 1: PREREQUISITE GATES ---
-    
-    # Check Python first (since we are already running in Python, 
-    # this usually catches broken MS Store aliases)
+    # PHASE 1: PREREQUISITE CHECK
     try:
-        subprocess.run(["python", "--version"], capture_output=True, text=True)
+        res = subprocess.run(["python", "--version"], capture_output=True, text=True)
+        if "Python" not in res.stdout: raise Exception()
     except:
         bootstrap_python()
-        print("\n[i] Python installed. Please restart your terminal and run again.")
+        print("\n[!] Please restart your terminal and run the installer again.")
         sys.exit(0)
 
-    # Check Git second (Critical before we try to clone anything)
     try:
         subprocess.run(["git", "--version"], capture_output=True, text=True)
     except:
         bootstrap_git()
-        print("\n[i] Git installed. Please restart your terminal and run again.")
+        print("\n[!] Please restart your terminal and run the installer again.")
         sys.exit(0)
 
-    # --- PHASE 2: INITIALIZATION ---
-    
+    # PHASE 2: PATH & CONFLICTS
     print(f"=== DaSiWa ComfyUI Installer v{VERSION} ===")
-    
     default_path = Path.cwd().resolve()
     user_input = input(f"Target path (Enter for {default_path}): ").strip()
     install_base = Path(user_input) if user_input else default_path
@@ -206,6 +194,7 @@ def main():
         elif c == 'u': mode = "update"
         else: sys.exit(0)
 
+    # PHASE 3: EXECUTION
     os.makedirs(install_base, exist_ok=True)
     os.chdir(install_base)
     
@@ -218,14 +207,13 @@ def main():
         run_cmd(["git", "fetch", "--all"])
         run_cmd(["git", "reset", "--hard", "origin/main"])
 
-    # UV Install
+    # UV INFRASTRUCTURE
     try: subprocess.run(["uv", "--version"], check=True, capture_output=True)
     except:
         if IS_WIN: run_cmd("powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
         else: run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
         os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
 
-    # Use the global parameter for venv creation
     run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION])
     venv_env, bin_name = get_venv_env()
     
