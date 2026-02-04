@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
-VERSION = 2.3
+VERSION = 2.4
 GLOBAL_CUDA_VERSION = "13.0"  # Default stable for most cards
 MIN_CUDA_FOR_50XX = "12.8"    # Required for Blackwell (RTX 5090/5080)
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
@@ -87,6 +87,9 @@ def task_create_launchers(bin_dir):
     is_win = platform.system() == "Windows"
     launcher_name = "run_comfyui.bat" if is_win else "run_comfyui.sh"
     url = "http://127.0.0.1:8188"
+    
+    # Combined arguments for Manager and Latest Frontend
+    args = "--enable-manager --front-end-version Comfy-Org/ComfyUI_frontend@latest"
 
     if is_win:
         content = (
@@ -94,18 +97,18 @@ def task_create_launchers(bin_dir):
             f"title DaSiWa ComfyUI - Console\n"
             f"echo.\n"
             f"echo [INFO] Opening Browser in 7 seconds...\n"
-            f"echo [INFO] Keep this window open to see generation logs.\n"
+            f"echo [INFO] Using Latest Frontend & Manager enabled.\n"
             f"echo.\n"
             f"start /b cmd /c \"timeout /t 7 >nul && start {url}\"\n"
-            f"\".\\venv\\{bin_dir}\\python.exe\" main.py\n"
+            f"\".\\venv\\{bin_dir}\\python.exe\" main.py {args}\n"
             f"pause"
         )
     else:
         content = (
             f"#!/bin/bash\n"
-            f"echo 'Opening Browser in 7s... Check logs below.'\n"
+            f"echo 'Opening Browser in 7s... Manager enabled.'\n"
             f"(sleep 7 && xdg-open {url}) &\n"
-            f"./venv/{bin_dir}/python main.py"
+            f"./venv/{bin_dir}/python main.py {args}"
         )
 
     Path(launcher_name).write_text(content)
@@ -169,14 +172,13 @@ def main():
     
     print("\n" + "="*40 + "\nINSTALLATION COMPLETE!\n" + "="*40)
 
-    # Auto-Launch Prompt
     launch_now = input("\nWould you like to launch ComfyUI now? [Y/n]: ").strip().lower()
     if launch_now in ["", "y", "yes"]:
-        print("\n[*] Launching ComfyUI...")
-        launcher = "run_comfyui.bat" if platform.system() == "Windows" else "./run_comfyui.sh"
+        print("\n[*] Launching ComfyUI with Latest Frontend...")
+        launcher = "run_comfyui.bat" if is_win else "./run_comfyui.sh"
         
-        # This triggers the launcher we just created
-        if platform.system() == "Windows":
+        if is_win:
+            # We call the .bat directly so it inherits the correct title and flags
             subprocess.Popen([launcher], creationflags=subprocess.CREATE_NEW_CONSOLE)
         else:
             subprocess.Popen(["bash", launcher])
