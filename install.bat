@@ -1,60 +1,28 @@
 @echo off
 SETLOCAL EnableDelayedExpansion
-title DaSiWa ComfyUI Installer
+title DaSiWa ComfyUI - Bootstrapper
 
-cls
+:: 1. Ensure we are in the correct directory
+cd /d "%~dp0"
+
 echo.
 echo ===========================================
-echo    Welcome to the DaSiWa ComfyUI Installer
+echo    DaSiWa ComfyUI Installer Bootstrapper
 echo ===========================================
 echo.
 
-:: Section 1: Set Installation Path
-set "DefaultPath=%cd%"
-echo Where would you like to install ComfyUI?
-echo.
-echo Current path: %DefaultPath%
-echo.
-echo Press ENTER to use the current path.
-echo Or, enter a full path (e.g., D:\ComfyUI) and press ENTER.
-echo.
-set /p "InstallPath=Enter installation path: "
-if "%InstallPath%"=="" set "InstallPath=%DefaultPath%"
-if "%InstallPath:~-1%"=="\" set "InstallPath=%InstallPath:~0,-1%"
+:: 2. Download the latest installer engine from GitHub
+:: This ensures the user always runs the most up-to-date logic
+echo [INFO] Downloading latest installer engine...
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/setup_logic.py' -OutFile 'setup_logic.py'"
 
-echo.
-echo [INFO] Target directory: %InstallPath%
-echo.
+:: 3. Launch the Python Script
+:: If Python is missing, the user will see a command error, 
+:: or Windows will prompt them. 
+python setup_logic.py
 
-:: Section 2: Prerequisites
-:check_git
-where git >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [!] Git not found.
-    set /p install_git="Install Git via winget? (y/n): "
-    if /i "!install_git!"=="y" (
-        winget install --id Git.Git -e --source winget
-        echo Please restart this script after installation. & pause & exit
-    ) else ( exit )
+    echo.
+    echo [!] An error occurred during the installation process.
+    pause
 )
-
-:check_python
-where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [!] Python not found.
-    set /p install_py="Install Python 3.12 via winget? (y/n): "
-    if /i "!install_py!"=="y" (
-        winget install --id Python.Python.3.12 -e --source winget
-        echo Please restart this script after installation. & pause & exit
-    ) else ( exit )
-)
-
-:: Section 3: Launch Python Wrapper
-cd /d "%InstallPath%"
-if not exist install_comfyui.py (
-    echo [INFO] Downloading installer engine...
-    powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py' -OutFile 'install_comfyui.py'"
-)
-
-python install_comfyui.py
-pause
