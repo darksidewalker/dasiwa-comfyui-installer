@@ -7,7 +7,7 @@ from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
 VERSION = 2.1
-GLOBAL_CUDA_VERSION = "12.4"  # Default stable for most cards
+GLOBAL_CUDA_VERSION = "13.0"  # Default stable for most cards
 MIN_CUDA_FOR_50XX = "12.8"    # Required for Blackwell (RTX 5090/5080)
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
 NODES_LIST_FILE = "custom_nodes.txt"
