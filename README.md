@@ -6,8 +6,8 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 
 1. **ComfyUI Core:** Clones the latest official repository.
 2. **Performance:** Installs `uv` for lightning-fast package management (up to 10x faster than standard pip).
-3. **Environment:** Creates a virtual **Python 3.12** environment (`venv`).
-4. **GPU Setup:** Automatically detects **NVIDIA GPUs** and installs the correct PyTorch version.
+3. **Environment:** Creates a virtual **Python** environment (`venv`).
+4. **GPU Setup:** Automatically detects **GPUs** and installs the correct PyTorch version.
 5. **Custom Nodes:** Installs a predefined list from `custom_nodes.txt` including all sub-dependencies.
 6. **Auto-Update:** The installer checks for logic updates on every start.
 
