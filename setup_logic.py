@@ -196,7 +196,8 @@ def main():
         print("\n[!] RESTART REQUIRED: Close this window and run the installer again.")
         sys.exit(0)
 
-    try: subprocess.run(["git", "--version"], capture_output=True, text=True)
+    try: 
+        subprocess.run(["git", "--version"], capture_output=True, text=True)
     except:
         bootstrap_git()
         print("\n[!] RESTART REQUIRED: Close this window and run the installer again.")
@@ -216,41 +217,41 @@ def main():
         c = input(f"\n[!] {comfy_path} exists. [U]pdate / [O]verwrite / [A]bort: ").strip().lower()
         if c == 'o':
             if yaml_config.exists(): shutil.copy2(yaml_config, temp_backup)
-            shutil.rmtree(comfy_path); mode = "install"
-        elif c == 'u': mode = "update"
-        else: sys.exit(0)
+            shutil.rmtree(comfy_path)
+            mode = "install"
+        elif c == 'u': 
+            mode = "update"
+        else: 
+            sys.exit(0)
 
     os.makedirs(install_base, exist_ok=True)
     os.chdir(install_base)
     
+    # --- INDENTATION FIXED BELOW ---
     if mode == "install":
         run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"])
         os.chdir("ComfyUI")
-        if temp_backup.exists(): shutil.move(temp_backup, Path.cwd() / "extra_model_paths.yaml")
-else:
+        if temp_backup.exists(): 
+            shutil.move(temp_backup, Path.cwd() / "extra_model_paths.yaml")
+    else:
         # --- ROBUST UPDATE MODE ---
         print("\n--- Updating Core Code ---")
+        if not comfy_path.exists():
+            print("[!] Error: ComfyUI folder not found for update.")
+            sys.exit(1)
         os.chdir("ComfyUI")
         
-        # 1. Force the remote URL to be correct
         run_cmd(["git", "remote", "set-url", "origin", "https://github.com/comfyanonymous/ComfyUI"])
-        
-        # 2. Fetch quietly
         run_cmd(["git", "fetch", "--all", "--quiet"])
         
-        # 3. Determine the correct branch (main vs master) automatically
-        # We check the remote head to see what the server calls its primary branch
         try:
-            # Try to reset to main, redirecting stderr to null to hide the "Fatal" message
             subprocess.run(["git", "reset", "--hard", "origin/main"], check=True, capture_output=True)
         except subprocess.CalledProcessError:
             print("[i] origin/main not found, resetting to origin/master...")
             run_cmd(["git", "reset", "--hard", "origin/master"])
 
-    # --- VENV CREATION (Non-Interactive) ---
+    # --- VENV CREATION (Outside the if/else) ---
     print("\n--- Preparing Virtual Environment ---")
-    # We add --allow-existing or --clear to bypass the [y/n] prompt
-    # Using --clear ensures a fresh start which is safer for updates
     run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_name = get_venv_env()
     
@@ -262,8 +263,7 @@ else:
     print("\n" + "="*40 + "\nDONE!\n" + "="*40)
     if input("\nLaunch now? [Y/n]: ").strip().lower() in ["", "y", "yes"]:
         l = "run_comfyui.bat" if IS_WIN else "./run_comfyui.sh"
-        if IS_WIN: subprocess.Popen([l], creationflags=subprocess.CREATE_NEW_CONSOLE)
-        else: subprocess.Popen(["bash", l], start_new_session=True)
-
-if __name__ == "__main__":
-    main()
+        if IS_WIN: 
+            subprocess.Popen([l], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else: 
+            subprocess.Popen(["bash", l], start_new_session=True)
