@@ -14,6 +14,16 @@ MIN_CUDA_FOR_50XX = "12.8"
 NODES_LIST_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt"
 NODES_LIST_FILE = "custom_nodes.txt"
 
+# Stability Guard: Packages that custom nodes are NOT allowed to downgrade
+PRIORITY_PACKAGES = [
+    "numpy>=2.1.0",
+    "pillow>=11.0.0",
+    "pydantic>=2.10.0",
+    "torch", 
+    "torchvision",
+    "torchaudio"
+]
+
 IS_WIN = platform.system() == "Windows"
 
 def run_cmd(cmd, env=None, shell=False):
@@ -113,77 +123,58 @@ def task_check_ffmpeg():
         return
 
     if IS_WIN:
-    try:
-        print("[*] Installing FFmpeg via winget...")
-        run_cmd(["winget", "install", "--id", "gyan.ffmpeg", "--exact", "--no-upgrade"])
-    except Exception as e:
-        print(f"[-] Winget failed: {e}. Please install FFmpeg manually.")
+        try:
+            print("[*] FFmpeg missing. Attempting installation via winget...")
+            run_cmd(["winget", "install", "--id", "gyan.ffmpeg", "--exact", "--no-upgrade"])
+            print("[+] FFmpeg installation triggered. Restart may be required for PATH updates.")
+        except Exception as e:
+            print(f"[-] Winget failed: {e}. Please install FFmpeg manually.")
     else:
-        # Advanced Linux Detection
         managers = {
             "apt": "sudo apt update && sudo apt install ffmpeg -y",
             "dnf": "sudo dnf install ffmpeg -y",
             "pacman": "sudo pacman -S ffmpeg --noconfirm",
             "zypper": "sudo zypper install -y ffmpeg"
         }
-        
-        found_manager = False
         for cmd, install_script in managers.items():
             if shutil.which(cmd):
-                print(f"[!] FFmpeg missing. Detected {cmd} package manager.")
-                print(f"[*] Suggested command: {install_script}")
-                found_manager = True
-                break
-        
-        if not found_manager:
-            print("[!] FFmpeg missing. Could not detect package manager. Please install manually.")
+                print(f"[!] FFmpeg missing. Detected {cmd}. Run: {install_script}")
+                return
+        print("[!] FFmpeg missing. Please install it manually via your package manager.")
 
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
     print("[*] Updating Custom Nodes...")
-    
     try:
         urllib.request.urlretrieve(NODES_LIST_URL, NODES_LIST_FILE)
         with open(NODES_LIST_FILE, "r") as f:
-            # Parse lines and look for the '| pkg' marker
             lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
         
         for line in lines:
-            # Split URL from Marker
             parts = line.split("|")
             repo_url = parts[0].strip()
             is_package = len(parts) > 1 and "pkg" in parts[1].lower()
-            
             name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
-            # 1. Self-Healing / Repair
             if node_dir.exists() and not (node_dir / "__init__.py").exists() and not (node_dir / "setup.py").exists():
-                print(f"[!] Node {name} appears broken. Repairing...")
                 shutil.rmtree(node_dir)
             
-            # 2. Clone/Update
             if not node_dir.exists():
                 print(f"[*] Cloning {name}...")
                 run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
             else:
                 subprocess.run(["git", "-C", str(node_dir), "pull"], check=False, capture_output=True)
 
-            # 3. Installation
-            # Standard requirements always run if they exist
             req_file = node_dir / "requirements.txt"
             if req_file.exists():
-                print(f"[*] Installing requirements for {name}...")
                 run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
 
-            # Targeted Editable Install ONLY if marker was found in text file
             if is_package:
                 if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
-                    print(f"[*] Marker 'pkg' detected. Performing editable install for {name}...")
+                    print(f"[*] Package install for {name}...")
                     run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
-                else:
-                    print(f"[!] Warning: 'pkg' marker used for {name} but no setup file found.")
-                
+        
         if os.path.exists(NODES_LIST_FILE): os.remove(NODES_LIST_FILE)
     except Exception as e: 
         print(f"[!] Node error: {e}")
@@ -196,17 +187,10 @@ def task_create_launchers(bin_dir):
     if IS_WIN:
         content = f"@echo off\ntitle ComfyUI\nstart http://127.0.0.1:8188\n\"{cmd_str}\" main.py {args}\npause"
     else:
-        # Use \n for clear line breaks
-        content = (
-            f"#!/bin/bash\n"
-            f"(sleep 5 && xdg-open http://127.0.0.1:8188) &\n"
-            f"echo 'ComfyUI is starting... Press CTRL+C to stop the server.'\n"
-            f"{cmd_str} main.py {args}\n"
-        )
+        content = f"#!/bin/bash\n(sleep 5 && xdg-open http://127.0.0.1:8188) &\n{cmd_str} main.py {args}\n"
         
     Path(l_name).write_text(content)
-    if not IS_WIN: 
-        os.chmod(l_name, 0o755)
+    if not IS_WIN: os.chmod(l_name, 0o755)
 
 # --- MAIN ---
 def main():
@@ -222,12 +206,12 @@ def main():
         bootstrap_git()
         sys.exit(0)
 
-    # Check if we have a hash to show, otherwise just show the title
+    # Version display using hash if available
     build_hash = ""
     if os.path.exists(".version_hash"):
         build_hash = f" (Build: {Path('.version_hash').read_text()[:8]})"
-    
     print(f"=== DaSiWa ComfyUI Installer{build_hash} ===")
+
     base_path = Path.cwd().resolve()
     target_input = input(f"Target path (Default {base_path}): ").strip()
     install_base = Path(target_input) if target_input else base_path
@@ -275,11 +259,9 @@ def main():
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
     task_custom_nodes(venv_env)
 
-    # --- FINAL SYNC ---
-    # This forces the environment back to the core requirements 
-    # if any custom nodes messed them up.
+    # --- FINAL SYNC / STABILITY GUARD ---
     print("[*] Performing Final Sync of Core Dependencies...")
-    run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
+    run_cmd(["uv", "pip", "install", "-r", "requirements.txt"] + PRIORITY_PACKAGES, env=venv_env)
     
     task_create_launchers(bin_name)
 
