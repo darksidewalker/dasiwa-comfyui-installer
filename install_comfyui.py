@@ -4,78 +4,77 @@ import sys
 import os
 from pathlib import Path
 
-# --- KONFIGURATION ---
-# Nutzt direkt die Raw-URLs von GitHub
+# --- CONFIGURATION ---
 REMOTE_LOGIC_URL = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/setup_logic.py"
 LOCAL_LOGIC_NAME = "temp_setup_logic.py"
-CURRENT_VERSION = 1.3
-
-def get_remote_version(url):
-    try:
-        with urllib.request.urlopen(url, timeout=5) as response:
-            first_line = response.readline().decode('utf-8')
-            if "VERSION =" in first_line:
-                return float(first_line.split("=")[1].split("#")[0].strip())
-    except:
-        return None
-    return None
+CURRENT_VERSION = 1.4  # Updated to reflect launch feature
 
 def main():
     print(f"--- DaSiWa ComfyUI Stand-alone Installer (v{CURRENT_VERSION}) ---")
     
-    # 1. Pfad-Check: Verhindere Installation IM Installer-Ordner, falls doch geklont wurde
+    # 1. Path Check: Prevent installation inside the installer folder
     current_path = Path.cwd()
     if current_path.name == "dasiwa-comfyui-installer":
-        print("[!] Hinweis: Du befindest dich in einem Installer-Ordner.")
-        print("[*] Wechsel eine Ebene höher, um ComfyUI sauber zu installieren...")
+        print("[!] Notice: You are inside the installer repository folder.")
+        print("[*] Moving up one level for a clean installation...")
         os.chdir("..")
 
-    # 2. Prüfe ob ComfyUI schon da ist
+    # 2. Check if ComfyUI already exists
     if (Path.cwd() / "ComfyUI").exists():
-        print(f"\n[!] ComfyUI wurde bereits in '{Path.cwd()}' gefunden.")
-        choice = input("Möchtest du fortfahren? (y/n): ")
+        print(f"\n[!] ComfyUI was already found in '{Path.cwd()}'.")
+        choice = input("Do you want to proceed with Update/Overwrite? (y/n): ")
         if choice.lower() != 'y':
             sys.exit(0)
 
-    # 3. Lade die aktuellste Logik herunter
-    print("[*] Lade Installations-Logik von GitHub...")
+    # 3. Download the latest logic
+    print("[*] Downloading installation logic from GitHub...")
     try:
         urllib.request.urlretrieve(REMOTE_LOGIC_URL, LOCAL_LOGIC_NAME)
     except Exception as e:
-        print(f"[-] Fehler beim Laden der Logik: {e}")
+        print(f"[-] Error loading logic: {e}")
         sys.exit(1)
 
-    # 4. Führe die Logik aus
-    print("--- Starte Installation ---\n")
+    # 4. Execute the Logic
+    print("--- Starting Installation ---\n")
+    success = False
     try:
-        # Wir übergeben den aktuellen Pfad als Argument, falls die Logik ihn braucht
+        # We run the logic script
         subprocess.run([sys.executable, LOCAL_LOGIC_NAME], check=True)
         success = True
     except Exception as e:
-        print(f"\n[!] Fehler während der Installation: {e}")
-        success = False
+        print(f"\n[!] Error during installation: {e}")
 
-    # 5. --- SELF-DESTRUCT & CLEANUP ---
-    print("\n--- Bereinigung ---")
-    try:
-        if os.path.exists(LOCAL_LOGIC_NAME):
-            os.remove(LOCAL_LOGIC_NAME)
-            print("[+] Temporäre Logik gelöscht.")
-        
-        # Optional: Das Script löscht sich selbst (der Wrapper)
-        # Wenn du das Script behalten willst, kommentiere die nächste Zeile aus
-        script_path = __file__
-        if success:
-            print("[+] Installation erfolgreich abgeschlossen.")
-            # os.remove(script_path) # Aktivieren für totalen Self-Destruct
-    except:
-        pass
+    # 5. Cleanup
+    print("\n--- Cleanup ---")
+    if os.path.exists(LOCAL_LOGIC_NAME):
+        os.remove(LOCAL_LOGIC_NAME)
+        print("[+] Temporary logic deleted.")
 
+    # 6. --- LAUNCH LOGIC ---
     if success:
         print("\n" + "="*40)
-        print("FERTIG! Du kannst dieses Fenster nun schließen.")
-        print("Deine Installation befindet sich im Ordner 'ComfyUI'.")
+        print("DONE! ComfyUI is installed.")
+        print("Your installation is in the 'ComfyUI' folder.")
         print("="*40)
+        
+        launch = input("\nWould you like to launch ComfyUI now? (y/n): ").strip().lower()
+        if launch == 'y':
+            comfy_dir = Path.cwd() / "ComfyUI"
+            os.chdir(comfy_dir)
+            
+            # Determine launcher name
+            launcher = "run_comfyui.bat" if os.name == 'nt' else "./run_comfyui.sh"
+            
+            print(f"[*] Launching {launcher}...")
+            try:
+                if os.name == 'nt':
+                    subprocess.Popen([launcher], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                else:
+                    # On Linux, we run it through bash to ensure permissions
+                    subprocess.Popen(["bash", launcher], start_new_session=True)
+                print("[+] Launch signal sent. You can close this installer window.")
+            except Exception as e:
+                print(f"[!] Could not launch: {e}")
 
 if __name__ == "__main__":
     main()
