@@ -106,6 +106,35 @@ def install_torch(env):
     print(f"[*] Installing Torch for {vendor}...")
     run_cmd(cmd, env=env)
 
+def task_check_ffmpeg():
+    print("[*] Checking for FFmpeg...")
+    if shutil.which("ffmpeg"):
+        print("[+] FFmpeg is already installed.")
+        return
+
+    if IS_WIN:
+        # (Winget logic remains same as before)
+        pass
+    else:
+        # Advanced Linux Detection
+        managers = {
+            "apt": "sudo apt update && sudo apt install ffmpeg -y",
+            "dnf": "sudo dnf install ffmpeg -y",
+            "pacman": "sudo pacman -S ffmpeg --noconfirm",
+            "zypper": "sudo zypper install -y ffmpeg"
+        }
+        
+        found_manager = False
+        for cmd, install_script in managers.items():
+            if shutil.which(cmd):
+                print(f"[!] FFmpeg missing. Detected {cmd} package manager.")
+                print(f"[*] Suggested command: {install_script}")
+                found_manager = True
+                break
+        
+        if not found_manager:
+            print("[!] FFmpeg missing. Could not detect package manager. Please install manually.")
+
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
     print("[*] Updating Custom Nodes...")
@@ -221,6 +250,8 @@ def main():
             subprocess.run(["git", "reset", "--hard", "origin/main"], check=True, capture_output=True)
         except:
             run_cmd(["git", "reset", "--hard", "origin/master"])
+
+    task_check_ffmpeg()
 
     print("[*] Setting up environment...")
     try: subprocess.run(["uv", "--version"], capture_output=True, check=True)
