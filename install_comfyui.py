@@ -55,12 +55,27 @@ def main():
     if success:
         print("\n" + "="*40 + "\nDONE! ComfyUI is installed.\n" + "="*40)
         if input("\nLaunch now? (y/n): ").strip().lower() == 'y':
-            os.chdir(Path.cwd() / "ComfyUI")
+            
+            # --- FIXED PATH LOGIC ---
+            # If we aren't already in the ComfyUI folder, try to move into it
+            if Path.cwd().name != "ComfyUI":
+                comfy_path = Path.cwd() / "ComfyUI"
+                if comfy_path.exists():
+                    os.chdir(comfy_path)
+            
+            # Now we are definitely in the right spot
             l = "run_comfyui.bat" if os.name == 'nt' else "./run_comfyui.sh"
+            
+            if not Path(l).exists():
+                print(f"[!] Launcher {l} not found in {Path.cwd()}")
+                return
+
+            print(f"[*] Launching {l}...")
             if os.name == 'nt':
                 subprocess.Popen([l], creationflags=subprocess.CREATE_NEW_CONSOLE)
             else:
                 subprocess.Popen(["bash", l], start_new_session=True)
+            # -------------------------
 
 if __name__ == "__main__":
     main()
