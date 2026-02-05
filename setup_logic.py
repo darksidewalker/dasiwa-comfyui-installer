@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 # --- CONFIGURATION ---
-VERSION = 3.3
+VERSION = 3.4
 TARGET_PYTHON_VERSION = "3.12.10"
 GLOBAL_CUDA_VERSION = "13.0"
 MIN_CUDA_FOR_50XX = "12.8"
@@ -160,12 +160,21 @@ def task_create_launchers(bin_dir):
     l_name = "run_comfyui.bat" if IS_WIN else "run_comfyui.sh"
     cmd_str = f".\\venv\\{bin_dir}\\python.exe" if IS_WIN else f"./venv/{bin_dir}/python"
     args = "--enable-manager --front-end-version Comfy-Org/ComfyUI_frontend@latest"
+    
     if IS_WIN:
         content = f"@echo off\ntitle ComfyUI\nstart http://127.0.0.1:8188\n\"{cmd_str}\" main.py {args}\npause"
     else:
-        content = f"#!/bin/bash\n(sleep 5 && xdg-open http://127.0.0.1:8188) &\n{cmd_str} main.py {args}"
+        # Use \n for clear line breaks
+        content = (
+            f"#!/bin/bash\n"
+            f"(sleep 5 && xdg-open http://127.0.0.1:8188) &\n"
+            f"echo 'ComfyUI is starting... Press CTRL+C to stop the server.'\n"
+            f"{cmd_str} main.py {args}\n"
+        )
+        
     Path(l_name).write_text(content)
-    if not IS_WIN: os.chmod(l_name, 0o755)
+    if not IS_WIN: 
+        os.chmod(l_name, 0o755)
 
 # --- MAIN ---
 def main():
