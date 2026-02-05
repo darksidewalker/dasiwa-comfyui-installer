@@ -149,15 +149,41 @@ def task_custom_nodes(env):
         urllib.request.urlretrieve(NODES_LIST_URL, NODES_LIST_FILE)
         with open(NODES_LIST_FILE, "r") as f:
             repos = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+        
         for repo in repos:
             name = repo.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
+            
+            # 1. Self-Healing: Repair empty/broken clones
+            if node_dir.exists() and not (node_dir / "__init__.py").exists() and not (node_dir / "setup.py").exists():
+                print(f"[!] Node {name} appears broken. Repairing...")
+                shutil.rmtree(node_dir)
+            
+            # 2. Clone with submodules (important for MMAudio and similar)
             if not node_dir.exists():
-                run_cmd(["git", "clone", repo, str(node_dir)])
-            if (node_dir / "requirements.txt").exists():
-                run_cmd(["uv", "pip", "install", "-r", str(node_dir / "requirements.txt")], env=env)
+                print(f"[*] Cloning {name}...")
+                run_cmd(["git", "clone", "--recursive", repo, str(node_dir)])
+            else:
+                print(f"[*] Checking for updates: {name}")
+                subprocess.run(["git", "-C", str(node_dir), "pull"], check=False, capture_output=True)
+
+            # 3. Handle Installation
+            # Case A: Standard requirements.txt
+            req_file = node_dir / "requirements.txt"
+            if req_file.exists():
+                print(f"[*] Installing requirements for {name}...")
+                run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
+            
+            # Case B: Package Install
+            # We look for setup.py or pyproject.toml
+            if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
+                print(f"[*] Performing editable install for {name}...")
+                # We use -e (editable) as requested
+                run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
+                
         if os.path.exists(NODES_LIST_FILE): os.remove(NODES_LIST_FILE)
-    except: pass
+    except Exception as e:
+        print(f"[!] Error updating custom nodes: {e}")
 
 # --- MAIN ---
 def main():
