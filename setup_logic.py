@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 # --- CONFIGURATION ---
-VERSION = 3.1
+VERSION = 3.2
 TARGET_PYTHON_VERSION = "3.12.10"
 GLOBAL_CUDA_VERSION = "13.0"
 MIN_CUDA_FOR_50XX = "12.8"
@@ -109,28 +109,52 @@ def install_torch(env):
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
     print("[*] Updating Custom Nodes...")
+    
     try:
         urllib.request.urlretrieve(NODES_LIST_URL, NODES_LIST_FILE)
         with open(NODES_LIST_FILE, "r") as f:
-            repos = [l.strip() for l in f if l.strip() and not l.startswith("#")]
-        for repo in repos:
-            name = repo.split("/")[-1].replace(".git", "")
+            # Parse lines and look for the '| pkg' marker
+            lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+        
+        for line in lines:
+            # Split URL from Marker
+            parts = line.split("|")
+            repo_url = parts[0].strip()
+            is_package = len(parts) > 1 and "pkg" in parts[1].lower()
+            
+            name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
+            # 1. Self-Healing / Repair
             if node_dir.exists() and not (node_dir / "__init__.py").exists() and not (node_dir / "setup.py").exists():
+                print(f"[!] Node {name} appears broken. Repairing...")
                 shutil.rmtree(node_dir)
             
+            # 2. Clone/Update
             if not node_dir.exists():
-                run_cmd(["git", "clone", "--recursive", repo, str(node_dir)])
+                print(f"[*] Cloning {name}...")
+                run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
             else:
                 subprocess.run(["git", "-C", str(node_dir), "pull"], check=False, capture_output=True)
 
-            if (node_dir / "requirements.txt").exists():
-                run_cmd(["uv", "pip", "install", "-r", str(node_dir / "requirements.txt")], env=env)
-            if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
-                run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
-        os.remove(NODES_LIST_FILE)
-    except Exception as e: print(f"[!] Node error: {e}")
+            # 3. Installation
+            # Standard requirements always run if they exist
+            req_file = node_dir / "requirements.txt"
+            if req_file.exists():
+                print(f"[*] Installing requirements for {name}...")
+                run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
+
+            # Targeted Editable Install ONLY if marker was found in text file
+            if is_package:
+                if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
+                    print(f"[*] Marker 'pkg' detected. Performing editable install for {name}...")
+                    run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
+                else:
+                    print(f"[!] Warning: 'pkg' marker used for {name} but no setup file found.")
+                
+        if os.path.exists(NODES_LIST_FILE): os.remove(NODES_LIST_FILE)
+    except Exception as e: 
+        print(f"[!] Node error: {e}")
 
 def task_create_launchers(bin_dir):
     l_name = "run_comfyui.bat" if IS_WIN else "run_comfyui.sh"
