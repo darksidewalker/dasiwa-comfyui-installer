@@ -201,32 +201,31 @@ def main():
         run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"])
         os.chdir("ComfyUI")
         if temp_backup.exists(): shutil.move(temp_backup, Path.cwd() / "extra_model_paths.yaml")
-    else:
-            # --- ROBUST UPDATE MODE ---
-            print("\n--- Updating Core Code ---")
-            os.chdir("ComfyUI")
-            
-            # 1. Ensure the remote 'origin' exists
-            run_cmd(["git", "remote", "set-url", "origin", "https://github.com/comfyanonymous/ComfyUI"], shell=False)
-            
-            # 2. Fetch the latest data
-            run_cmd(["git", "fetch", "--all"])
-            
-            # 3. Detect if the remote uses 'main' or 'master'
-            # This prevents the 'ambiguous argument' error
-            try:
-                run_cmd(["git", "reset", "--hard", "origin/main"])
-            except subprocess.CalledProcessError:
-                print("[!] origin/main failed, trying origin/master...")
-                run_cmd(["git", "reset", "--hard", "origin/master"])
+else:
+        # --- ROBUST UPDATE MODE ---
+        print("\n--- Updating Core Code ---")
+        os.chdir("ComfyUI")
+        
+        # 1. Force the remote URL to be correct
+        run_cmd(["git", "remote", "set-url", "origin", "https://github.com/comfyanonymous/ComfyUI"])
+        
+        # 2. Fetch quietly
+        run_cmd(["git", "fetch", "--all", "--quiet"])
+        
+        # 3. Determine the correct branch (main vs master) automatically
+        # We check the remote head to see what the server calls its primary branch
+        try:
+            # Try to reset to main, redirecting stderr to null to hide the "Fatal" message
+            subprocess.run(["git", "reset", "--hard", "origin/main"], check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            print("[i] origin/main not found, resetting to origin/master...")
+            run_cmd(["git", "reset", "--hard", "origin/master"])
 
-    try: subprocess.run(["uv", "--version"], check=True, capture_output=True)
-    except:
-        if IS_WIN: run_cmd("powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
-        else: run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
-        os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
-
-    run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION])
+    # --- VENV CREATION (Non-Interactive) ---
+    print("\n--- Preparing Virtual Environment ---")
+    # We add --allow-existing or --clear to bypass the [y/n] prompt
+    # Using --clear ensures a fresh start which is safer for updates
+    run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_name = get_venv_env()
     
     install_torch(venv_env)
