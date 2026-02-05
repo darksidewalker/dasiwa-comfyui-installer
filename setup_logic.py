@@ -113,8 +113,11 @@ def task_check_ffmpeg():
         return
 
     if IS_WIN:
-        # (Winget logic remains same as before)
-        pass
+    try:
+        print("[*] Installing FFmpeg via winget...")
+        run_cmd(["winget", "install", "--id", "gyan.ffmpeg", "--exact", "--no-upgrade"])
+    except Exception as e:
+        print(f"[-] Winget failed: {e}. Please install FFmpeg manually.")
     else:
         # Advanced Linux Detection
         managers = {
@@ -219,7 +222,12 @@ def main():
         bootstrap_git()
         sys.exit(0)
 
-    print(f"=== DaSiWa ComfyUI Installer v{VERSION} ===")
+    # Check if we have a hash to show, otherwise just show the title
+    build_hash = ""
+    if os.path.exists(".version_hash"):
+        build_hash = f" (Build: {Path('.version_hash').read_text()[:8]})"
+    
+    print(f"=== DaSiWa ComfyUI Installer{build_hash} ===")
     base_path = Path.cwd().resolve()
     target_input = input(f"Target path (Default {base_path}): ").strip()
     install_base = Path(target_input) if target_input else base_path
