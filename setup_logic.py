@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 # --- CONFIGURATION ---
-VERSION = 3.4
+VERSION = 3.5
 TARGET_PYTHON_VERSION = "3.12.10"
 GLOBAL_CUDA_VERSION = "13.0"
 MIN_CUDA_FOR_50XX = "12.8"
