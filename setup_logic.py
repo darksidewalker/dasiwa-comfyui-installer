@@ -65,7 +65,6 @@ def bootstrap_git():
     finally:
         if installer_path.exists(): os.remove(installer_path)
 
-# --- HARDWARE DETECTION ---
 def get_gpu_vendor():
     if IS_WIN:
         try:
@@ -75,16 +74,46 @@ def get_gpu_vendor():
             if "NVIDIA" in out: return "NVIDIA"
             if "AMD" in out or "RADEON" in out: return "AMD"
         except: pass
+    else:
+        # --- Linux Detection Logic ---
+        try:
+            # Check kernel sysfs for vendor IDs
+            # 0x10de = NVIDIA, 0x1002 = AMD, 0x8086 = Intel
+            for v_file in Path("/sys/class/drm").glob("card*/device/vendor"):
+                v_id = v_file.read_text().strip().lower()
+                if "0x10de" in v_id: return "NVIDIA"
+                if "0x1002" in v_id: return "AMD"
+                if "0x8086" in v_id: return "INTEL"
+            
+            # Fallback: Try lspci if sysfs is restricted
+            res = subprocess.run(["lspci"], capture_output=True, text=True)
+            out = res.stdout.upper()
+            if "NVIDIA" in out: return "NVIDIA"
+            if "AMD" in out or "ATI" in out: return "AMD"
+            if "INTEL" in out and "GRAPHICS" in out: return "INTEL"
+        except: pass
+
     return "UNKNOWN"
 
 # --- TASK MODULES ---
 def install_torch(env):
     vendor = get_gpu_vendor()
+    
+    # If detection fails, don't crash—ask the user!
     if vendor == "UNKNOWN":
-        print("\n[!] GPU Detection Failed. [1] NVIDIA | [2] AMD | [3] Intel | [A] Abort")
-        choice = input("Choice: ").strip().upper()
+        print("\n[!] GPU Detection Failed (Common on some Linux distros or WSL).")
+        print("Please choose your hardware manually to avoid a broken CPU-only install:")
+        print(" [1] NVIDIA (RTX/GTX)")
+        print(" [2] AMD (Radeon)")
+        print(" [3] Intel (Arc)")
+        print(" [A] Abort")
+        
+        choice = input("\nSelection: ").strip().upper()
         vendor = {"1":"NVIDIA", "2":"AMD", "3":"INTEL"}.get(choice, "ABORT")
-        if vendor == "ABORT": sys.exit(0)
+        if vendor == "ABORT": 
+            print("[!] Installation cancelled."); sys.exit(0)
+
+    print(f"\n[i] Configuring installation for: {vendor}")
 
     target_cu = GLOBAL_CUDA_VERSION
     is_nightly = False
