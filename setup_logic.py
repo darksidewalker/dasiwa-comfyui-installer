@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 # --- CONFIGURATION ---
-VERSION = 3.2
+VERSION = 3.3
 TARGET_PYTHON_VERSION = "3.12.10"
 GLOBAL_CUDA_VERSION = "13.0"
 MIN_CUDA_FOR_50XX = "12.8"
@@ -226,6 +226,13 @@ def main():
     install_torch(venv_env)
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
     task_custom_nodes(venv_env)
+
+    # --- FINAL SYNC ---
+    # This forces the environment back to the core requirements 
+    # if any custom nodes messed them up.
+    print("[*] Performing Final Sync of Core Dependencies...")
+    run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
+    
     task_create_launchers(bin_name)
 
     print("\n" + "="*30 + "\nINSTALLATION COMPLETE\n" + "="*30)
