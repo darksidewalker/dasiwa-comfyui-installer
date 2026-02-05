@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 # --- CENTRAL CONFIGURATION ---
-VERSION = 2.9
+VERSION = 3.0
 TARGET_PYTHON_VERSION = "3.12.10"
 GLOBAL_CUDA_VERSION = "13.0"
 MIN_CUDA_FOR_50XX = "12.8"
@@ -202,9 +202,23 @@ def main():
         os.chdir("ComfyUI")
         if temp_backup.exists(): shutil.move(temp_backup, Path.cwd() / "extra_model_paths.yaml")
     else:
-        os.chdir("ComfyUI")
-        run_cmd(["git", "fetch", "--all"])
-        run_cmd(["git", "reset", "--hard", "origin/main"])
+            # --- ROBUST UPDATE MODE ---
+            print("\n--- Updating Core Code ---")
+            os.chdir("ComfyUI")
+            
+            # 1. Ensure the remote 'origin' exists
+            run_cmd(["git", "remote", "set-url", "origin", "https://github.com/comfyanonymous/ComfyUI"], shell=False)
+            
+            # 2. Fetch the latest data
+            run_cmd(["git", "fetch", "--all"])
+            
+            # 3. Detect if the remote uses 'main' or 'master'
+            # This prevents the 'ambiguous argument' error
+            try:
+                run_cmd(["git", "reset", "--hard", "origin/main"])
+            except subprocess.CalledProcessError:
+                print("[!] origin/main failed, trying origin/master...")
+                run_cmd(["git", "reset", "--hard", "origin/master"])
 
     try: subprocess.run(["uv", "--version"], check=True, capture_output=True)
     except:
