@@ -146,41 +146,52 @@ def task_custom_nodes(env):
     print("[*] Updating Custom Nodes...")
     try:
         urllib.request.urlretrieve(NODES_LIST_URL, NODES_LIST_FILE)
-        with open(NODES_LIST_FILE, "r") as f:
+        with open(NODES_LIST_FILE, "r", encoding="utf-8") as f:
             lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
         
         for line in lines:
-            # Flexible parsing for multiple flags
-            parts = [p.strip().lower() for p in line.split("|")]
+            # Parse flags while preserving original casing for the URL
+            parts = [p.strip() for p in line.split("|")]
             repo_url = parts[0]
-            is_package = "pkg" in parts
-            needs_submodules = "sub" in parts
+            # Convert flags to lowercase for robust checking
+            flags = [f.lower() for f in parts[1:]]
             
+            is_package = "pkg" in flags
+            needs_submodules = "sub" in flags
+            
+            # CASE SENSITIVITY: Extract name exactly as it appears in the URL
+            # e.g., ComfyUI_FL-CosyVoice3 remains ComfyUI_FL-CosyVoice3
             name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
             # --- 1. Clone or Update ---
             if not node_dir.exists():
                 print(f"[*] Cloning {name}...")
-                # We use --recursive by default for clones just in case, 
-                # but the 'sub' flag will handle the heavy lifting/fixes.
                 run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
             else:
                 print(f"[*] Pulling updates for {name}...")
                 subprocess.run(["git", "-C", str(node_dir), "pull"], check=False)
 
-            # --- 2. Flag-based Submodule Handling ---
+            # --- 2. Submodule Handling with Retry Loop ---
             if needs_submodules:
-                print(f"[*] Initializing/Syncing submodules for {name}...")
-                # This fixes the "network failure" issue by retrying the init
-                run_cmd(["git", "-C", str(node_dir), "submodule", "update", "--init", "--recursive"])
+                print(f"[*] Syncing submodules for {name}...")
+                max_retries = 3
+                for i in range(max_retries):
+                    try:
+                        run_cmd(["git", "-C", str(node_dir), "submodule", "update", "--init", "--recursive"])
+                        break 
+                    except Exception as e:
+                        if i < max_retries - 1:
+                            print(f"[!] Submodule sync failed (attempt {i+1}/{max_retries}). Retrying...")
+                        else:
+                            print(f"[X] Failed to sync submodules for {name} after {max_retries} attempts.")
 
-            # --- 3. Requirements Installation ---
+            # --- 3. Requirements ---
             req_file = node_dir / "requirements.txt"
             if req_file.exists():
                 run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
 
-            # --- 4. Flag-based Package Installation (Editable) ---
+            # --- 4. Package Installation ---
             if is_package:
                 if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
                     print(f"[*] Installing {name} as editable package...")
