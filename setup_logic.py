@@ -16,7 +16,6 @@ NODES_LIST_FILE = "custom_nodes.txt"
 
 # Stability Guard: Packages that custom nodes are NOT allowed to downgrade
 PRIORITY_PACKAGES = [
-    "numpy>=2.1.0",
     "pillow>=11.0.0",
     "pydantic>=2.10.0",
     "torch", 
