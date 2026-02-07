@@ -149,24 +149,23 @@ def task_check_ffmpeg():
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
     
-    # --- NEW: COMFYUI-MANAGER PACKAGE MIGRATION ---
-    print("\n[*] Ensuring ComfyUI-Manager is installed as a package...")
-    # 1. Force install via uv (handles the warning you saw)
+    # 1. Prepare Environment & Manager
+    print("\n[*] Synchronizing Core Package Manager...")
     try:
+        # We use 'uv pip install' which targets the venv via the 'env' parameter
+        run_cmd(["uv", "pip", "install", "--upgrade", "pip"], env=env)
         run_cmd(["uv", "pip", "install", "--pre", "comfyui_manager"], env=env)
     except Exception as e:
-        print(f"[!] Warning: Package-based Manager install failed: {e}")
+        print(f"[!] Warning: Initial environment sync failed: {e}")
 
-    # 2. Cleanup legacy source folder to prevent conflict
+    # 2. Cleanup legacy source folder
     legacy_manager = Path("custom_nodes") / "ComfyUI-Manager"
     if legacy_manager.exists():
-        print("[!] Legacy ComfyUI-Manager folder found in custom_nodes. Removing to avoid conflicts...")
+        print("[!] Legacy ComfyUI-Manager folder found. Removing to use Pip package...")
         shutil.rmtree(legacy_manager)
-    # ----------------------------------------------
 
     print("\n=== Updating Custom Nodes ===")
     try:
-        # Download the latest nodes list
         urllib.request.urlretrieve(NODES_LIST_URL, NODES_LIST_FILE)
         with open(NODES_LIST_FILE, "r", encoding="utf-8") as f:
             lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
@@ -175,7 +174,7 @@ def task_custom_nodes(env):
             parts = [p.strip() for p in line.split("|")]
             repo_url = parts[0]
             
-            # Skip Manager if it's still in your text file list, as we handled it above
+            # Skip if repo is Manager (now handled via pip)
             if "ComfyUI-Manager" in repo_url:
                 continue
 
@@ -186,7 +185,7 @@ def task_custom_nodes(env):
             name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
-            # --- 1. Clone or Update ---
+            # --- Clone/Update ---
             if not node_dir.exists():
                 print(f"\n[*] Cloning: {name}")
                 run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
@@ -194,37 +193,39 @@ def task_custom_nodes(env):
                 print(f"\n[*] Pulling updates: {name}")
                 subprocess.run(["git", "-C", str(node_dir), "pull"], check=False)
 
-            # --- 2. Smart Submodule Handling (CosyVoice/MMAudio Fix) ---
+            # --- Submodule Sync (Recursive) ---
             if needs_submodules or (node_dir / ".gitmodules").exists():
                 print(f"[*] Syncing submodules for {name}...")
-                max_retries = 3
-                for i in range(max_retries):
+                for i in range(3):
                     try:
                         run_cmd(["git", "-C", str(node_dir), "submodule", "update", "--init", "--recursive"])
                         break 
                     except Exception:
-                        if i < max_retries - 1:
-                            print(f"[!] Submodule sync failed (attempt {i+1}/{max_retries}). Retrying...")
-                        else:
-                            print(f"[X] Error: Could not sync submodules for {name} after {max_retries} tries.")
+                        if i == 2: print(f"[X] Failed submodules for {name}")
 
-            # --- 3. Package Installation ---
+            # --- Editable Package Install ---
             if is_package:
-                setup_found = (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists()
-                if setup_found:
+                if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
                     print(f"[*] Installing {name} as editable package...")
                     run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
                 
-                # --- 4. ComfyUI Shim ---
+                # --- ComfyUI Shim ---
                 init_file = node_dir / "__init__.py"
                 if not init_file.exists():
                     print(f"[*] Creating shim __init__.py for {name}")
-                    shim_content = (
-                        "# Shim for package-based library\n"
-                        "NODE_CLASS_MAPPINGS = {}\n"
-                        "NODE_DISPLAY_NAME_MAPPINGS = {}\n"
-                    )
-                    init_file.write_text(shim_content)
+                    init_file.write_text("NODE_CLASS_MAPPINGS = {}\nNODE_DISPLAY_NAME_MAPPINGS = {}\n")
+
+            # --- Node Requirements ---
+            req_file = node_dir / "requirements.txt"
+            if req_file.exists():
+                print(f"[*] Installing requirements for {name}...")
+                run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
+        
+        if os.path.exists(NODES_LIST_FILE): 
+            os.remove(NODES_LIST_FILE)
+            
+    except Exception as e: 
+        print(f"\n[!] Critical error in task_custom_nodes: {e}")
 
             # --- 5. Requirements Installation ---
             req_file = node_dir / "requirements.txt"
@@ -311,8 +312,13 @@ def main():
         else: run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
         os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
 
+    print("[*] Setting up environment...")
     run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_name = get_venv_env()
+
+    # --- NEW: Ensure Pip is present and latest inside the venv ---
+    print("[*] Finalizing Pip environment...")
+    run_cmd(["uv", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], env=venv_env)
     
     install_torch(venv_env)
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
