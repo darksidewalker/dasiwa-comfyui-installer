@@ -143,63 +143,85 @@ def task_check_ffmpeg():
 
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
-    print("[*] Updating Custom Nodes...")
+    print("\n=== Updating Custom Nodes ===")
     try:
+        # Download the latest nodes list
         urllib.request.urlretrieve(NODES_LIST_URL, NODES_LIST_FILE)
         with open(NODES_LIST_FILE, "r", encoding="utf-8") as f:
             lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
         
         for line in lines:
-            # Parse flags while preserving original casing for the URL
+            # Parse flags: | pkg (install as package), | sub (force submodule sync)
             parts = [p.strip() for p in line.split("|")]
             repo_url = parts[0]
-            # Convert flags to lowercase for robust checking
             flags = [f.lower() for f in parts[1:]]
             
             is_package = "pkg" in flags
             needs_submodules = "sub" in flags
             
-            # CASE SENSITIVITY: Extract name exactly as it appears in the URL
-            # e.g., ComfyUI_FL-CosyVoice3 remains ComfyUI_FL-CosyVoice3
+            # CASE SENSITIVITY: Maintain exact casing from the GitHub URL
+            # e.g., 'ComfyUI_FL-CosyVoice3' stays 'ComfyUI_FL-CosyVoice3'
             name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
             # --- 1. Clone or Update ---
             if not node_dir.exists():
-                print(f"[*] Cloning {name}...")
+                print(f"\n[*] Cloning: {name}")
+                # Use --recursive on initial clone for better reliability
                 run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
             else:
-                print(f"[*] Pulling updates for {name}...")
+                print(f"\n[*] Pulling updates: {name}")
+                # Check=False so a 'diverged branch' doesn't kill the whole installer
                 subprocess.run(["git", "-C", str(node_dir), "pull"], check=False)
 
-            # --- 2. Submodule Handling with Retry Loop ---
-            if needs_submodules:
+            # --- 2. Smart Submodule Handling (CosyVoice/MMAudio Fix) ---
+            # Trigger if flagged OR if .gitmodules file is detected
+            if needs_submodules or (node_dir / ".gitmodules").exists():
                 print(f"[*] Syncing submodules for {name}...")
                 max_retries = 3
                 for i in range(max_retries):
                     try:
+                        # Force init and update to catch network-failed submodules
                         run_cmd(["git", "-C", str(node_dir), "submodule", "update", "--init", "--recursive"])
                         break 
-                    except Exception as e:
+                    except Exception:
                         if i < max_retries - 1:
                             print(f"[!] Submodule sync failed (attempt {i+1}/{max_retries}). Retrying...")
                         else:
-                            print(f"[X] Failed to sync submodules for {name} after {max_retries} attempts.")
+                            print(f"[X] Error: Could not sync submodules for {name} after {max_retries} tries.")
 
-            # --- 3. Requirements ---
-            req_file = node_dir / "requirements.txt"
-            if req_file.exists():
-                run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
-
-            # --- 4. Package Installation ---
+            # --- 3. Package Installation (MMAudio/MMAudio-style) ---
             if is_package:
-                if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
+                setup_found = (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists()
+                if setup_found:
                     print(f"[*] Installing {name} as editable package...")
                     run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
+                
+                # --- 4. ComfyUI Shim (Crash Prevention) ---
+                # If it's a 'pkg' but lacks __init__.py in the root, ComfyUI will crash on boot.
+                # We create a shim __init__.py so ComfyUI sees it as a valid (but empty) node.
+                init_file = node_dir / "__init__.py"
+                if not init_file.exists():
+                    print(f"[*] Creating shim __init__.py for {name}")
+                    shim_content = (
+                        "# Shim for package-based library\n"
+                        "NODE_CLASS_MAPPINGS = {}\n"
+                        "NODE_DISPLAY_NAME_MAPPINGS = {}\n"
+                    )
+                    init_file.write_text(shim_content)
+
+            # --- 5. Requirements Installation ---
+            req_file = node_dir / "requirements.txt"
+            if req_file.exists():
+                print(f"[*] Installing requirements for {name}...")
+                run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
         
-        if os.path.exists(NODES_LIST_FILE): os.remove(NODES_LIST_FILE)
+        # Cleanup
+        if os.path.exists(NODES_LIST_FILE): 
+            os.remove(NODES_LIST_FILE)
+            
     except Exception as e: 
-        print(f"[!] Node error: {e}")
+        print(f"\n[!] Critical error in task_custom_nodes: {e}")
 
 def task_create_launchers(bin_dir):
     l_name = "run_comfyui.bat" if IS_WIN else "run_comfyui.sh"
