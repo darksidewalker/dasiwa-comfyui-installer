@@ -150,28 +150,40 @@ def task_custom_nodes(env):
             lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
         
         for line in lines:
-            parts = line.split("|")
-            repo_url = parts[0].strip()
-            is_package = len(parts) > 1 and "pkg" in parts[1].lower()
+            # Flexible parsing for multiple flags
+            parts = [p.strip().lower() for p in line.split("|")]
+            repo_url = parts[0]
+            is_package = "pkg" in parts
+            needs_submodules = "sub" in parts
+            
             name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
-            if node_dir.exists() and not (node_dir / "__init__.py").exists() and not (node_dir / "setup.py").exists():
-                shutil.rmtree(node_dir)
-            
+            # --- 1. Clone or Update ---
             if not node_dir.exists():
                 print(f"[*] Cloning {name}...")
+                # We use --recursive by default for clones just in case, 
+                # but the 'sub' flag will handle the heavy lifting/fixes.
                 run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
             else:
-                subprocess.run(["git", "-C", str(node_dir), "pull"], check=False, capture_output=True)
+                print(f"[*] Pulling updates for {name}...")
+                subprocess.run(["git", "-C", str(node_dir), "pull"], check=False)
 
+            # --- 2. Flag-based Submodule Handling ---
+            if needs_submodules:
+                print(f"[*] Initializing/Syncing submodules for {name}...")
+                # This fixes the "network failure" issue by retrying the init
+                run_cmd(["git", "-C", str(node_dir), "submodule", "update", "--init", "--recursive"])
+
+            # --- 3. Requirements Installation ---
             req_file = node_dir / "requirements.txt"
             if req_file.exists():
                 run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
 
+            # --- 4. Flag-based Package Installation (Editable) ---
             if is_package:
                 if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
-                    print(f"[*] Package install for {name}...")
+                    print(f"[*] Installing {name} as editable package...")
                     run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
         
         if os.path.exists(NODES_LIST_FILE): os.remove(NODES_LIST_FILE)
