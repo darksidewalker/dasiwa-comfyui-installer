@@ -152,7 +152,6 @@ def task_custom_nodes(env):
     # 1. Prepare Environment & Manager
     print("\n[*] Synchronizing Core Package Manager...")
     try:
-        # We use 'uv pip install' which targets the venv via the 'env' parameter
         run_cmd(["uv", "pip", "install", "--upgrade", "pip"], env=env)
         run_cmd(["uv", "pip", "install", "--pre", "comfyui_manager"], env=env)
     except Exception as e:
@@ -221,18 +220,7 @@ def task_custom_nodes(env):
                 print(f"[*] Installing requirements for {name}...")
                 run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
         
-        if os.path.exists(NODES_LIST_FILE): 
-            os.remove(NODES_LIST_FILE)
-            
-    except Exception as e: 
-        print(f"\n[!] Critical error in task_custom_nodes: {e}")
-
-            # --- 5. Requirements Installation ---
-            req_file = node_dir / "requirements.txt"
-            if req_file.exists():
-                print(f"[*] Installing requirements for {name}...")
-                run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
-        
+        # Cleanup
         if os.path.exists(NODES_LIST_FILE): 
             os.remove(NODES_LIST_FILE)
             
