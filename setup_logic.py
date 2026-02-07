@@ -115,6 +115,11 @@ def install_torch(env):
     print(f"[*] Installing Torch for {vendor}...")
     run_cmd(cmd, env=env)
 
+def install_manager(env):
+    print("[*] Installing/Updating ComfyUI-Manager (Package Mode)...")
+    # Using --pre as requested by the Manager's own warning
+    run_cmd(["uv", "pip", "install", "--pre", "comfyui_manager"], env=env)
+
 def task_check_ffmpeg():
     print("[*] Checking for FFmpeg...")
     if shutil.which("ffmpeg"):
@@ -143,6 +148,22 @@ def task_check_ffmpeg():
 
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
+    
+    # --- NEW: COMFYUI-MANAGER PACKAGE MIGRATION ---
+    print("\n[*] Ensuring ComfyUI-Manager is installed as a package...")
+    # 1. Force install via uv (handles the warning you saw)
+    try:
+        run_cmd(["uv", "pip", "install", "--pre", "comfyui_manager"], env=env)
+    except Exception as e:
+        print(f"[!] Warning: Package-based Manager install failed: {e}")
+
+    # 2. Cleanup legacy source folder to prevent conflict
+    legacy_manager = Path("custom_nodes") / "ComfyUI-Manager"
+    if legacy_manager.exists():
+        print("[!] Legacy ComfyUI-Manager folder found in custom_nodes. Removing to avoid conflicts...")
+        shutil.rmtree(legacy_manager)
+    # ----------------------------------------------
+
     print("\n=== Updating Custom Nodes ===")
     try:
         # Download the latest nodes list
@@ -151,37 +172,34 @@ def task_custom_nodes(env):
             lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
         
         for line in lines:
-            # Parse flags: | pkg (install as package), | sub (force submodule sync)
             parts = [p.strip() for p in line.split("|")]
             repo_url = parts[0]
-            flags = [f.lower() for f in parts[1:]]
             
+            # Skip Manager if it's still in your text file list, as we handled it above
+            if "ComfyUI-Manager" in repo_url:
+                continue
+
+            flags = [f.lower() for f in parts[1:]]
             is_package = "pkg" in flags
             needs_submodules = "sub" in flags
             
-            # CASE SENSITIVITY: Maintain exact casing from the GitHub URL
-            # e.g., 'ComfyUI_FL-CosyVoice3' stays 'ComfyUI_FL-CosyVoice3'
             name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
             # --- 1. Clone or Update ---
             if not node_dir.exists():
                 print(f"\n[*] Cloning: {name}")
-                # Use --recursive on initial clone for better reliability
                 run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
             else:
                 print(f"\n[*] Pulling updates: {name}")
-                # Check=False so a 'diverged branch' doesn't kill the whole installer
                 subprocess.run(["git", "-C", str(node_dir), "pull"], check=False)
 
             # --- 2. Smart Submodule Handling (CosyVoice/MMAudio Fix) ---
-            # Trigger if flagged OR if .gitmodules file is detected
             if needs_submodules or (node_dir / ".gitmodules").exists():
                 print(f"[*] Syncing submodules for {name}...")
                 max_retries = 3
                 for i in range(max_retries):
                     try:
-                        # Force init and update to catch network-failed submodules
                         run_cmd(["git", "-C", str(node_dir), "submodule", "update", "--init", "--recursive"])
                         break 
                     except Exception:
@@ -190,16 +208,14 @@ def task_custom_nodes(env):
                         else:
                             print(f"[X] Error: Could not sync submodules for {name} after {max_retries} tries.")
 
-            # --- 3. Package Installation (MMAudio/MMAudio-style) ---
+            # --- 3. Package Installation ---
             if is_package:
                 setup_found = (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists()
                 if setup_found:
                     print(f"[*] Installing {name} as editable package...")
                     run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
                 
-                # --- 4. ComfyUI Shim (Crash Prevention) ---
-                # If it's a 'pkg' but lacks __init__.py in the root, ComfyUI will crash on boot.
-                # We create a shim __init__.py so ComfyUI sees it as a valid (but empty) node.
+                # --- 4. ComfyUI Shim ---
                 init_file = node_dir / "__init__.py"
                 if not init_file.exists():
                     print(f"[*] Creating shim __init__.py for {name}")
@@ -216,7 +232,6 @@ def task_custom_nodes(env):
                 print(f"[*] Installing requirements for {name}...")
                 run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
         
-        # Cleanup
         if os.path.exists(NODES_LIST_FILE): 
             os.remove(NODES_LIST_FILE)
             
