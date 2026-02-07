@@ -95,24 +95,55 @@ def install_torch(env):
 
     target_cu = GLOBAL_CUDA_VERSION
     is_nightly = False
+    
     if vendor == "NVIDIA":
         try:
-            res = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True)
-            if "RTX 50" in res.stdout:
+            # 1. Check GPU Name
+            res_name = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True)
+            gpu_name = res_name.stdout.upper()
+            
+            # 2. Check Driver Version
+            res_drv = subprocess.run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"], capture_output=True, text=True)
+            driver_ver = float(res_drv.stdout.split('.')[0])
+
+            # --- LEGACY PASCAL LOGIC ---
+            # GTX 1070, 1080, 1060, etc.
+            if "GTX 10" in gpu_name or "PASCAL" in gpu_name:
+                print(f"[*] Detected Pascal GPU: {gpu_name.strip()}")
+                if driver_ver < 525:
+                    print("[!] WARNING: Your NVIDIA driver is very old. Please update to 530+ for CUDA 12 support.")
+                
+                # CUDA 12.1 is the most compatible 'modern' target for Pascal kernels
+                target_cu = "12.1"
+            
+            # --- 50-SERIES LOGIC ---
+            elif "RTX 50" in gpu_name:
                 target_cu = MIN_CUDA_FOR_50XX
                 is_nightly = True
-        except: pass
+                
+        except Exception as e:
+            print(f"[*] Hardware detail check skipped: {e}")
 
+    # Build the install command
     cmd = ["uv", "pip", "install"]
     if is_nightly: cmd += ["--pre"]
-    cmd += ["torch", "torchvision", "torchaudio"]
+    
+    # We force specific versions if on Pascal to ensure the kernels match
+    if target_cu == "12.1":
+        cmd += ["torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"]
+    else:
+        cmd += ["torch", "torchvision", "torchaudio"]
     
     base_url = "https://download.pytorch.org/whl/"
-    if vendor == "NVIDIA": cmd += ["--extra-index-url", f"{base_url}cu{target_cu.replace('.', '')}"]
-    elif vendor == "AMD": cmd += ["--index-url", f"{base_url}rocm6.2"]
-    elif vendor == "INTEL": cmd += ["--index-url", f"{base_url}xpu"]
+    if vendor == "NVIDIA": 
+        cu_tag = f"cu{target_cu.replace('.', '')}"
+        cmd += ["--extra-index-url", f"{base_url}{cu_tag}"]
+    elif vendor == "AMD": 
+        cmd += ["--index-url", f"{base_url}rocm6.2"]
+    elif vendor == "INTEL": 
+        cmd += ["--index-url", f"{base_url}xpu"]
     
-    print(f"[*] Installing Torch for {vendor}...")
+    print(f"[*] Installing Torch ({target_cu}) for {vendor}...")
     run_cmd(cmd, env=env)
 
 def install_manager(env):
