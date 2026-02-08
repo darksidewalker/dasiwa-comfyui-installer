@@ -51,19 +51,22 @@ def main():
     except Exception as e:
         print(f"\n[!] Error during installation: {e}")
 
-    # 4. Final Launch Prompt
+# 4. Final Launch Prompt
     if success:
         print("\n" + "="*40 + "\nDONE! ComfyUI is installed.\n" + "="*40)
-        if input("\nLaunch now? (y/n): ").strip().lower() == 'y':
+        
+        # Adding [Y/n] indicates Y is the default
+        choice = input("\nLaunch now? [Y/n]: ").strip().lower()
+        
+        # If choice is 'y' OR the user just pressed Enter (empty string)
+        if choice in ('y', ''):
             
             # --- FIXED PATH LOGIC ---
-            # If we aren't already in the ComfyUI folder, try to move into it
             if Path.cwd().name != "ComfyUI":
                 comfy_path = Path.cwd() / "ComfyUI"
                 if comfy_path.exists():
                     os.chdir(comfy_path)
             
-            # Now we are definitely in the right spot
             l = "run_comfyui.bat" if os.name == 'nt' else "./run_comfyui.sh"
             
             if not Path(l).exists():
@@ -71,11 +74,16 @@ def main():
                 return
 
             print(f"[*] Launching {l}...")
+            
             if os.name == 'nt':
+                # Opens in a new command window
                 subprocess.Popen([l], creationflags=subprocess.CREATE_NEW_CONSOLE)
             else:
-                subprocess.Popen(["bash", l], start_new_session=True)
-            # -------------------------
+                # 'nohup' or setsid ensures ComfyUI stays open even if the setup terminal is closed
+                # We use the full path to bash to ensure shell scripts execute correctly
+                subprocess.Popen(["/bin/bash", l], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            print("[*] ComfyUI started in the background. You can close this window.")
 
 if __name__ == "__main__":
     main()
