@@ -5,6 +5,8 @@ import platform
 import urllib.request
 import shutil
 from pathlib import Path
+import time
+from datetime import datetime
 
 # --- CONFIGURATION ---
 # Versioning is now handled automatically via GitHub Hash in the Bootstrap.
@@ -344,12 +346,25 @@ def main():
 
     mode = "install"
     if comfy_path.exists():
-        c = input(f"\n[!] Folder exists. [U]pdate / [O]verwrite / [A]bort: ").strip().lower()
+        c = input(f"\n[!] Folder exists. [U]pdate / [O]verwrite (Backup) / [A]bort: ").strip().lower()
         if c == 'o':
-            shutil.rmtree(comfy_path)
+            # --- BACKUP LOGIC ---
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = install_base / f"ComfyUI_backup_{timestamp}"
+            print(f"[*] Moving existing install to {backup_path.name}...")
+            try:
+                os.rename(comfy_path, backup_path)
+            except PermissionError:
+                print("\n[!] ERROR: Access Denied. Please close ComfyUI or any open folders and try again.")
+                input("Press Enter to exit...")
+                sys.exit(1)
+            except Exception as e:
+                print(f"\n[!] Backup failed: {e}")
+                sys.exit(1)
         elif c == 'u':
             mode = "update"
-        else: sys.exit(0)
+        else: 
+            sys.exit(0)
 
     os.makedirs(install_base, exist_ok=True)
     os.chdir(install_base)
@@ -375,13 +390,13 @@ def main():
     except:
         if IS_WIN: run_cmd("powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
         else: run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
+        # Update path for current session
         os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
 
-    print("[*] Setting up environment...")
+    print("[*] Creating Virtual Environment...")
     run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_name = get_venv_env()
 
-    # --- NEW: Ensure Pip is present and latest inside the venv ---
     print("[*] Finalizing Pip environment...")
     run_cmd(["uv", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], env=venv_env)
     
@@ -395,7 +410,19 @@ def main():
     
     task_create_launchers(bin_name)
 
-    print("\n" + "="*30 + "\nINSTALLATION COMPLETE\n" + "="*30)
+    print("\n" + "="*40)
+    print("DONE! ComfyUI is ready.")
+    print("="*40)
+
+    # --- ENHANCED LAUNCH PROMPT ---
+    ans = input("\nLaunch now? [Y/n]: ").strip().lower()
+    if ans in ('y', ''):
+        l = "run_comfyui.bat" if IS_WIN else "./run_comfyui.sh"
+        print(f"[*] Launching {l}...")
+        if IS_WIN:
+            subprocess.Popen([l], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            subprocess.Popen(["/bin/bash", l], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 if __name__ == "__main__":
     main()
