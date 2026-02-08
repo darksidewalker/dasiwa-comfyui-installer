@@ -22,7 +22,7 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 
 ## Choose the method that fits your operating system:
 
-1. Download this repository as a ZIP or clone it.
+1. Download the fitting installer file.
  
 ### Windows (Easy Way)
 2. Double-click install.bat.
