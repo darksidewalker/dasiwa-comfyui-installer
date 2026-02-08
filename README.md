@@ -69,11 +69,50 @@ Run `./run_comfyui.sh`
 
 - The first start may need some time because of internal comfyui updates, manager pulls and frontend update.
 
-# 🛠️ Configuration
+# 🛠️ Configuration & Customization
+## 1. Core Installer Settings
 
-To change the CUDA version or add more nodes, edit these files on your GitHub fork:
-- setup_logic.py -> Change GLOBAL_CUDA_VERSION = "13.0"
-- custom_nodes.txt -> Add your GitHub repo links
+To change the base environment, edit the variables at the top of setup_logic.py:
+
+`TARGET_PYTHON_VERSION`: Change this to use a different Python release (e.g., "3.11.9").
+
+`GLOBAL_CUDA_VERSION`: Sets the default Torch/CUDA toolkit. Note that the installer will automatically pivot to 12.1 if it detects a GTX 10-series card.
+
+`PRIORITY_PACKAGES`: Add any library here that you want to "lock." The installer will prevent custom nodes from downgrading these specific versions.
+
+## 2. Managing Nodes
+
+Edit custom_nodes.txt on your fork to add or remove repos.
+
+Use `| pkg` for nodes that need an editable pip install.
+Use `| sub` for nodes with submodules (like CosyVoice).
+
+## 3. Running & Customizing Startup
+
+The installer generates a optimized launcher script in the root ComfyUI folder. Always use these launchers to ensure your virtual environment and hardware optimizations are correctly loaded.
+
+### 🛠️ Adding Startup Arguments
+
+If you want to change how ComfyUI runs (e.g., adding `--lowvram`, changing the port, or enabling `--listen`), you should edit the launcher files rather than running Python commands manually.
+Operating System	File to Edit	How to Customize
+
+**Windows**	run_comfyui.bat	Right-click -> Edit. Add flags to the end of the line starting with python.exe.
+
+**Linux**	run_comfyui.sh	Open in any text editor. Add flags to the end of the line starting with python.
+
+#### Example customization for low-end GPUs:
+
+In run_comfyui.sh / .bat
+```
+python main.py --preview-method auto --lowvram --gpu-only
+```
+## 🔍 What the Launchers Do
+
+To keep your experience stable, these scripts perform the following actions every time they start:
+
+- Environment Locking: They force the system to use the internal venv, preventing conflicts with global Python installs.
+- Log Maintenance: They clear the previous user/comfyui.log so you always have a fresh, readable log if a crash occurs.
+- Auto-Browser: They attempt to open your browser to http://127.0.0.1:8188 automatically after a short delay.
 
 # Why Python 3.12
 While 3.13 is out, many of the specialized wheels for the 5090 or other GPU's (like Triton and SageAttention) are currently most stable on 3.12.
