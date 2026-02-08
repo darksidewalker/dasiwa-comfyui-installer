@@ -10,6 +10,7 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 4. **GPU Setup:** Automatically detects **GPUs** and installs the correct PyTorch version.
 5. **Custom Nodes:** Installs a predefined list from `custom_nodes.txt` including all sub-dependencies.
 6. **Auto-Update:** The installer checks for logic updates on every start.
+7. **Starters:** Creates convenient "run_comfyui" starters with predefined parameters (inside the ComfyUI folder.
 
 ## 🛠️ Prerequisites
 
