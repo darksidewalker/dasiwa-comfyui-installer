@@ -180,20 +180,21 @@ def task_check_ffmpeg():
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
     
-    # --- 1. OFFICIAL COMFYUI-MANAGER INSTALL (METHOD 1) ---
-    # We use the exact naming convention from the official docs
+# --- 1. OFFICIAL COMFYUI-MANAGER INSTALL ---
     manager_dir = Path("custom_nodes") / "comfyui-manager"
     print("\n[*] Synchronizing ComfyUI-Manager...")
     
     if not manager_dir.exists():
-        # Exact command as per official README
         run_cmd(["git", "clone", "https://github.com/ltdrdata/ComfyUI-Manager", str(manager_dir)])
     else:
-        print("[*] Updating ComfyUI-Manager...")
         subprocess.run(["git", "-C", str(manager_dir), "pull"], check=False)
     
-    # Ensure dependencies are met within the venv
-    run_cmd(["uv", "pip", "install", "matrix-client", "pynvml", "GitPython"], env=env)
+    # FIX: Swapped pynvml for nvidia-ml-py to remove the FutureWarning
+    print("[*] Installing Manager dependencies...")
+    run_cmd(["uv", "pip", "install", "matrix-client", "nvidia-ml-py", "GitPython"], env=env)
+    
+    # Optional: Explicitly uninstall the old one if it exists to clean up the environment
+    run_cmd(["uv", "pip", "uninstall", "pynvml", "-y"], env=env)
 
     # Cleanup any "ghost" folders with different casing to prevent import conflicts
     wrong_case = Path("custom_nodes") / "ComfyUI-Manager"
