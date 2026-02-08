@@ -27,6 +27,15 @@ PRIORITY_PACKAGES = [
 
 IS_WIN = platform.system() == "Windows"
 
+def is_admin():
+    try:
+        if IS_WIN:
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        return os.getuid() == 0
+    except:
+        return False
+
 def run_cmd(cmd, env=None, shell=False):
     subprocess.run(cmd, check=True, env=env, shell=shell)
 
@@ -354,6 +363,15 @@ def main():
         build_hash = f" (Build: {Path('.version_hash').read_text()[:8]})"
     print(f"=== DaSiWa ComfyUI Installer{build_hash} ===")
 
+    if IS_WIN and not is_admin():
+        print("\n" + "!"*50)
+        print("WARNING: Script is NOT running as Administrator.")
+        print("Installation into 'C:\\Program Files' or environment")
+        print("modifications may fail.")
+        print("!"*50 + "\n")
+        if input("Continue anyway? (y/N): ").strip().lower() != 'y':
+            sys.exit(1)
+    
     base_path = Path.cwd().resolve()
     target_input = input(f"Target path (Default {base_path}): ").strip()
     install_base = Path(target_input) if target_input else base_path
