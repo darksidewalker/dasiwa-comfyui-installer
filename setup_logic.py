@@ -320,7 +320,22 @@ def task_create_launchers(bin_dir):
     print(f"[*] Created stabilized launcher: {l_name}")
 
 # --- MAIN ---
+import os
+import sys
+import shutil
+import subprocess
+from pathlib import Path
+from datetime import datetime
+
+def remove_readonly(func, path, excinfo=None):
+    """Windows-specific: Helper to force-delete read-only Git files."""
+    import stat
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+# --- MAIN ---
 def main():
+    # 1. System & Bootstrap Checks
     try:
         res = subprocess.run(["python", "-c", "import sys; print(sys.prefix)"], capture_output=True, text=True)
         if "WindowsApps" in res.stdout: raise Exception()
@@ -333,7 +348,7 @@ def main():
         bootstrap_git()
         sys.exit(0)
 
-    # Version display using hash if available
+    # 2. Setup Paths
     build_hash = ""
     if os.path.exists(".version_hash"):
         build_hash = f" (Build: {Path('.version_hash').read_text()[:8]})"
@@ -345,37 +360,62 @@ def main():
     comfy_path = install_base / "ComfyUI"
 
     mode = "install"
+    
+    # 3. Handle Existing Installation
     if comfy_path.exists():
-        c = input(f"\n[!] Folder exists. [U]pdate / [O]verwrite (Backup) / [A]bort: ").strip().lower()
+        print(f"\n[!] Existing installation found at: {comfy_path}")
+        print("  [U] Update    - Keep everything, just pull latest code.")
+        print("  [O] Overwrite - Wipe environment/nodes, but KEEP models/outputs.")
+        print("  [A] Abort     - Do nothing.")
+        c = input(f"\nChoose action [U/O/A]: ").strip().lower()
+
         if c == 'o':
-            # --- BACKUP LOGIC ---
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = install_base / f"ComfyUI_backup_{timestamp}"
-            print(f"[*] Moving existing install to {backup_path.name}...")
-            try:
-                os.rename(comfy_path, backup_path)
-            except PermissionError:
-                print("\n[!] ERROR: Access Denied. Please close ComfyUI or any open folders and try again.")
-                input("Press Enter to exit...")
-                sys.exit(1)
-            except Exception as e:
-                print(f"\n[!] Backup failed: {e}")
-                sys.exit(1)
+            print("[*] Performing Soft Overwrite (Preserving Models/Outputs)...")
+            temp_models = install_base / "_temp_models"
+            temp_output = install_base / "_temp_output"
+            
+            # Move data out of the line of fire
+            if (comfy_path / "models").exists():
+                if temp_models.exists(): shutil.rmtree(temp_models, onexc=remove_readonly)
+                os.rename(comfy_path / "models", temp_models)
+            if (comfy_path / "output").exists():
+                if temp_output.exists(): shutil.rmtree(temp_output, onexc=remove_readonly)
+                os.rename(comfy_path / "output", temp_output)
+            
+            # Wipe the broken parts
+            shutil.rmtree(comfy_path, onexc=remove_readonly)
+            
+            # Re-clone the base
+            os.makedirs(install_base, exist_ok=True)
+            run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"], cwd=install_base)
+            
+            # Move data back
+            if temp_models.exists():
+                if (comfy_path / "models").exists(): shutil.rmtree(comfy_path / "models", onexc=remove_readonly)
+                os.rename(temp_models, comfy_path / "models")
+            if temp_output.exists():
+                if (comfy_path / "output").exists(): shutil.rmtree(comfy_path / "output", onexc=remove_readonly)
+                os.rename(temp_output, comfy_path / "output")
+            
+            mode = "install"
+            os.chdir(comfy_path)
+
         elif c == 'u':
             mode = "update"
-        else: 
+            os.chdir(comfy_path)
+        else:
             sys.exit(0)
-
-    os.makedirs(install_base, exist_ok=True)
-    os.chdir(install_base)
-
-    if mode == "install":
+    else:
+        # Fresh Install path
+        os.makedirs(install_base, exist_ok=True)
+        os.chdir(install_base)
         print("[*] Performing fresh clone...")
         run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"])
         os.chdir("ComfyUI")
-    else:
+
+    # 4. Core Update Logic (for 'U' mode)
+    if mode == "update":
         print("[*] Updating existing installation...")
-        os.chdir("ComfyUI")
         run_cmd(["git", "remote", "set-url", "origin", "https://github.com/comfyanonymous/ComfyUI"])
         run_cmd(["git", "fetch", "--all", "--quiet"])
         try:
@@ -383,17 +423,17 @@ def main():
         except:
             run_cmd(["git", "reset", "--hard", "origin/master"])
 
+    # 5. Environment and Dependencies
     task_check_ffmpeg()
 
-    print("[*] Setting up environment...")
+    print("[*] Checking for UV...")
     try: subprocess.run(["uv", "--version"], capture_output=True, check=True)
     except:
         if IS_WIN: run_cmd("powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"", shell=True)
         else: run_cmd("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True)
-        # Update path for current session
         os.environ["PATH"] += os.pathsep + os.path.expanduser("~/.cargo/bin")
 
-    print("[*] Creating Virtual Environment...")
+    print("[*] Setting up Virtual Environment...")
     run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_name = get_venv_env()
 
@@ -404,21 +444,17 @@ def main():
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
     task_custom_nodes(venv_env)
 
-    # --- FINAL SYNC / STABILITY GUARD ---
+    # 6. Final Stability Sync
     print("[*] Performing Final Sync of Core Dependencies...")
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"] + PRIORITY_PACKAGES, env=venv_env)
     
     task_create_launchers(bin_name)
 
-    print("\n" + "="*40)
-    print("DONE! ComfyUI is ready.")
-    print("="*40)
-
-    # --- ENHANCED LAUNCH PROMPT ---
-    ans = input("\nLaunch now? [Y/n]: ").strip().lower()
+    print("\n" + "="*40 + "\nINSTALLATION COMPLETE\n" + "="*40)
+    
+    ans = input("\nLaunch ComfyUI now? [Y/n]: ").strip().lower()
     if ans in ('y', ''):
         l = "run_comfyui.bat" if IS_WIN else "./run_comfyui.sh"
-        print(f"[*] Launching {l}...")
         if IS_WIN:
             subprocess.Popen([l], creationflags=subprocess.CREATE_NEW_CONSOLE)
         else:
