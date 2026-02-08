@@ -1,4 +1,5 @@
 # --- System & Workflow Management ---
+https://github.com/ltdrdata/ComfyUI-Manager
 https://github.com/pythongosssss/ComfyUI-Custom-Scripts
 https://github.com/rgthree/rgthree-comfy
 https://github.com/yolain/ComfyUI-Easy-Use
