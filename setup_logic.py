@@ -193,8 +193,12 @@ def task_custom_nodes(env):
     print("[*] Installing Manager dependencies...")
     run_cmd(["uv", "pip", "install", "matrix-client", "nvidia-ml-py", "GitPython"], env=env)
     
-    # Optional: Explicitly uninstall the old one if it exists to clean up the environment
-    run_cmd(["uv", "pip", "uninstall", "pynvml", "-y"], env=env)
+    # Uninstall the deprecated pynvml to stop the FutureWarning
+    try:
+        run_cmd(["uv", "pip", "uninstall", "pynvml"], env=env)
+    except Exception:
+        # If it's already gone, uv might throw an error; we just ignore it
+        pass
 
     # Cleanup any "ghost" folders with different casing to prevent import conflicts
     wrong_case = Path("custom_nodes") / "ComfyUI-Manager"
