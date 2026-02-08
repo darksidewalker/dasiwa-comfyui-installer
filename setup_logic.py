@@ -281,16 +281,39 @@ def task_custom_nodes(env):
 
 def task_create_launchers(bin_dir):
     l_name = "run_comfyui.bat" if IS_WIN else "run_comfyui.sh"
-    cmd_str = f".\\venv\\{bin_dir}\\python.exe" if IS_WIN else f"./venv/{bin_dir}/python"
+    # Get absolute path for reliability
+    base_path = Path.cwd()
+    venv_python = base_path / "venv" / bin_dir / ("python.exe" if IS_WIN else "python")
+    
     args = "--enable-manager --front-end-version Comfy-Org/ComfyUI_frontend@latest"
     
     if IS_WIN:
-        content = f"@echo off\ntitle ComfyUI\nstart http://127.0.0.1:8188\n\"{cmd_str}\" main.py {args}\npause"
+        # We use SET to lock the PATH and VIRTUAL_ENV for the current session
+        content = (
+            "@echo off\n"
+            "title ComfyUI\n"
+            f"set VIRTUAL_ENV={base_path}\\venv\n"
+            f"set PATH={base_path}\\venv\\{bin_dir};%PATH%\n"
+            "start http://127.0.0.1:8188\n"
+            f"\"{venv_python}\" main.py {args}\n"
+            "pause"
+        )
     else:
-        content = f"#!/bin/bash\n(sleep 5 && xdg-open http://127.0.0.1:8188) &\n{cmd_str} main.py {args}\n"
+        # We use EXPORT to ensure sub-processes (like ComfyUI-Manager's uv calls) 
+        # use the venv's python and not the global ~/.local/share/uv path
+        content = (
+            "#!/bin/bash\n"
+            "cd \"$(dirname \"$0\")\"\n"
+            f"export VIRTUAL_ENV=\"{base_path}/venv\"\n"
+            f"export PATH=\"$VIRTUAL_ENV/{bin_dir}:$PATH\"\n"
+            "(sleep 5 && xdg-open http://127.0.0.1:8188) &\n"
+            f"\"{venv_python}\" main.py {args}\n"
+        )
         
     Path(l_name).write_text(content)
-    if not IS_WIN: os.chmod(l_name, 0o755)
+    if not IS_WIN: 
+        os.chmod(l_name, 0o755)
+    print(f"[*] Created stabilized launcher: {l_name}")
 
 # --- MAIN ---
 def main():
