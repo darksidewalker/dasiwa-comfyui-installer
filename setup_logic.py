@@ -180,21 +180,29 @@ def task_check_ffmpeg():
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
     
-    # 1. Prepare Environment & Manager
-    print("\n[*] Synchronizing Core Package Manager...")
-    try:
-        run_cmd(["uv", "pip", "install", "--upgrade", "pip"], env=env)
-        run_cmd(["uv", "pip", "install", "--pre", "comfyui_manager"], env=env)
-    except Exception as e:
-        print(f"[!] Warning: Initial environment sync failed: {e}")
+    # --- 1. OFFICIAL COMFYUI-MANAGER INSTALL (METHOD 1) ---
+    # We use the exact naming convention from the official docs
+    manager_dir = Path("custom_nodes") / "comfyui-manager"
+    print("\n[*] Synchronizing ComfyUI-Manager...")
+    
+    if not manager_dir.exists():
+        # Exact command as per official README
+        run_cmd(["git", "clone", "https://github.com/ltdrdata/ComfyUI-Manager", str(manager_dir)])
+    else:
+        print("[*] Updating ComfyUI-Manager...")
+        subprocess.run(["git", "-C", str(manager_dir), "pull"], check=False)
+    
+    # Ensure dependencies are met within the venv
+    run_cmd(["uv", "pip", "install", "matrix-client", "pynvml", "GitPython"], env=env)
 
-    # 2. Cleanup legacy source folder
-    legacy_manager = Path("custom_nodes") / "ComfyUI-Manager"
-    if legacy_manager.exists():
-        print("[!] Legacy ComfyUI-Manager folder found. Removing to use Pip package...")
-        shutil.rmtree(legacy_manager)
+    # Cleanup any "ghost" folders with different casing to prevent import conflicts
+    wrong_case = Path("custom_nodes") / "ComfyUI-Manager"
+    if wrong_case.exists() and wrong_case.resolve() != manager_dir.resolve():
+        print(f"[!] Removing conflicting casing folder: {wrong_case}")
+        shutil.rmtree(wrong_case)
 
-    print("\n=== Updating Custom Nodes ===")
+    # --- 2. DYNAMIC CUSTOM NODES LIST ---
+    print("\n=== Updating Custom Nodes List ===")
     try:
         urllib.request.urlretrieve(NODES_LIST_URL, NODES_LIST_FILE)
         with open(NODES_LIST_FILE, "r", encoding="utf-8") as f:
@@ -204,14 +212,15 @@ def task_custom_nodes(env):
             parts = [p.strip() for p in line.split("|")]
             repo_url = parts[0]
             
-            # Skip if repo is Manager (now handled via pip)
-            if "ComfyUI-Manager" in repo_url:
+            # Skip Manager if it's in the text file (we already handled it above)
+            if "ComfyUI-Manager" in repo_url or "comfyui-manager" in repo_url:
                 continue
 
             flags = [f.lower() for f in parts[1:]]
             is_package = "pkg" in flags
             needs_submodules = "sub" in flags
             
+            # Preserve case sensitivity for the rest of the nodes
             name = repo_url.split("/")[-1].replace(".git", "")
             node_dir = Path("custom_nodes") / name
             
@@ -220,10 +229,10 @@ def task_custom_nodes(env):
                 print(f"\n[*] Cloning: {name}")
                 run_cmd(["git", "clone", "--recursive", repo_url, str(node_dir)])
             else:
-                print(f"\n[*] Pulling updates: {name}")
+                print(f"[*] Pulling: {name}")
                 subprocess.run(["git", "-C", str(node_dir), "pull"], check=False)
 
-            # --- Submodule Sync (Recursive) ---
+            # --- Submodule Sync (CosyVoice & MMAudio) ---
             if needs_submodules or (node_dir / ".gitmodules").exists():
                 print(f"[*] Syncing submodules for {name}...")
                 for i in range(3):
@@ -233,25 +242,22 @@ def task_custom_nodes(env):
                     except Exception:
                         if i == 2: print(f"[X] Failed submodules for {name}")
 
-            # --- Editable Package Install ---
+            # --- Editable Package & Shim (MMAudio Crash Prevention) ---
             if is_package:
                 if (node_dir / "setup.py").exists() or (node_dir / "pyproject.toml").exists():
-                    print(f"[*] Installing {name} as editable package...")
+                    print(f"[*] Installing package: {name}")
                     run_cmd(["uv", "pip", "install", "-e", str(node_dir)], env=env)
                 
-                # --- ComfyUI Shim ---
+                # Add __init__.py shim if it's a library without a node entry point
                 init_file = node_dir / "__init__.py"
                 if not init_file.exists():
-                    print(f"[*] Creating shim __init__.py for {name}")
                     init_file.write_text("NODE_CLASS_MAPPINGS = {}\nNODE_DISPLAY_NAME_MAPPINGS = {}\n")
 
-            # --- Node Requirements ---
+            # --- Standard Node Requirements ---
             req_file = node_dir / "requirements.txt"
             if req_file.exists():
-                print(f"[*] Installing requirements for {name}...")
                 run_cmd(["uv", "pip", "install", "-r", str(req_file)], env=env)
         
-        # Cleanup
         if os.path.exists(NODES_LIST_FILE): 
             os.remove(NODES_LIST_FILE)
             
