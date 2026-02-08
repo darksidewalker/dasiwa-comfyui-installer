@@ -180,31 +180,41 @@ def task_check_ffmpeg():
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
     
-# --- 1. OFFICIAL COMFYUI-MANAGER INSTALL ---
+    # --- 1. OFFICIAL COMFYUI-MANAGER INSTALL (METHOD 1) ---
     manager_dir = Path("custom_nodes") / "comfyui-manager"
-    print("\n[*] Synchronizing ComfyUI-Manager...")
     
+    # 1. Force remove any "fake" or "pip-style" manager folders
+    if manager_dir.exists():
+        # If it doesn't have a .git folder, it's not a real clone
+        if not (manager_dir / ".git").exists():
+            print("[!] Invalid Manager folder detected (likely Pip-style). Wiping for Git clone...")
+            shutil.rmtree(manager_dir)
+
+    # 2. Re-clone or Update using official Method 1
     if not manager_dir.exists():
+        print("[*] Cloning official ComfyUI-Manager...")
         run_cmd(["git", "clone", "https://github.com/ltdrdata/ComfyUI-Manager", str(manager_dir)])
     else:
+        print("[*] Updating ComfyUI-Manager...")
+        # Force remove the CLI-only flag if it exists (prevents hidden UI)
+        cli_flag = manager_dir / ".enable-cli-only-mode"
+        if cli_flag.exists(): cli_flag.unlink()
         subprocess.run(["git", "-C", str(manager_dir), "pull"], check=False)
-    
-    # FIX: Swapped pynvml for nvidia-ml-py to remove the FutureWarning
-    print("[*] Installing Manager dependencies...")
-    run_cmd(["uv", "pip", "install", "matrix-client", "nvidia-ml-py", "GitPython"], env=env)
-    
-    # Uninstall the deprecated pynvml to stop the FutureWarning
+
+    # 3. Cleanup: Uninstall Pip version & fix casing conflicts
     try:
-        run_cmd(["uv", "pip", "uninstall", "pynvml"], env=env)
-    except Exception:
-        # If it's already gone, uv might throw an error; we just ignore it
+        run_cmd(["uv", "pip", "uninstall", "comfyui_manager"], env=env)
+    except:
         pass
 
-    # Cleanup any "ghost" folders with different casing to prevent import conflicts
     wrong_case = Path("custom_nodes") / "ComfyUI-Manager"
     if wrong_case.exists() and wrong_case.resolve() != manager_dir.resolve():
         print(f"[!] Removing conflicting casing folder: {wrong_case}")
         shutil.rmtree(wrong_case)
+
+    # 4. Install requirements (using the modern replacement for pynvml)
+    print("[*] Ensuring Manager dependencies...")
+    run_cmd(["uv", "pip", "install", "matrix-client", "nvidia-ml-py", "GitPython"], env=env)
 
     # --- 2. DYNAMIC CUSTOM NODES LIST ---
     print("\n=== Updating Custom Nodes List ===")
