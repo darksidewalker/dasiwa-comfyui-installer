@@ -15,6 +15,6 @@ https://github.com/Fannovel16/ComfyUI-Frame-Interpolation
 # --- Audio & Special Media ---
 https://github.com/phazei/ComfyUI-HunyuanVideo-Foley
 https://github.com/filliptm/ComfyUI_FL-CosyVoice3 | sub
+https://github.com/kijai/ComfyUI-MMAudio
 
 # Package nodes (Requires editable install)
-https://github.com/hkchengrex/MMAudio.git | pkg
