@@ -22,7 +22,8 @@ PRIORITY_PACKAGES = [
     "pydantic>=2.10.0",
     "torch", 
     "torchvision",
-    "torchaudio"
+    "torchaudio",
+    "numpy==2.3",
 ]
 
 IS_WIN = platform.system() == "Windows"
