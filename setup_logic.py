@@ -163,31 +163,53 @@ def install_manager(env):
     # Using --pre as requested by the Manager's own warning
     run_cmd(["uv", "pip", "install", "--pre", "comfyui_manager"], env=env)
 
-def task_check_ffmpeg():
-    print("[*] Checking for FFmpeg...")
+def task_check_ffmpeg(venv_env=None):
+    print("[*] Checking for FFmpeg...", flush=True)
+    
+    # 0. Check if it's already in the PATH
     if shutil.which("ffmpeg"):
-        print("[+] FFmpeg is already installed.")
+        print("[+] FFmpeg is already installed.", flush=True)
         return
 
+    # 1. First Attempt: System-wide via Winget (Windows only)
     if IS_WIN:
         try:
-            print("[*] FFmpeg missing. Attempting installation via winget...")
-            run_cmd(["winget", "install", "--id", "gyan.ffmpeg", "--exact", "--no-upgrade"])
-            print("[+] FFmpeg installation triggered. Restart may be required for PATH updates.")
+            print("[*] FFmpeg missing. Attempt 1: Installing system-wide via winget...", flush=True)
+            # Use 'ffmpeg' as the ID for a broader search, with agreement bypass
+            subprocess.run([
+                "winget", "install", "ffmpeg", 
+                "--accept-source-agreements", 
+                "--accept-package-agreements"
+            ], check=True, capture_output=True)
+            print("[+] Winget installation successful.")
+            return
         except Exception as e:
-            print(f"[-] Winget failed: {e}. Please install FFmpeg manually.")
-    else:
+            print(f"[!] Winget attempt failed. Moving to failsafe...", flush=True)
+
+    # 2. Second Attempt (Failsafe): Portable install via uv
+    if venv_env:
+        try:
+            print("[*] Attempt 2: Installing portable FFmpeg via uv...", flush=True)
+            # static-ffmpeg installs binaries directly into the venv
+            subprocess.run(["uv", "pip", "install", "static-ffmpeg"], env=venv_env, check=True)
+            print("[+] Portable FFmpeg installed successfully inside venv.", flush=True)
+            return
+        except Exception as e:
+            print(f"[-] Portable install failed: {e}", flush=True)
+
+    # 3. Final Fallback: Manual Instructions (Linux/Fallback)
+    if not IS_WIN:
         managers = {
             "apt": "sudo apt update && sudo apt install ffmpeg -y",
             "dnf": "sudo dnf install ffmpeg -y",
-            "pacman": "sudo pacman -S ffmpeg --noconfirm",
-            "zypper": "sudo zypper install -y ffmpeg"
+            "pacman": "sudo pacman -S ffmpeg --noconfirm"
         }
-        for cmd, install_script in managers.items():
-            if shutil.which(cmd):
-                print(f"[!] FFmpeg missing. Detected {cmd}. Run: {install_script}")
+        for mgr, install_script in managers.items():
+            if shutil.which(mgr):
+                print(f"[!] FFmpeg missing. Please run: {install_script}", flush=True)
                 return
-        print("[!] FFmpeg missing. Please install it manually via your package manager.")
+    
+    print("[!] Critical: FFmpeg could not be installed automatically. Please install it manually.", flush=True)
 
 def task_custom_nodes(env):
     os.makedirs("custom_nodes", exist_ok=True)
