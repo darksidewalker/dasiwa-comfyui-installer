@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 import time
 from datetime import datetime
+from utils.logger import Logger
 
 # --- CONFIGURATION ---
 # Versioning is now handled automatically via GitHub Hash in the Bootstrap.
@@ -27,6 +28,8 @@ PRIORITY_PACKAGES = [
 ]
 
 IS_WIN = platform.system() == "Windows"
+
+Logger.init() # Run once at start
 
 def is_admin():
     try:
