@@ -354,14 +354,6 @@ def task_create_launchers(bin_dir):
         os.chmod(l_name, 0o755)
     print(f"[*] Created stabilized launcher: {l_name}")
 
-# --- MAIN ---
-import os
-import sys
-import shutil
-import subprocess
-from pathlib import Path
-from datetime import datetime
-
 def remove_readonly(func, path, excinfo=None):
     """Windows-specific: Helper to force-delete read-only Git files."""
     import stat
