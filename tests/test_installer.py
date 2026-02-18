@@ -11,10 +11,10 @@ def test_get_remote_hash_failure():
     with patch('urllib.request.urlopen') as mocked_get:
         # Simulate a network timeout or 404
         mocked_get.side_effect = Exception("API Offline")
-        result = installer.get_remote_hash()
+        result = install_comfyui.get_remote_hash()
         assert result is None
 
-@patch('installer.get_remote_hash')
+@patch('install_comfyui.get_remote_hash')
 @patch('subprocess.run')
 @patch('builtins.input', return_value='n') # Prevent the script from hanging on [Y/n]
 def test_main_logic_flow(mock_input, mock_run, mock_hash):
@@ -27,7 +27,7 @@ def test_main_logic_flow(mock_input, mock_run, mock_hash):
          patch('pathlib.Path.write_text'):
         
         # Run the main function
-        installer.main()
+        install_comfyui.main()
         
         # Verify that it at least tried to run the setup_logic.py
         assert mock_run.called
