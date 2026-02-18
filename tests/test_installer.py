@@ -3,8 +3,8 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import os
 
-# Assuming your script is named installer.py
-import installer 
+# Name of the installer wrapper
+import install_comfyui
 
 def test_get_remote_hash_failure():
     """Test that the script handles API failures gracefully."""
