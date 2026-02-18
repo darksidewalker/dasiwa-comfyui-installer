@@ -29,7 +29,7 @@ PRIORITY_PACKAGES = [
 
 IS_WIN = platform.system() == "Windows"
 
-Logger.init() # Run once at start
+#Logger.init() # Run once at start; not implemented yet
 
 def is_admin():
     try:
