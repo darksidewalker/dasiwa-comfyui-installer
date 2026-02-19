@@ -8,6 +8,7 @@ import argparse # Added for branch handling
 from pathlib import Path
 import time
 from utils.logger import Logger
+from utils.reporter import Reporter
 
 # --- CONFIGURATION ---
 TARGET_PYTHON_VERSION = "3.12.10"
@@ -231,8 +232,10 @@ def task_create_launchers(bin_dir):
 
 # --- MAIN ---
 def main():
-    # 1. Setup Argument Parser
+    # Setup Argument Parser
     parser = argparse.ArgumentParser()
+    # Capture start time at the very beginning
+    start_time = time.time()
     # This now refers to the INSTALLER branch (testing/main)
     parser.add_argument("--branch", default="main", help="Installer logic branch")
     args = parser.parse_args()
@@ -288,6 +291,9 @@ def main():
     run_cmd(["uv", "pip", "install"] + PRIORITY_PACKAGES, env=venv_env)
     
     task_create_launchers(bin_dir)
+
+    # --- THE SUMMARY CALL ---
+    Reporter.show_summary(hw, venv_env, start_time)
 
     Logger.success("Installation Complete!")
     if input("\nLaunch now? [Y/n]: ").lower() in ('y', ''):
