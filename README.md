@@ -117,10 +117,16 @@ To keep your experience stable, these scripts perform the following actions ever
 # Why Python 3.12
 While 3.13 is out, many of the specialized wheels for the 5090 or other GPU's (like Triton and SageAttention) are currently most stable on 3.12.
 
-# DISCLAIMER
+# ⚖️ Disclaimer & Terms of Use
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-USE AT YOUR OWN RISK: This script automates the installation of third-party software and drivers. The user assumes all responsibility for any system instability, data loss, or hardware issues that may arise from its execution.
+TL;DR: This is a free community tool. I built it to be helpful, but use it at your own risk.
 
-Notice: This installer is a community tool provided for free. While I've built it to be as safe as possible for my own setup, I cannot guarantee it will work perfectly on every machine. By proceeding, you accept that I am not responsible for any "magic smoke" or broken environments!
+"As-Is" Software: This installer is provided without any guarantees. It might work perfectly, or it might need manual tweaking for your specific setup.
+
+No Liability: I (the author) am not responsible for any system errors, data loss, or hardware issues that occur while using this script.
+
+Third-Party Content: This script downloads software from external sources (Python, PyTorch, ComfyUI, etc.). Their respective licenses and terms apply to those components.
+
+Hardware Responsibility: High-performance tasks like AI generation put stress on your hardware. Ensure your system has adequate cooling and a proper power supply.
+    
+Legal Standard: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE.
