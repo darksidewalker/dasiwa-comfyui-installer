@@ -114,7 +114,7 @@ def task_create_launchers(comfy_path, bin_dir):
     # Use paths relative to the ComfyUI folder
     if os.name == "nt":
         venv_python = r"venv\Scripts\python.exe"
-        args = "--preview-method auto --use-pytorch-cross-attention"
+        args = "--enable-manager --preview-method auto"
         content = f'@echo off\ncd /d "%~dp0"\nstart http://127.0.0.1:8188\n"{venv_python}" main.py {args}\npause'
         launcher_path = comfy_path / "run_comfyui.bat"
     else:
