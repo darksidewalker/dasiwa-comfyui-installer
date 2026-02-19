@@ -78,39 +78,57 @@ def bootstrap_git():
     os.remove(installer)
 
 # --- HARDWARE DETECTION ---
+import math
+
 def get_gpu_report():
     """Identifies GPUs and selects the most capable vendor."""
     gpus = []
     try:
         if IS_WIN:
-            cmd = "wmic path win32_VideoController get Name, AdapterRAM /format:list"
-            res = run_cmd(cmd, shell=True, capture=True)
-            current_gpu = {}
-            for line in res.stdout.splitlines():
-                if "=" in line:
-                    key, val = line.split("=", 1)
-                    if key.strip() == "Name": current_gpu["name"] = val.strip()
-                    if key.strip() == "AdapterRAM": current_gpu["vram"] = abs(int(val.strip())) if val.strip() else 0
-                if "name" in current_gpu and "vram" in current_gpu:
-                    gpus.append(current_gpu); current_gpu = {}
+            # Use PowerShell to get Name and AdapterRAM (handles 4GB+ correctly)
+            ps_cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | ConvertTo-Csv -NoTypeInformation"'
+            res = run_cmd(ps_cmd, shell=True, capture=True)
+            
+            # Skip the CSV header and parse
+            lines = res.stdout.strip().splitlines()
+            if len(lines) > 1:
+                for line in lines[1:]:
+                    # Remove quotes and split
+                    parts = line.replace('"', '').split(',')
+                    if len(parts) >= 2:
+                        name = parts[0].strip()
+                        # VRAM can be a large string, convert to int
+                        raw_vram = parts[1].strip()
+                        vram = int(raw_vram) if raw_vram else 0
+                        gpus.append({"name": name, "vram": abs(vram)})
         else:
+            # Linux fallback
             res = run_cmd(["lspci"], capture=True)
             for line in res.stdout.splitlines():
-                if "VGA" in line or "3D" in line: gpus.append({"name": line, "vram": 0})
-    except: pass
+                if any(x in line.upper() for x in ["VGA", "3D", "DISPLAY"]):
+                    gpus.append({"name": line, "vram": 0})
+    except Exception as e:
+        # If logging is available, log the error quietly
+        pass
 
-    if not gpus: return {"vendor": "UNKNOWN", "name": "Generic"}
+    if not gpus:
+        return {"vendor": "UNKNOWN", "name": "Generic"}
 
+    # Sort by VRAM
     gpus.sort(key=lambda x: x.get('vram', 0), reverse=True)
     winner = gpus[0]
     name_up = winner['name'].upper()
     
     vendor = "UNKNOWN"
-    if "NVIDIA" in name_up: vendor = "NVIDIA"
-    elif "INTEL" in name_up: vendor = "INTEL"
-    elif "AMD" in name_up or "RADEON" in name_up: vendor = "AMD"
+    if "NVIDIA" in name_up: 
+        vendor = "NVIDIA"
+    elif "AMD" in name_up or "RADEON" in name_up: 
+        vendor = "AMD"
+    elif "INTEL" in name_up: 
+        vendor = "INTEL"
 
-    Logger.log(f"Primary GPU: {winner['name']}", "ok")
+    # Log the result so you can see it in the terminal
+    Logger.log(f"Primary GPU: {winner['name']} (Vendor: {vendor})", "ok")
     return {"vendor": vendor, "name": winner['name']}
 
 # --- CORE TASKS ---
