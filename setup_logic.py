@@ -111,15 +111,16 @@ def install_torch(env, hw):
 
 def task_create_launchers(comfy_path, bin_dir):
     """Creates the startup scripts for Linux and Windows."""
-    venv_python = Path(bin_dir) / ("python.exe" if os.name == "nt" else "python3")
-    args = "--preview-method auto --use-pytorch-cross-attention"
-
+    # Use paths relative to the ComfyUI folder
     if os.name == "nt":
-        # Windows .bat
+        venv_python = r"venv\Scripts\python.exe"
+        args = "--preview-method auto --use-pytorch-cross-attention"
         content = f'@echo off\ncd /d "%~dp0"\nstart http://127.0.0.1:8188\n"{venv_python}" main.py {args}\npause'
         launcher_path = comfy_path / "run_comfyui.bat"
     else:
-        # Linux .sh - Using a multi-line string to avoid \n issues
+        # For Linux, use venv/bin/python3
+        venv_python = "./venv/bin/python3"
+        args = "--preview-method auto --use-pytorch-cross-attention"
         content = f"""#!/bin/bash
 cd "$(dirname "$0")"
 (sleep 5 && xdg-open http://127.0.0.1:8188) &
@@ -131,7 +132,7 @@ cd "$(dirname "$0")"
         f.write(content)
     
     if os.name != "nt":
-        os.chmod(launcher_path, 0o755)  # Make it executable
+        os.chmod(launcher_path, 0o755)
     
     Logger.log(f"Launcher created at: {launcher_path}", "ok")
 
