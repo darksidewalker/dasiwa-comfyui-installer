@@ -193,3 +193,6 @@ def main():
     task_create_launchers(comfy_path, bin_dir)
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_results)
     Logger.success("Process Finished! You can now run ComfyUI.")
+
+    if __name__ == "__main__":
+    main()
