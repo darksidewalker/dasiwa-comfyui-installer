@@ -54,11 +54,34 @@ if (Test-Path "config.json") {
 
 # 6. Smart Python Search
 $searchPaths = @(
-    "$(Get-Command python -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)",
     "$env:ProgramFiles\Python$pyShort\python.exe",
     "$env:LocalAppData\Programs\Python\Python$pyShort\python.exe",
-    "C:\Python$pyShort\python.exe"
+    "C:\Python$pyShort\python.exe",
+    "$(Get-Command python -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)",
+    "$(Get-Command python3 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
 )
+
+$finalPyPath = $null
+foreach ($path in $searchPaths) {
+    if ($path -and (Test-Path $path)) {
+        # Check if the path is the "Fake" Windows Store alias
+        if ($path -like "*\Microsoft\WindowsApps\*") {
+            Write-Host "[!] Skipping Windows Store alias: $path" -ForegroundColor Gray
+            continue
+        }
+        
+        # Verify it actually works by checking the version
+        try {
+            $ver = & $path --version 2>$null
+            if ($lastExitCode -eq 0) {
+                $finalPyPath = $path
+                break
+            }
+        } catch {
+            continue
+        }
+    }
+}
 
 $finalPyPath = $null
 foreach ($path in $searchPaths) {
