@@ -9,7 +9,7 @@ from utils.logger import Logger
 # --- CONFIGURATION ---
 REPO_OWNER = "darksidewalker"
 REPO_NAME = "dasiwa-comfyui-installer"
-REPO_BRANCH = "testing"  # The branch we are targeting
+REPO_BRANCH = "main"  # The branch we are targeting
 LOGIC_FILE = "setup_logic.py"
 HASH_STORAGE = ".version_hash"
 
