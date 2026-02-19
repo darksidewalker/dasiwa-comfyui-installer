@@ -111,7 +111,7 @@ def install_torch(env, hw):
 
 def task_create_launchers(comfy_path, bin_dir):
     """Creates the startup scripts for Linux and Windows."""
-    venv_python = bin_dir / ("python.exe" if os.name == "nt" else "python3")
+    venv_python = Path(bin_dir) / ("python.exe" if os.name == "nt" else "python3")
     args = "--preview-method auto --use-pytorch-cross-attention"
 
     if os.name == "nt":
