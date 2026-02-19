@@ -110,20 +110,30 @@ def install_torch(env, hw):
     run_cmd(cmd, env=env)
 
 def task_create_launchers(comfy_path, bin_dir):
-    """Creates the batch/sh file to launch ComfyUI."""
-    l_name = "run_comfyui.bat" if IS_WIN else "run_comfyui.sh"
-    launcher_path = comfy_path / l_name
-    venv_python = comfy_path / "venv" / bin_dir / ("python.exe" if IS_WIN else "python")
-    
-    args = "--enable-manager --preview-method auto"
-    if IS_WIN:
-        content = f"@echo off\ntitle DaSiWa ComfyUI\ncd /d \"%~dp0\"\nstart http://127.0.0.1:8188\n\"{venv_python}\" main.py {args}\npause"
+    """Creates the startup scripts for Linux and Windows."""
+    venv_python = bin_dir / ("python.exe" if os.name == "nt" else "python3")
+    args = "--preview-method auto --use-pytorch-cross-attention"
+
+    if os.name == "nt":
+        # Windows .bat
+        content = f'@echo off\ncd /d "%~dp0"\nstart http://127.0.0.1:8188\n"{venv_python}" main.py {args}\npause'
+        launcher_path = comfy_path / "run_comfyui.bat"
     else:
-        content = fr"#!/bin/bash\ncd \"$(dirname \"\$0\")\"\n(sleep 5 && xdg-open http://127.0.0.1:8188) &\n\"{venv_python}\" main.py {args}"
+        # Linux .sh - Using a multi-line string to avoid \n issues
+        content = f"""#!/bin/bash
+cd "$(dirname "$0")"
+(sleep 5 && xdg-open http://127.0.0.1:8188) &
+"{venv_python}" main.py {args}
+"""
+        launcher_path = comfy_path / "run_comfyui.sh"
+
+    with open(launcher_path, "w", newline='\n') as f:
+        f.write(content)
     
-    launcher_path.write_text(content)
-    if not IS_WIN: os.chmod(launcher_path, 0o755)
-    Logger.log(f"Launcher created at {launcher_path}", "ok")
+    if os.name != "nt":
+        os.chmod(launcher_path, 0o755)  # Make it executable
+    
+    Logger.log(f"Launcher created at: {launcher_path}", "ok")
 
 # Ensures 'utils' is findable regardless of where the script is called from
 SCRIPT_ROOT = Path(__file__).parent.absolute()
@@ -134,7 +144,6 @@ if str(SCRIPT_ROOT) not in sys.path:
 def main():
     start_time = time.time()
     
-    # Capture arguments (like branch)
     parser = argparse.ArgumentParser()
     parser.add_argument("--branch", default="main", help="Installer branch")
     args = parser.parse_args()
@@ -143,58 +152,44 @@ def main():
     hw = get_gpu_report(IS_WIN, Logger)
     
     # 1. Path Definition (Force Absolute)
-    # This prevents the "missing nodes" issue by anchoring everything to a fixed point
     base_path = Path.cwd().absolute()
     comfy_path = base_path / "ComfyUI"
 
     # 2. Sync Repository
     if not comfy_path.exists():
-        Logger.log(f"Cloning ComfyUI into {comfy_path}...", "info")
-        # Explicitly naming the target path in git clone
+        Logger.log(f"Cloning ComfyUI...", "info")
         run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
-    # 3. Environment Setup (Inside ComfyUI)
-    # We create the venv BEFORE we chdir so we can track the folder creation reliably
+    # 3. Environment Setup
     Logger.log("Setting up Virtual Environment (UV)...", "info")
     run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
-    
-    # Get the environment variables and bin path for the venv
     venv_env, bin_dir = get_venv_env(comfy_path)
 
-    # 4. Change Working Directory to ComfyUI
-    # This ensures that 'requirements.txt' and 'main.py' are directly accessible
+    # 4. Change Working Directory
     os.chdir(comfy_path)
-    Logger.log(f"Current Working Directory: {os.getcwd()}", "info")
 
     node_results = None 
-    
     try:
-        # A. Install Core Engine
+        # A. Install Core
         install_torch(venv_env, hw)
         
-        Logger.log("Installing ComfyUI base requirements...", "info")
-        # Since we chdir'd, requirements.txt is right here
+        Logger.log("Installing ComfyUI requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
         
-        # B. Install Stability Fixes
-        Logger.log("Installing stability packages...", "info")
-        run_cmd(["uv", "pip", "install"] + PRIORITY_PACKAGES, env=venv_env)
-        
-        # C. Install Custom Nodes
-        # We pass the absolute comfy_path to ensure nodes don't end up in Downloads
-        node_results = task_custom_nodes(venv_env, NODES_LIST_URL, NODES_LIST_FILE, run_cmd, comfy_path)
+        # B. Install Custom Nodes
+        # Use the constants from your config
+        node_results = task_custom_nodes(
+            venv_env, 
+            NODES_LIST_URL, 
+            NODES_LIST_FILE, 
+            run_cmd, 
+            comfy_path
+        )
         
     except Exception as e:
-        Logger.error(f"Critical installation step failed: {e}")
+        Logger.error(f"Installation failed: {e}")
 
     # 5. Finalize
-    # Create the launcher (using the absolute path to ComfyUI)
     task_create_launchers(comfy_path, bin_dir)
-    
-    # Show summary (it now has access to the GPU info, env, and node stats)
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_results)
-    
-    Logger.success("Process Finished!")
-
-if __name__ == "__main__":
-    main()
+    Logger.success("Process Finished! You can now run ComfyUI.")
