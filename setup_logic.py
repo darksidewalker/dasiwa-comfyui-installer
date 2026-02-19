@@ -296,7 +296,7 @@ def main():
     Reporter.show_summary(hw, venv_env, start_time)
 
     Logger.success("Installation Complete!")
-    if input("\nLaunch now? [Y/n]: ").lower() in ('y', ''):
+    if input("\nLaunch ComfyUI now? [Y/n]: ").lower() in ('y', ''):
         l = "run_comfyui.bat" if IS_WIN else "./run_comfyui.sh"
         # On Linux/Unix, we need to make sure the script is executable
         if not IS_WIN:
