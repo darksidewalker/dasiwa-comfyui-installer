@@ -231,49 +231,59 @@ def task_create_launchers(bin_dir):
 
 # --- MAIN ---
 def main():
-    # Setup Argument Parser for branch handling
+    # 1. Setup Argument Parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("--branch", default="main", help="Target branch for ComfyUI")
+    # This now refers to the INSTALLER branch (testing/main)
+    parser.add_argument("--branch", default="main", help="Installer logic branch")
     args = parser.parse_args()
-    target_branch = args.branch
+    installer_branch = args.branch
+
+    # 2. Define the official ComfyUI branch
+    # We hardcode this to 'master'
+    COMFY_OFFICIAL_BRANCH = "master" 
 
     try: run_cmd(["python", "--version"], capture=True)
     except: bootstrap_python(); sys.exit(0)
     try: run_cmd(["git", "--version"], capture=True)
     except: bootstrap_git(); sys.exit(0)
 
-    Logger.log(f"DaSiWa ComfyUI Installer (Branch: {target_branch})", "info", bold=True)
+    # Note the Installer Branch in the logs for your own tracking
+    Logger.log(f"DaSiWa ComfyUI Installer (Installer: {installer_branch})", "info", bold=True)
     hw = get_gpu_report()
     
     base_path = Path.cwd()
     comfy_path = base_path / "ComfyUI"
 
-    # --- BRANCH-AWARE REPO SYNC ---
+    # --- REPO SYNC (Always uses ComfyUI Master) ---
     if not comfy_path.exists():
-        Logger.log(f"Cloning ComfyUI ({target_branch})...", "info")
-        run_cmd(["git", "clone", "-b", target_branch, "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
+        Logger.log(f"Cloning ComfyUI ({COMFY_OFFICIAL_BRANCH})...", "info")
+        run_cmd(["git", "clone", "-b", COMFY_OFFICIAL_BRANCH, "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
     os.chdir(comfy_path)
 
-    # Ensure existing folder matches the target branch
+    # Branch Guard: Ensure the folder is on master
     try:
-        current_branch = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip()
-        if current_branch != target_branch:
-            Logger.log(f"Switching from {current_branch} to {target_branch}...", "warn")
+        current_comfy_branch = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip()
+        if current_comfy_branch != COMFY_OFFICIAL_BRANCH:
+            Logger.log(f"Aligning ComfyUI to {COMFY_OFFICIAL_BRANCH}...", "warn")
             run_cmd(["git", "fetch", "origin"])
-            run_cmd(["git", "checkout", target_branch])
+            run_cmd(["git", "checkout", COMFY_OFFICIAL_BRANCH])
+            run_cmd(["git", "pull", "origin", COMFY_OFFICIAL_BRANCH])
     except Exception as e:
-        Logger.log(f"Branch switch failed, proceeding with current: {e}", "fail")
+        Logger.log(f"ComfyUI branch sync skipped: {e}", "info")
 
+    # --- ENVIRONMENT SETUP ---
     Logger.log("Preparing Virtual Environment...", "info")
     run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_dir = get_venv_env()
 
+    # --- TASKS ---
     task_check_ffmpeg(venv_env)
     install_torch(venv_env, hw)
     run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
     task_custom_nodes(venv_env)
 
+    # --- FINALIZATION ---
     Logger.log("Finalizing stability packages...", "info")
     run_cmd(["uv", "pip", "install"] + PRIORITY_PACKAGES, env=venv_env)
     
@@ -282,6 +292,9 @@ def main():
     Logger.success("Installation Complete!")
     if input("\nLaunch now? [Y/n]: ").lower() in ('y', ''):
         l = "run_comfyui.bat" if IS_WIN else "./run_comfyui.sh"
+        # On Linux/Unix, we need to make sure the script is executable
+        if not IS_WIN:
+            os.chmod(l, 0o755)
         subprocess.Popen([l], shell=IS_WIN, creationflags=subprocess.CREATE_NEW_CONSOLE if IS_WIN else 0)
 
 if __name__ == "__main__":
