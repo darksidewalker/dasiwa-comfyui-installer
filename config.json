@@ -1,0 +1,16 @@
+{
+    "version": "1.0.0",
+    "python": {
+        "full_version": "3.12.10",
+        "short_version": "312",
+        "display_name": "3.12"
+    },
+    "cuda": {
+        "global": "13.0",
+        "min_cuda_for_50xx": "12.8"
+    },
+    "urls": {
+        "custom_nodes": "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt",
+        "git_windows": "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/Git-2.53.0-64-bit.exe"
+    }
+}

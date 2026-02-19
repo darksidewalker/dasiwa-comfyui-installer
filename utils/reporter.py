@@ -6,7 +6,7 @@ from utils.logger import Logger
 
 class Reporter:
     @staticmethod
-    def show_summary(hw, venv_env, start_time):
+    def show_summary(hw, venv_env, start_time, node_stats=None):
         """Generates a clean overview of the installation results."""
         elapsed = round(time.time() - start_time, 1)
         is_win = os.name == 'nt'
@@ -34,11 +34,22 @@ class Reporter:
         except:
             print(f"{Logger.CYAN}{Logger.BOLD}Status:{Logger.END}    Environment Ready")
 
-        # 4. Custom Nodes Count
-        nodes_path = Path("custom_nodes")
-        if nodes_path.exists():
-            count = len([x for x in nodes_path.iterdir() if x.is_dir()])
-            print(f"{Logger.CYAN}{Logger.BOLD}Nodes:{Logger.END}     {count} custom nodes synchronized")
+        # 4. Custom Nodes Count 
+        if node_stats:
+            total = node_stats.get('total', 0)
+            success = node_stats.get('success', 0)
+            failed_nodes = node_stats.get('failed', [])
+            failed_count = len(failed_nodes)
+        
+            print(f"{Logger.CYAN}{Logger.BOLD}Nodes:{Logger.END}     {success}/{total} installed successfully")
+            
+            if failed_count > 0:
+                print(f"{Logger.RED}{Logger.BOLD}Skipped:{Logger.END}   {failed_count} nodes failed (check logs for details)")
+                for name in failed_nodes:
+                    print(f"         - {name}")
+        else:
+            # Fallback if the node task never ran or crashed
+            print(f"{Logger.CYAN}{Logger.BOLD}Nodes:{Logger.END}     Check logs for synchronization status")
 
         # 5. Launcher Path
         launcher_file = "run_comfyui.bat" if is_win else "run_comfyui.sh"
