@@ -133,6 +133,8 @@ if str(SCRIPT_ROOT) not in sys.path:
 # --- MAIN ENGINE ---
 def main():
     start_time = time.time()
+    
+    # Capture arguments (like branch)
     parser = argparse.ArgumentParser()
     parser.add_argument("--branch", default="main", help="Installer branch")
     args = parser.parse_args()
@@ -140,48 +142,56 @@ def main():
     ensure_dependencies()
     hw = get_gpu_report(IS_WIN, Logger)
     
-    # Define paths
-    base_path = Path.cwd()
+    # 1. Path Definition (Force Absolute)
+    # This prevents the "missing nodes" issue by anchoring everything to a fixed point
+    base_path = Path.cwd().absolute()
     comfy_path = base_path / "ComfyUI"
 
-    # 1. Sync Repository
+    # 2. Sync Repository
     if not comfy_path.exists():
-        Logger.log("Cloning ComfyUI...", "info")
+        Logger.log(f"Cloning ComfyUI into {comfy_path}...", "info")
+        # Explicitly naming the target path in git clone
         run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
-    os.chdir(comfy_path)
-
-    # 2. Environment Setup
+    # 3. Environment Setup (Inside ComfyUI)
+    # We create the venv BEFORE we chdir so we can track the folder creation reliably
     Logger.log("Setting up Virtual Environment (UV)...", "info")
-    run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
+    run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
+    
+    # Get the environment variables and bin path for the venv
     venv_env, bin_dir = get_venv_env(comfy_path)
 
-    # 3. Installation Steps
-    node_results = None  # Initialize so Reporter doesn't crash if install fails early
+    # 4. Change Working Directory to ComfyUI
+    # This ensures that 'requirements.txt' and 'main.py' are directly accessible
+    os.chdir(comfy_path)
+    Logger.log(f"Current Working Directory: {os.getcwd()}", "info")
+
+    node_results = None 
     
     try:
         # A. Install Core Engine
         install_torch(venv_env, hw)
         
         Logger.log("Installing ComfyUI base requirements...", "info")
+        # Since we chdir'd, requirements.txt is right here
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
         
         # B. Install Stability Fixes
         Logger.log("Installing stability packages...", "info")
         run_cmd(["uv", "pip", "install"] + PRIORITY_PACKAGES, env=venv_env)
         
-        # C. Install Custom Nodes and capture the stats
-        node_results = task_custom_nodes(venv_env, NODES_LIST_URL, NODES_LIST_FILE, run_cmd)
+        # C. Install Custom Nodes
+        # We pass the absolute comfy_path to ensure nodes don't end up in Downloads
+        node_results = task_custom_nodes(venv_env, NODES_LIST_URL, NODES_LIST_FILE, run_cmd, comfy_path)
         
     except Exception as e:
         Logger.error(f"Critical installation step failed: {e}")
-        # We don't exit here; we proceed to try and create the launcher anyway
 
-    # 4. Finalize
-    # Create the launcher first
+    # 5. Finalize
+    # Create the launcher (using the absolute path to ComfyUI)
     task_create_launchers(comfy_path, bin_dir)
     
-    # Show the summary ONCE with all gathered data
+    # Show summary (it now has access to the GPU info, env, and node stats)
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_results)
     
     Logger.success("Process Finished!")
