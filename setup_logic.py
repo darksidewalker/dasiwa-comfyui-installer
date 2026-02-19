@@ -194,5 +194,5 @@ def main():
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_results)
     Logger.success("Process Finished! You can now run ComfyUI.")
 
-    if __name__ == "__main__":
+if __name__ == "__main__":
     main()
