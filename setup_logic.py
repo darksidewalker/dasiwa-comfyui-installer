@@ -322,7 +322,7 @@ def task_create_launchers(bin_dir):
     venv_python = base_path / "venv" / bin_dir / ("python.exe" if IS_WIN else "python")
     
     # Standard args + stability flags
-    args = "--enable-manager --front-end-version Comfy-Org/ComfyUI_frontend@latest --preview-method auto"
+    args = "--enable-manager --reserve-vram 1 --preview-method auto"
     
     if IS_WIN:
         content = (
