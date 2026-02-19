@@ -24,7 +24,7 @@ REMOTE_LAUNCHER_URL = f"{BASE_RAW_URL}/{LAUNCHER_NAME}"
 
 def get_remote_hash(filename):
     """Fetches the unique commit SHA for a specific file from the targeted branch."""
-    # Added ?sha=REPO_BRANCH so the API looks at the testing branch
+    # Added ?sha=REPO_BRANCH so the API looks at the branch
     api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits?sha={REPO_BRANCH}&path={filename}&page=1&per_page=1"
     try:
         req = urllib.request.Request(api_url, headers={'User-Agent': 'Python-Installer'})
