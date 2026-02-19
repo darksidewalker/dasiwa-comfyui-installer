@@ -43,3 +43,7 @@ class Logger:
     @classmethod
     def success(cls, text):
         cls.log(text, "done")
+
+    @classmethod
+    def warn(cls, text):
+        cls.log(text, "warn")
