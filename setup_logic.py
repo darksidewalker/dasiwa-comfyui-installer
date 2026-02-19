@@ -120,7 +120,7 @@ def task_create_launchers(comfy_path, bin_dir):
     else:
         # For Linux, use venv/bin/python3
         venv_python = "./venv/bin/python3"
-        args = "--preview-method auto --use-pytorch-cross-attention"
+        args = "--enable-manager --preview-method auto"
         content = f"""#!/bin/bash
 cd "$(dirname "$0")"
 (sleep 5 && xdg-open http://127.0.0.1:8188) &
