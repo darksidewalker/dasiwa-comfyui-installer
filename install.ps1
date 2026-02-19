@@ -15,14 +15,25 @@ if (!(Get-Command git -ErrorAction SilentlyContinue)) {
     Pause; exit
 }
 
-# 2. Sync Repository (This gets setup_logic.py AND the utils folder)
+# 2. Sync Repository
 $repoUrl = "https://github.com/darksidewalker/dasiwa-comfyui-installer.git"
+
 if (!(Test-Path ".git")) {
     Write-Host "[*] Initializing Installer Repository..." -ForegroundColor Cyan
-    git clone -b main $repoUrl .
+    # Explicitly check if the directory is empty before cloning
+    if ((Get-ChildItem).Count -gt 1) {
+        # If folder isn't empty, we can't 'clone .'. We init and pull instead.
+        git init
+        git remote add origin $repoUrl
+        git fetch
+        git checkout -f main
+    } else {
+        git clone -b main $repoUrl .
+    }
 } else {
     Write-Host "[*] Checking for Installer Updates..." -ForegroundColor Cyan
-    git pull origin main
+    git fetch --all
+    git reset --hard origin/main
 }
 
 # 3. Python Check & Run
