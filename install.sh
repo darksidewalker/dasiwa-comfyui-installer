@@ -1,5 +1,7 @@
 #!/bin/bash
 # DaSiWa ComfyUI - Linux Bootstrapper
+# We don't use 'set -e' here so we can catch the error ourselves
+
 cd "$(dirname "$0")"
 
 echo "==========================================="
@@ -7,41 +9,49 @@ echo "    DaSiWa ComfyUI Installer (Linux)"
 echo "==========================================="
 
 # 1. Configuration
-REPO_ZIP="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
+REPO_ZIP="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/testing.zip"
 ZIP_FILE="repo.zip"
 TEMP_DIR="temp_extract"
 
 # 2. Download and Extract
 echo "[*] Downloading latest components..."
-curl -L -o "$ZIP_FILE" "$REPO_ZIP"
-
-if [ -d "$TEMP_DIR" ]; then rm -rf "$TEMP_DIR"; fi
+curl -L -s -o "$ZIP_FILE" "$REPO_ZIP"
 mkdir -p "$TEMP_DIR"
-unzip -q "$ZIP_FILE" -d "$TEMP_DIR"
+unzip -q -o "$ZIP_FILE" -d "$TEMP_DIR"
 
-# 3. Move and Overwrite (The Linux way)
-# GitHub zips have a nested folder, we find it and move its contents here
-INNER_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d | grep "installer-main" | head -n 1)
-cp -rf "$INNER_DIR"/* .
+# 3. Move and Overwrite
+INNER_DIR=$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+
+if [ -z "$INNER_DIR" ]; then
+    echo "[!] Error: Extraction failed. Is 'unzip' installed?"
+    exit 1
+fi
+
+echo "[*] Syncing files..."
+cp -af "$INNER_DIR"/. .
 
 # 4. Cleanup
 rm "$ZIP_FILE"
 rm -rf "$TEMP_DIR"
 
-# 5. Smart Config Reading
-# We try to get the display version from config.json using a simple python one-liner
-if [ -f "config.json" ]; then
-    PY_VERSION=$(python3 -c "import json; print(json.load(open('config.json'))['python']['display_name'])" 2>/dev/null)
+# 5. The "Hand-off" to Python
+echo "[*] Launching setup_logic.py..."
+
+# Check which python command works
+if command -v python3 &>/dev/null; then
+    PY_CMD="python3"
+elif command -v python &>/dev/null; then
+    PY_CMD="python"
 else
-    PY_VERSION="3.12"
+    echo "[!] Error: No Python found. Please install python3."
+    exit 1
 fi
 
-echo "[+] Target Python: $PY_VERSION"
+# Run it!
+$PY_CMD "setup_logic.py" --branch "testing"
 
-# 6. Launch
-if command -v python3 &>/dev/null; then
-    python3 setup_logic.py
-else
-    echo "[!] Error: Python3 not found. Please install it (e.g., sudo apt install python3)"
+# If we get here, Python failed to start
+if [ $? -ne 0 ]; then
+    echo "[!] Python exited with an error code."
     exit 1
 fi

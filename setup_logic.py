@@ -33,7 +33,7 @@ CONFIG = load_config()
 TARGET_PYTHON_VERSION = CONFIG["python"]["full_version"]
 GLOBAL_CUDA_VERSION = CONFIG["cuda"]["global"]
 MIN_CUDA_FOR_50XX = CONFIG["cuda"]["min_cuda_for_50xx"]
-NODES_LIST_URL = CONFIG["url"]["custom_nodes"]
+NODES_LIST_URL = CONFIG["urls"]["custom_nodes"]
 NODES_LIST_FILE = "custom_nodes.txt"
 
 PRIORITY_PACKAGES = [
@@ -119,7 +119,7 @@ def task_create_launchers(comfy_path, bin_dir):
     if IS_WIN:
         content = f"@echo off\ntitle DaSiWa ComfyUI\ncd /d \"%~dp0\"\nstart http://127.0.0.1:8188\n\"{venv_python}\" main.py {args}\npause"
     else:
-        content = f"#!/bin/bash\ncd \"$(dirname \"\$0\")\"\n(sleep 5 && xdg-open http://127.0.0.1:8188) &\n\"{venv_python}\" main.py {args}"
+        content = fr"#!/bin/bash\ncd \"$(dirname \"\$0\")\"\n(sleep 5 && xdg-open http://127.0.0.1:8188) &\n\"{venv_python}\" main.py {args}"
     
     launcher_path.write_text(content)
     if not IS_WIN: os.chmod(launcher_path, 0o755)
