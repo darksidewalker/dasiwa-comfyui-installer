@@ -83,13 +83,17 @@ foreach ($path in $searchPaths) {
     }
 }
 
-$finalPyPath = $null
-foreach ($path in $searchPaths) {
-    if ($path -and (Test-Path $path)) {
-        $finalPyPath = $path
-        break
-    }
+if (-not $finalPyPath) {
+    Write-Host "[-] ERROR: No real Python installation found!" -ForegroundColor Red
+    Write-Host "[!] Please install Python 3.10 or 3.11 from python.org" -ForegroundColor Yellow
+    pause
+    exit
 }
+
+Write-Host "[+] Using Python: $finalPyPath" -ForegroundColor Green
+
+# CRITICAL: From now on, use $finalPyPath, NOT the word 'python'
+& $finalPyPath setup_logic.py
 
 # 7. Execute Logic
 if ($finalPyPath) {
