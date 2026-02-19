@@ -23,11 +23,28 @@ if (!(Test-Path $pyOfficial)) {
     Remove-Item "py_fix.exe"
 }
 
-# 4. DOWNLOAD PYTHON LOGIC
-Write-Host "[*] Downloading setup_logic.py..." -ForegroundColor Cyan
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/setup_logic.py" -OutFile "setup_logic.py"
+# 4. DOWNLOAD PYTHON LOGIC & UTILS
+Write-Host "[*] Downloading core files..." -ForegroundColor Cyan
+
+# Ensure the utils directory exists
+if (!(Test-Path "utils")) { New-Item -ItemType Directory -Path "utils" }
+
+# Target branch (change to 'testing' if needed)
+$branch = "main"
+$baseUrl = "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/$branch"
+
+# Download the main logic
+Invoke-WebRequest -Uri "$baseUrl/setup_logic.py" -OutFile "setup_logic.py"
+
+# Download the utilities
+Invoke-WebRequest -Uri "$baseUrl/utils/logger.py" -OutFile "utils/logger.py"
+Invoke-WebRequest -Uri "$baseUrl/utils/reporter.py" -OutFile "utils/reporter.py"
+
+# Create empty __init__.py so Python treats the folder as a package
+if (!(Test-Path "utils/__init__.py")) { New-Item -ItemType File -Path "utils/__init__.py" }
 
 # 5. RUN IT
+Write-Host "[+] Starting Installer..." -ForegroundColor Green
 & "C:\Program Files\Python312\python.exe" "setup_logic.py"
 
 Write-Host "Installation script finished."
