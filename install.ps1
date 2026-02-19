@@ -19,6 +19,13 @@ Expand-Archive -Path $zipFile -DestinationPath $tempFolder
 # 3. Move files out of the nested zip folder
 $innerFolder = Get-ChildItem -Path $tempFolder | Select-Object -First 1
 Get-ChildItem -Path $innerFolder.FullName | ForEach-Object {
+    $target = Join-Path $PSScriptRoot $_.Name
+    
+    # If the target is a directory and already exists, we must remove it first
+    if (Test-Path $target) {
+        Remove-Item $target -Recurse -Force
+    }
+    
     Move-Item -Path $_.FullName -Destination $PSScriptRoot -Force
 }
 
