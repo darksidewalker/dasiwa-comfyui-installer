@@ -116,3 +116,11 @@ To keep your experience stable, these scripts perform the following actions ever
 
 # Why Python 3.12
 While 3.13 is out, many of the specialized wheels for the 5090 or other GPU's (like Triton and SageAttention) are currently most stable on 3.12.
+
+# DISCLAIMER
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+USE AT YOUR OWN RISK: This script automates the installation of third-party software and drivers. The user assumes all responsibility for any system instability, data loss, or hardware issues that may arise from its execution.
+
+Notice: This installer is a community tool provided for free. While I've built it to be as safe as possible for my own setup, I cannot guarantee it will work perfectly on every machine. By proceeding, you accept that I am not responsible for any "magic smoke" or broken environments!
