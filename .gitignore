@@ -16,3 +16,9 @@ ComfyUI/
 # OS
 .DS_Store
 Thumbs.db
+
+# Installer Version Tracking
+*.hash
+.version_hash
+.setup_logic.py.hash
+.install_comfyui.py.hash
