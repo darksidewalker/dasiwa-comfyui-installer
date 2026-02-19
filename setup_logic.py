@@ -4,6 +4,7 @@ import sys
 import platform
 import urllib.request
 import shutil
+import argparse # Added for branch handling
 from pathlib import Path
 import time
 from utils.logger import Logger
@@ -99,7 +100,6 @@ def get_gpu_report():
 
     if not gpus: return {"vendor": "UNKNOWN", "name": "Generic"}
 
-    # Still sort to find the discrete card, but we won't use the VRAM for flags
     gpus.sort(key=lambda x: x.get('vram', 0), reverse=True)
     winner = gpus[0]
     name_up = winner['name'].upper()
@@ -231,21 +231,39 @@ def task_create_launchers(bin_dir):
 
 # --- MAIN ---
 def main():
+    # Setup Argument Parser for branch handling
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--branch", default="main", help="Target branch for ComfyUI")
+    args = parser.parse_args()
+    target_branch = args.branch
+
     try: run_cmd(["python", "--version"], capture=True)
     except: bootstrap_python(); sys.exit(0)
     try: run_cmd(["git", "--version"], capture=True)
     except: bootstrap_git(); sys.exit(0)
 
-    Logger.log("DaSiWa ComfyUI Installer", "info", bold=True)
+    Logger.log(f"DaSiWa ComfyUI Installer (Branch: {target_branch})", "info", bold=True)
     hw = get_gpu_report()
     
     base_path = Path.cwd()
     comfy_path = base_path / "ComfyUI"
 
+    # --- BRANCH-AWARE REPO SYNC ---
     if not comfy_path.exists():
-        run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI"])
+        Logger.log(f"Cloning ComfyUI ({target_branch})...", "info")
+        run_cmd(["git", "clone", "-b", target_branch, "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
     os.chdir(comfy_path)
+
+    # Ensure existing folder matches the target branch
+    try:
+        current_branch = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip()
+        if current_branch != target_branch:
+            Logger.log(f"Switching from {current_branch} to {target_branch}...", "warn")
+            run_cmd(["git", "fetch", "origin"])
+            run_cmd(["git", "checkout", target_branch])
+    except Exception as e:
+        Logger.log(f"Branch switch failed, proceeding with current: {e}", "fail")
 
     Logger.log("Preparing Virtual Environment...", "info")
     run_cmd(["uv", "venv", "venv", "--python", TARGET_PYTHON_VERSION, "--clear"])
