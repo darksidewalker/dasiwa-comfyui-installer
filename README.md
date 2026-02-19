@@ -114,7 +114,7 @@ To keep your experience stable, these scripts perform the following actions ever
 - Log Maintenance: They clear the previous user/comfyui.log so you always have a fresh, readable log if a crash occurs.
 - Auto-Browser: They attempt to open your browser to http://127.0.0.1:8188 automatically after a short delay.
 
-# Why Python 3.12
+# 🐍 Why Python 3.12
 While 3.13 is out, many of the specialized wheels for the 5090 or other GPU's (like Triton and SageAttention) are currently most stable on 3.12.
 
 # ⚖️ Disclaimer & Terms of Use
