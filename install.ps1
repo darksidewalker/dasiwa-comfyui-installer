@@ -6,7 +6,7 @@ Write-Host "=== DaSiWa ComfyUI Installer (Windows) ===" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
 # 1. Configuration & Download
-$repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/testing.zip"
+$repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
 $zipFile = "repo.zip"
 $tempFolder = "temp_extract"
 
