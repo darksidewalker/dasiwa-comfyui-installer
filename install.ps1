@@ -6,7 +6,6 @@ Write-Host "=== DaSiWa ComfyUI Installer (Windows) ===" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
 # 1. Configuration & Download
-# Updated to testing branch for your current testing phase
 $repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/testing.zip"
 $zipFile = "repo.zip"
 $tempFolder = "temp_extract"
@@ -19,10 +18,9 @@ Invoke-WebRequest -Uri $repoZip -OutFile $zipFile
 if (Test-Path $tempFolder) { Remove-Item $tempFolder -Recurse -Force }
 Expand-Archive -Path $zipFile -DestinationPath $tempFolder
 
-# 3. Smart Move & Overwrite (Safety Enhanced)
+# 3. Smart Move & Overwrite
 $innerFolder = Get-ChildItem -Path $tempFolder | Where-Object { $_.PSIsContainer } | Select-Object -First 1
 
-# SAFETY GUARD: Ensure we actually found a folder inside the zip
 if ($null -eq $innerFolder -or $innerFolder.Name -eq "") {
     Write-Host "[!] Error: Failed to locate extracted source folder." -ForegroundColor Red
     Pause
@@ -32,76 +30,67 @@ if ($null -eq $innerFolder -or $innerFolder.Name -eq "") {
 Write-Host "[*] Updating files from $($innerFolder.Name)..." -ForegroundColor Gray
 Get-ChildItem -Path $innerFolder.FullName | ForEach-Object {
     $target = Join-Path $PSScriptRoot $_.Name
-    if (Test-Path $target) {
-        Remove-Item $target -Recurse -Force
-    }
+    if (Test-Path $target) { Remove-Item $target -Recurse -Force }
     Move-Item -Path $_.FullName -Destination $PSScriptRoot -Force
 }
 
-# 4. Cleanup Zip files
+# 4. Cleanup
 Remove-Item $zipFile -Force
 Remove-Item $tempFolder -Recurse -Force
 
-# 5. Load Config
+# 5. Load Config & Determine Version
+$targetVersion = $null
+
 if (Test-Path "config.json") {
-    $config = Get-Content "config.json" | ConvertFrom-Json
-    $pyShort = $config.python.short_version
-    $pyDisplay = $config.python.display_name
-} else {
-    $pyShort = "312"
-    $pyDisplay = "3.12"
-}
-
-# 6. Smart Python Search
-$searchPaths = @(
-    "$env:ProgramFiles\Python$pyShort\python.exe",
-    "$env:LocalAppData\Programs\Python\Python$pyShort\python.exe",
-    "C:\Python$pyShort\python.exe",
-    "$(Get-Command python -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)",
-    "$(Get-Command python3 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)"
-)
-
-$finalPyPath = $null
-foreach ($path in $searchPaths) {
-    if ($path -and (Test-Path $path)) {
-        # Check if the path is the "Fake" Windows Store alias
-        if ($path -like "*\Microsoft\WindowsApps\*") {
-            Write-Host "[!] Skipping Windows Store alias: $path" -ForegroundColor Gray
-            continue
+    try {
+        $config = Get-Content "config.json" -Raw | ConvertFrom-Json
+        # Directly use the display_name (e.g., "3.12")
+        if ($config.python.display_name) {
+            $targetVersion = $config.python.display_name
+            Write-Host "[*] Target Python version from config: $targetVersion" -ForegroundColor Cyan
         }
-        
-        # Verify it actually works by checking the version
-        try {
-            $ver = & $path --version 2>$null
-            if ($lastExitCode -eq 0) {
-                $finalPyPath = $path
-                break
-            }
-        } catch {
-            continue
-        }
+    } catch {
+        Write-Host "[-] ERROR: Failed to parse config.json." -ForegroundColor Red
+        Pause
+        exit
     }
 }
 
-if (-not $finalPyPath) {
-    Write-Host "[-] ERROR: No real Python installation found!" -ForegroundColor Red
-    Write-Host "[!] Please install Python 3.10 or 3.11 from python.org" -ForegroundColor Yellow
-    pause
+# Strict Check: No version in config = No install
+if (-not $targetVersion) {
+    Write-Host "[-] ERROR: No compatible Python version (display_name) specified in config.json!" -ForegroundColor Red
+    Pause
     exit
 }
 
-Write-Host "[+] Using Python: $finalPyPath" -ForegroundColor Green
+# 6. UV Bootstrapping
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+    Write-Host "[*] UV not found. Installing UV (Standalone)..." -ForegroundColor Cyan
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    # Update current session path to ensure we can run 'uv' immediately
+    $env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin"
+}
 
-# CRITICAL: From now on, use $finalPyPath, NOT the word 'python'
-& $finalPyPath setup_logic.py
+# 7. Strict Python Acquisition via UV
+Write-Host "[*] UV is ensuring Python $targetVersion is ready..." -ForegroundColor Cyan
+try {
+    # UV will look for "3.12" and install the best stable match
+    & uv python install $targetVersion
+} catch {
+    Write-Host "[-] ERROR: UV could not install Python $targetVersion. This version may be invalid or unavailable." -ForegroundColor Red
+    Pause
+    exit
+}
 
-# 7. Execute Logic
-if ($finalPyPath) {
-    Write-Host "[+] Using Python: $finalPyPath" -ForegroundColor Green
-    # Passing branch argument to keep setup_logic informed
+# Locate the UV-managed executable path
+$finalPyPath = (& uv python find $targetVersion).Trim()
+
+# 8. Final Execution
+if ($finalPyPath -and (Test-Path $finalPyPath)) {
+    Write-Host "[+] Using UV-Managed Python: $finalPyPath" -ForegroundColor Green
     & $finalPyPath "setup_logic.py" --branch "testing"
 } else {
-    Write-Host "[!] Python $pyDisplay not found." -ForegroundColor Red
-    Write-Host "[*] Please install Python $pyDisplay and try again." -ForegroundColor Yellow
+    Write-Host "[-] ERROR: No compatible Python $targetVersion found or installed." -ForegroundColor Red
     Pause
+    exit
 }
