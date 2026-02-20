@@ -70,15 +70,16 @@ Run `./run_comfyui.sh`
 - The first start may need some time because of internal comfyui updates, manager pulls and frontend update.
 
 # 🛠️ Configuration & Customization
+
 ## 1. Core Installer Settings
 
-To change the base environment, edit the variables at the top of setup_logic.py:
+Core Installer Settings (config.json)
 
-`TARGET_PYTHON_VERSION`: Change this to use a different Python release (e.g., "3.11.9").
-
-`GLOBAL_CUDA_VERSION`: Sets the default Torch/CUDA toolkit. Note that the installer will automatically pivot to 12.1 if it detects a GTX 10-series card.
-
-`PRIORITY_PACKAGES`: Add any library here that you want to "lock." The installer will prevent custom nodes from downgrading these specific versions.
+The installer is data-driven. To change the environment, edit config.json in the root folder. No coding required.
+### Setting	description
+**python**	Define the version to hunt for. Change pathon versions (e.g., "3.12.10", "312" and "3.12") to update the download source.
+**cuda**	`Global` sets the default toolkit. The installer automatically downshifts to 12.1 for GTX 10-series (Pascal) and shifts to nightly for RTX 50-series (Blackwell).
+**url**	    Update custom_nodes to point to your own fork or a different list of repositories
 
 ## 2. Managing Nodes
 
