@@ -76,10 +76,14 @@ Run `./run_comfyui.sh`
 Core Installer Settings (config.json)
 
 The installer is data-driven. To change the environment, edit config.json in the root folder. No coding required.
+
 ### Setting	description
-**python**	Define the version to hunt for. Change pathon versions (e.g., "3.12.10", "312" and "3.12") to update the download source.
-**cuda**	`Global` sets the default toolkit. The installer automatically downshifts to 12.1 for GTX 10-series (Pascal) and shifts to nightly for RTX 50-series (Blackwell).
-**url**	    Update custom_nodes to point to your own fork or a different list of repositories
+
+**python**:	Define the version to hunt for. Change pathon versions (e.g., "3.12.10", "312" and "3.12") to update the download source.
+
+**cuda**:	`Global` sets the default toolkit. The installer automatically downshifts to 12.1 for GTX 10-series (Pascal) and shifts to nightly for RTX 50-series (Blackwell).
+
+**url**:	    Update any url point to your own fork or a different list of repositories
 
 ## 2. Managing Nodes
 
