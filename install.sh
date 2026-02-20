@@ -9,7 +9,7 @@ echo "    DaSiWa ComfyUI Installer (Linux)"
 echo "==========================================="
 
 # 1. Configuration
-REPO_ZIP="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/testing.zip"
+REPO_ZIP="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
 ZIP_FILE="repo.zip"
 TEMP_DIR="temp_extract"
 
