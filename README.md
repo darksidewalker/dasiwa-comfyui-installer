@@ -48,12 +48,6 @@ chmod +x install.sh && ./install.sh
 
 ## Pro / Remote Installation (One-Liner)
 
-If you don't want to download the whole repo and just want to start the Python process directly.
-
-Requires already installed: 
-- Python
-- Git
-
 ### Windows (PowerShell):
 `PowerShell`
 ```
