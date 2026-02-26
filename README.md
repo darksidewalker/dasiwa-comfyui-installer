@@ -12,10 +12,19 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 6. **Auto-Update:** The installer checks for logic updates on every start.
 7. **Starters:** Creates convenient "run_comfyui" starters with predefined parameters (inside the ComfyUI folder.
 
+### 🛡️ Zero-Conflict Design (New Section)
+
+This installer is designed to be "invisible" to your operating system:
+
+- Ignores Windows Store Aliases: It bypasses the "fake" Python links that often break AI installations.
+- No Admin Rights: Since Python is downloaded as a portable folder, you don't need administrator privileges to "install" it.
+- Strict Versioning: By locking to Python via config.json, we ensure high-performance libraries like Triton and SageAttention remain stable.
+
 ## 🛠️ Prerequisites
 
-* An **NVIDIA, AMD or Intel GPU** (required for the automated Torch installation).
-* Python (3.12 prefered)
+- GPU: An NVIDIA, AMD, or Intel GPU (required for automated Torch optimization).
+- No Python Installation Required: The installer now uses uv to automatically download and manage a portable, isolated Python environment. You do not need to install  Python on your system manually.
+- Internet Connection: Required for the initial download of the portable Python binary and ComfyUI components.
 
 ---
 
@@ -48,12 +57,12 @@ Requires already installed:
 ### Windows (PowerShell):
 `PowerShell`
 ```
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py" -OutFile "install.py"; python install.py
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.ps1 | iex"
 ```
 ### Linux (Bash):
 `Bash`
 ```
-curl -L -o install.py https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install_comfyui.py && python3 install.py
+curl -LsSf https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.sh | bash
 ```
 # 🚀 After Installation
 
