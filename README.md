@@ -12,7 +12,7 @@ This script provides a one-click installation experience for ComfyUI, optimized 
 6. **Auto-Update:** The installer checks for logic updates on every start.
 7. **Starters:** Creates convenient "run_comfyui" starters with predefined parameters (inside the ComfyUI folder.
 
-### 🛡️ Zero-Conflict Design (New Section)
+### 🛡️ Zero-Conflict Design
 
 This installer is designed to be "invisible" to your operating system:
 
