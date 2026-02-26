@@ -1,23 +1,23 @@
 @echo off
 SETLOCAL EnableDelayedExpansion
 title DaSiWa ComfyUI - Bootstrapper
+cd /d "%~dp0"
 
-:: 1. Download the PowerShell Script
-echo [INFO] Fetching latest bootstrapper...
+echo [INFO] Fetching latest installer logic...
+
+:: Always download the newest PS1 to ensure portable logic is up to date
 powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.ps1' -OutFile 'install.ps1'"
 
-:: 2. Run the PowerShell Script
 if exist "install.ps1" (
-    :: We use %~dp0 to ensure the path is absolute and correct even if run as Admin
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+    echo [INFO] Starting Installation...
+    :: We run the newly downloaded PS1
+    powershell -NoProfile -ExecutionPolicy Bypass -File "install.ps1"
 ) else (
-    echo [!] Failed to download installer components.
+    echo [!] Failed to download installer components. Check your internet connection.
     pause
     exit /b
 )
 
-:: 3. Cleanup
-:: It is better to delete it so the next time you run the .bat, 
-:: it's forced to grab the newest version from GitHub.
+:: Clean up the temporary PS1 after execution so the next run is fresh [cite: 2]
 if exist "install.ps1" del "install.ps1"
 exit
