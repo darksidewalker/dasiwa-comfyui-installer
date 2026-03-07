@@ -6,8 +6,10 @@ echo -e "\e[32m==========================================="
 echo -e "    DaSiWa ComfyUI Installer (Linux)"
 echo -e "===========================================\e[0m"
 
-# 1. Download and Extract (Testing Branch)
+# 1. Download and Extract (Branch)
 REPO_ZIP="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
+BRANCH_NAME=$(basename "$REPO_ZIP" .zip)
+echo -e "[*] Downloading components (\e[33m${BRANCH_NAME^^}\e[0m Branch)..."
 curl -L -o repo.zip "$REPO_ZIP"
 unzip -q -o repo.zip -d temp_extract
 INNER_DIR=$(find temp_extract -mindepth 1 -maxdepth 1 -type d | head -n 1)
@@ -32,7 +34,7 @@ PY_PATH=$(uv python find "$TARGET_VER" | tr -d '\r')
 # 5. Launch Setup
 if [ -f "$PY_PATH" ]; then
     echo -e "\e[32m[+] Launching Setup Logic...\e[0m"
-    "$PY_PATH" setup_logic.py --branch "testing"
+    "$PY_PATH" setup_logic.py --branch "main"
 else
     echo -e "\e[31m[-] ERROR: UV could not find Python $TARGET_VER.\e[0m"
     exit 1

@@ -5,12 +5,14 @@ Write-Host "==========================================" -ForegroundColor Green
 Write-Host "=== DaSiWa ComfyUI Installer (Windows) ===" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
-# 1. Download Testing Branch Components
+# 1. Download Branch Components
 $repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
 $zipFile = "repo.zip"
 $tempFolder = "temp_extract"
 
-Write-Host "[*] Downloading components (Testing Branch)..." -ForegroundColor Cyan
+$branchName = ($repoZip -split "heads/")[1] -replace ".zip", ""
+
+Write-Host "[*] Downloading components ($($branchName.ToUpper()) Branch)..." -ForegroundColor Cyan
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 Invoke-WebRequest -Uri $repoZip -OutFile $zipFile
 
@@ -53,7 +55,7 @@ $finalPyPath = (& uv python find $targetVer).Trim()
 # 4. Final Execution
 if (Test-Path $finalPyPath) {
     Write-Host "[+] Launching Setup Logic..." -ForegroundColor Green
-    & $finalPyPath "setup_logic.py" --branch "testing"
+    & $finalPyPath "setup_logic.py" --branch "main"
 } else {
     Write-Host "[-] ERROR: UV failed to provide Python $targetVer." -ForegroundColor Red
     Pause
