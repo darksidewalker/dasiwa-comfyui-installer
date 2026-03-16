@@ -47,7 +47,7 @@ If you need to manually add a package to the environment without breaking the in
 
 ## 📥 Installation
 
-### 🚀 The One-Click Way (Windows)
+### 🪟 The One-Click Way (Windows)
 1. Download **`install.bat`**.
 2. Double-click to run. The script will fetch the portable logic and start the setup.
 
