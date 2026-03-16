@@ -53,7 +53,7 @@ class Downloader:
         Logger.success("Migration Finished.")
 
     @staticmethod
-    def download(url, dest):
+    def download(url, dest, name="item"): # Added 'name' parameter
         # Ensure the folder exists before downloading
         dest.parent.mkdir(parents=True, exist_ok=True)
         
@@ -62,15 +62,17 @@ class Downloader:
         
         for i in range(retries):
             try:
-                Logger.log(f"Downloading {dest.name}...", "info")
+                # Use the 'name' variable for better logging
+                Logger.log(f"Downloading {name}...", "info")
                 urllib.request.urlretrieve(url, dest)
-                Logger.log(f"Successfully downloaded {dest.name}", "ok")
+                Logger.log(f"Successfully downloaded {name}", "ok")
                 return True
             except urllib.error.HTTPError as e:
                 if e.code == 429:
+                    # Added exponential backoff for 429 errors
                     Logger.log(f"Rate limited (429). Retrying in {delay}s... (Attempt {i+1}/{retries})", "warn")
                     time.sleep(delay)
-                    delay *= 2 # Wait longer each time
+                    delay *= 2 
                 else:
                     raise e
         return False

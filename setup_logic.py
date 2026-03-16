@@ -179,7 +179,10 @@ def main():
 
     # 5. Model Management
     if "optional_downloads" in config_data:
-        Downloader.show_cli_menu(config_data["optional_downloads"], comfy_path)
+        try:
+            Downloader.show_cli_menu(config_data["optional_downloads"], comfy_path)
+        except Exception as e:
+            Logger.error(f"Download menu encountered an error: {e}")
 
     # 6. Core Installation & Custom Nodes
     os.chdir(comfy_path)
