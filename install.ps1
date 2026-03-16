@@ -56,6 +56,8 @@ $finalPyPath = (& uv python find $targetVer).Trim()
 if (Test-Path $finalPyPath) {
     Write-Host "[+] Launching Setup Logic..." -ForegroundColor Green
     & $finalPyPath "setup_logic.py" --branch "main"
+
+    Read-Host -Prompt "Installation complete. Press Enter to exit"
 } else {
     Write-Host "[-] ERROR: UV failed to provide Python $targetVer." -ForegroundColor Red
     Pause
