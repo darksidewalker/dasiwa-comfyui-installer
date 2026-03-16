@@ -14,6 +14,7 @@ from utils.logger import Logger
 from utils.reporter import Reporter
 from utils.hardware import get_gpu_report
 from utils.task_nodes import task_custom_nodes
+from utils.downloader import Downloader
 
 # --- INITIALIZATION ---
 IS_WIN = platform.system() == "Windows"
@@ -149,36 +150,42 @@ def main():
     parser.add_argument("--branch", default="main", help="Installer branch")
     args = parser.parse_args()
 
+    # Initial system checks
     ensure_dependencies()
     hw = get_gpu_report(IS_WIN, Logger)
     
     # 1. Path Definition (Force Absolute)
+    # Using the absolute path logic to ensure stability during the os.chdir calls
     base_path = Path.cwd().absolute()
     comfy_path = base_path / "ComfyUI"
 
     # 2. Sync Repository
+    # Clones ComfyUI into the subdirectory if it doesn't exist
     if not comfy_path.exists():
         Logger.log(f"Cloning ComfyUI...", "info")
         run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
     # 3. Environment Setup
+    # Creates the venv and handles the requirements via UV
     Logger.log("Setting up Virtual Environment (UV)...", "info")
     run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_dir = get_venv_env(comfy_path)
 
     # 4. Change Working Directory
+    # Move into ComfyUI folder for requirements installation
     os.chdir(comfy_path)
 
     node_results = None 
     try:
-        # A. Install Core
+        # A. Install Core (PyTorch based on Hardware Report)
         install_torch(venv_env, hw)
         
+        # B. Install Requirements
         Logger.log("Installing ComfyUI requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
         
-        # B. Install Custom Nodes
-        # Use the constants from your config
+        # C. Install Custom Nodes
+        # Uses URLs and lists defined in config.json
         node_results = task_custom_nodes(
             venv_env, 
             NODES_LIST_URL, 
@@ -186,14 +193,27 @@ def main():
             run_cmd, 
             comfy_path
         )
+
+        # D. Optional Model Downloads
+        # Robust CLI selection from config.json without interrupting the flow
+        from utils.downloader import Downloader
+        if "optional_downloads" in CONFIG:
+            Downloader.show_cli_menu(CONFIG["optional_downloads"], comfy_path)
         
     except Exception as e:
         Logger.error(f"Installation failed: {e}")
 
     # 5. Finalize
+    # Creates the .bat or .sh launchers
     task_create_launchers(comfy_path, bin_dir)
+    
+    # Displays the final hardware and installation report
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_results)
     Logger.success("Process Finished! You can now run ComfyUI.")
+
+    # Prevent window from closing on Windows 11
+    print("\n" + "-"*40)
+    input("Press Enter to exit and close this terminal...")
 
 if __name__ == "__main__":
     main()

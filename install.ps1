@@ -5,16 +5,16 @@ Write-Host "==========================================" -ForegroundColor Green
 Write-Host "=== DaSiWa ComfyUI Installer (Windows) ===" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
-# 1. Download Branch Components
-$repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
-$zipFile = "repo.zip"
-$tempFolder = "temp_extract"
+# 1. Load config to get URL
+if (Test-Path "config.json") {
+    $config = Get-Content "config.json" -Raw | ConvertFrom-Json
+    $repoZip = $config.repository.zip_url
+} else {
+    $repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
+}
 
-$branchName = ($repoZip -split "heads/")[1] -replace ".zip", ""
-
-Write-Host "[*] Downloading components ($($branchName.ToUpper()) Branch)..." -ForegroundColor Cyan
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest -Uri $repoZip -OutFile $zipFile
+Write-Host "[*] Downloading components from Config..." -ForegroundColor Cyan
+Invoke-WebRequest -Uri $repoZip -OutFile "repo.zip"
 
 # 2. Extract and Sync
 if (Test-Path $tempFolder) { Remove-Item $tempFolder -Recurse -Force }

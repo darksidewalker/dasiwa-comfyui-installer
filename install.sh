@@ -6,10 +6,8 @@ echo -e "\e[32m==========================================="
 echo -e "    DaSiWa ComfyUI Installer (Linux)"
 echo -e "===========================================\e[0m"
 
-# 1. Download and Extract (Branch)
-REPO_ZIP="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
-BRANCH_NAME=$(basename "$REPO_ZIP" .zip)
-echo -e "[*] Downloading components (\e[33m${BRANCH_NAME^^}\e[0m Branch)..."
+REPO_ZIP=$(grep -oP '(?<="zip_url": ")[^"]*' config.json)
+echo -e "[*] Downloading components from Config..."
 curl -L -o repo.zip "$REPO_ZIP"
 unzip -q -o repo.zip -d temp_extract
 INNER_DIR=$(find temp_extract -mindepth 1 -maxdepth 1 -type d | head -n 1)
