@@ -2,6 +2,7 @@ import urllib.request
 import os
 import sys
 import shutil
+import time
 from pathlib import Path
 from utils.logger import Logger
 
@@ -52,29 +53,27 @@ class Downloader:
         Logger.success("Migration Finished.")
 
     @staticmethod
-    def download(url, dest_path, label):
-        """Standard download with parent directory creation."""
-        dest_path.parent.mkdir(parents=True, exist_ok=True)
-        Logger.log(f"Downloading {label}...", "info")
+    def download(url, dest):
+        # Ensure the folder exists before downloading
+        dest.parent.mkdir(parents=True, exist_ok=True)
         
-        def report(block_num, block_size, total_size):
-            read = block_num * block_size
-            if total_size > 0:
-                percent = min(100, read * 100 / total_size)
-                sys.stdout.write(f"\r    Progress: {percent:.1f}%")
-            else:
-                sys.stdout.write(f"\r    Downloaded: {read // 1024} KB")
-            sys.stdout.flush()
-
-        try:
-            urllib.request.urlretrieve(url, dest_path, reporthook=report)
-            print("") 
-            Logger.log(f"Successfully downloaded: {label}", "ok")
-            return True
-        except Exception as e:
-            print("")
-            Logger.error(f"Failed to download {label}: {e}")
-            return False
+        retries = 3
+        delay = 5 # seconds
+        
+        for i in range(retries):
+            try:
+                Logger.log(f"Downloading {dest.name}...", "info")
+                urllib.request.urlretrieve(url, dest)
+                Logger.log(f"Successfully downloaded {dest.name}", "ok")
+                return True
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    Logger.log(f"Rate limited (429). Retrying in {delay}s... (Attempt {i+1}/{retries})", "warn")
+                    time.sleep(delay)
+                    delay *= 2 # Wait longer each time
+                else:
+                    raise e
+        return False
 
     @staticmethod
     def show_cli_menu(config_downloads, comfy_path):
