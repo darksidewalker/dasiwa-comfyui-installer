@@ -146,74 +146,59 @@ if str(SCRIPT_ROOT) not in sys.path:
 def main():
     start_time = time.time()
     
-    # 1. Absolute Anchor (Crucial for ~/Downloads)
-    # This ensures we never create "home" folders by accident
-    BASE_DIR = Path(__file__).parent.absolute()
-    CONFIG_PATH = BASE_DIR / "config.json"
+    # 1. Define anchor paths at the very top to prevent NameErrors
+    CURRENT_RUN_DIR = Path.cwd().absolute()
+    CONFIG_PATH = CURRENT_RUN_DIR / "config.json"
 
+    # Handle arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--branch", default="main", help="Installer branch")
     args = parser.parse_args()
 
+    # Pre-flight checks
     ensure_dependencies()
     hw = get_gpu_report(IS_WIN, Logger)
-    
-    comfy_path = BASE_DIR / "ComfyUI"
 
-    # 2. Sync Repository
-    if not comfy_path.exists():
-        Logger.log(f"Cloning ComfyUI into {comfy_path}...", "info")
-        run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
-    
-    # 3. Environment Setup (IV handled) [cite: 2026-03-15]
-    Logger.log("Setting up Virtual Environment (UV)...", "info")
-    run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
-    venv_env, bin_dir = get_venv_env(comfy_path)
-
-    # 4. Pure Python Config Load (Replaces grep/curl)
+    # 2. Load Config with Absolute Path
     if not CONFIG_PATH.exists():
-        Logger.error(f"FATAL: config.json missing in {BASE_DIR}")
+        Logger.error(f"Critical Error: config.json not found at {CONFIG_PATH}")
         return
     
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         config_data = json.load(f)
 
-    # 5. Model/Workflow Management
-    from utils.downloader import Downloader
+    # 3. ComfyUI Repository Setup
+    comfy_path = CURRENT_RUN_DIR / "ComfyUI"
+    if not comfy_path.exists():
+        Logger.log(f"Cloning ComfyUI into {comfy_path}...", "info")
+        run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
-    # We run the Downloader BEFORE we chdir to keep paths clean
+    # 4. Environment Setup
+    Logger.log("Setting up Virtual Environment (UV)...", "info")
+    # Using 'uv' to manage the venv and requirements
+    run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
+    venv_env, bin_dir = get_venv_env(comfy_path)
+
+    # 5. Model/Workflow Management
+    # We run the Downloader before changing directories to keep paths relative to root
     if "optional_downloads" in config_data:
-        # Pass comfy_path so it knows where to build the model tree
         Downloader.show_cli_menu(config_data["optional_downloads"], comfy_path)
 
-    # 6. Change Working Directory ONLY for requirements
+    # 6. Core Installation & Custom Nodes
+    # Move into ComfyUI folder to run pip and git commands locally
     os.chdir(comfy_path)
+    node_stats = None 
 
-    node_results = None 
     try:
-        # A. Install Core
+        # A. Install Hardware-specific Torch
         install_torch(venv_env, hw)
         
-        # B. Install Requirements
-        Logger.log("Installing ComfyUI requirements...", "info")
+        # B. Install Base Requirements
+        Logger.log("Installing core ComfyUI requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
         
-        # C. Install Custom Nodes
-        node_results = task_custom_nodes(venv_env, NODES_LIST_URL, NODES_LIST_FILE, run_cmd, comfy_path)
-
-    except Exception as e:
-        Logger.error(f"Installation failed: {e}")
-
-    # 7. Final Install Context
-    os.chdir(comfy_path)
-    node_stats = None # Initialize stats for the reporter
-    try:
-        install_torch(venv_env, hw)
-        Logger.log("Installing core requirements...", "info")
-        run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
-
+        # C. Synchronize Custom Nodes
         Logger.log("Synchronizing Custom Nodes...", "info")
-        # Passing venv_env so it uses the 'uv' environment handled by IV [cite: 2026-03-15]
         node_stats = task_custom_nodes(
             venv_env, 
             NODES_LIST_URL, 
@@ -223,14 +208,16 @@ def main():
         )
 
     except Exception as e:
-        Logger.error(f"Install failed: {e}")
+        Logger.error(f"Installation process failed: {e}")
 
-    # 8. Finalize
+    # 7. Finalize & Cleanup
+    # Crucial: Return to the original directory so launchers are created in the right spot
     os.chdir(CURRENT_RUN_DIR)
+    
     task_create_launchers(comfy_path, bin_dir)
     
-    # Pass the node_stats to the reporter so they show up in the summary
+    # Provide the final report using the collected stats
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_stats)
-
-if __name__ == "__main__":
-    main()
+    
+    Logger.success("Process Finished!")
+    input("\nPress Enter to exit...")
