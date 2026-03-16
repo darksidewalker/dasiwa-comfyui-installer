@@ -20,8 +20,7 @@
         "git_windows": "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/Git-2.53.0-64-bit.exe"
     },
     "optional_downloads": [
-        {"name": "SDXL Base", "type": "unet", "url": "https://url.com/sdxl.safetensors", "file": "sdxl_base.safetensors"},
-        {"name": "SDXL VAE", "type": "vae", "url": "https://url.com/vae.safetensors", "file": "sdxl_vae.safetensors"},
-        {"name": "T5 Encoder", "type": "text_encoders", "url": "https://url.com/t5.safetensors", "file": "t5_long.safetensors"}
+        {"name": "WAN 2.1 VAE", "type": "vae/WAN", "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/blob/main/split_files/vae/wan_2.1_vae.safetensors", "file": "wan_2.1_vae.safetensors"},
+        {"name": "T5 Encoder", "type": "text_encoders", "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors", "file": "umt5_xxl_fp8_e4m3fn_scaled.safetensors"}
     ]
 }
