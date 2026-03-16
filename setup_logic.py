@@ -146,46 +146,48 @@ if str(SCRIPT_ROOT) not in sys.path:
 def main():
     start_time = time.time()
     
+    # 1. Path Definition (Lock these BEFORE any chdir)
+    # This ensures we don't lose the config when we move folders
+    root_path = Path.cwd().absolute()
+    config_path = root_path / "config.json"
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--branch", default="main", help="Installer branch")
     args = parser.parse_args()
 
-    # Initial system checks
     ensure_dependencies()
     hw = get_gpu_report(IS_WIN, Logger)
     
-    # 1. Path Definition (Force Absolute)
-    # Using the absolute path logic to ensure stability during the os.chdir calls
-    base_path = Path.cwd().absolute()
-    comfy_path = base_path / "ComfyUI"
+    comfy_path = root_path / "ComfyUI"
 
     # 2. Sync Repository
-    # Clones ComfyUI into the subdirectory if it doesn't exist
     if not comfy_path.exists():
         Logger.log(f"Cloning ComfyUI...", "info")
         run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
-    # 3. Environment Setup
-    # Creates the venv and handles the requirements via UV
+    # 3. Environment Setup (IV logic) [cite: 2026-03-15]
     Logger.log("Setting up Virtual Environment (UV)...", "info")
     run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_dir = get_venv_env(comfy_path)
 
-    # 4. Change Working Directory
-    # Move into ComfyUI folder for requirements installation
+    # 4. Load Config early using the absolute path
+    if not config_path.exists():
+        Logger.error(f"Critical Error: config.json not found at {config_path}")
+        return
+
+    # 5. Change Working Directory to install requirements
     os.chdir(comfy_path)
 
     node_results = None 
     try:
-        # A. Install Core (PyTorch based on Hardware Report)
+        # A. Install Core
         install_torch(venv_env, hw)
         
-        # B. Install Requirements
+        # B. Install Requirements [cite: 2026-03-15]
         Logger.log("Installing ComfyUI requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
         
         # C. Install Custom Nodes
-        # Uses URLs and lists defined in config.json
         node_results = task_custom_nodes(
             venv_env, 
             NODES_LIST_URL, 
@@ -194,26 +196,25 @@ def main():
             comfy_path
         )
 
-        # D. Optional Model Downloads
-        # Robust CLI selection from config.json without interrupting the flow
+        # D. Migration & Downloads (Using the locked config_path)
         from utils.downloader import Downloader
-        if "optional_downloads" in CONFIG:
-            Downloader.show_cli_menu(CONFIG["optional_downloads"], comfy_path)
+        import json
+        with open(config_path, 'r') as f:
+            full_config = json.load(f)
+            
+        if "optional_downloads" in full_config:
+            Downloader.show_cli_menu(full_config["optional_downloads"], comfy_path)
         
     except Exception as e:
         Logger.error(f"Installation failed: {e}")
 
-    # 5. Finalize
-    # Creates the .bat or .sh launchers
+    # 6. Finalize
     task_create_launchers(comfy_path, bin_dir)
-    
-    # Displays the final hardware and installation report
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_results)
-    Logger.success("Process Finished! You can now run ComfyUI.")
-
-    # Prevent window from closing on Windows 11
-    print("\n" + "-"*40)
-    input("Press Enter to exit and close this terminal...")
+    
+    Logger.success("Process Finished!")
+    print("\n" + "-"*50)
+    input("Press Enter to close this window...")
 
 if __name__ == "__main__":
     main()
