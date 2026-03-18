@@ -206,9 +206,14 @@ def main():
             comfy_path
         )
 
-        # D. FINAL STEP: Install Priority Packages
-        Logger.log("Ensuring Priority Packages (Manager & version locks)...", "info")
-        run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
+        # D. FINAL STEP: Install Priority Packages (The "Enforcer" step)
+        Logger.log("Ensuring Priority Packages & Fixing Dependencies...", "info")
+        
+        run_cmd([
+            "uv", "pip", "install", 
+            "--upgrade", 
+            "--force-reinstall"
+        ] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:
         Logger.error(f"Installation failed: {e}")
