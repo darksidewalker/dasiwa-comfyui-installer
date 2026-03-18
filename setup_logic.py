@@ -47,7 +47,7 @@ PRIORITY_PACKAGES = [
     "comfyui-manager",
     "requests==2.32.3",
     "urllib3>=1.26.0,<2.0.0",
-    "charset-normalizer>=2.0.0,<3.0.0"
+    "charset-normalizer>=3.0.0,<4.0.0"
 ]
 
 # --- COMMAND WRAPPERS ---
@@ -214,8 +214,7 @@ def main():
         
         run_cmd([
             "uv", "pip", "install", 
-            "--upgrade", 
-            "--force-reinstall"
+            "--upgrade"
         ] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:
