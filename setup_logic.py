@@ -45,6 +45,9 @@ PRIORITY_PACKAGES = [
     "pillow>=11.0.0", 
     "pydantic>=2.12.5",
     "comfyui-manager",
+    "requests==2.32.3",
+    "urllib3>=1.26.0,<2.0.0",
+    "charset-normalizer>=3.0.0,<4.0.0",
 ]
 
 # --- COMMAND WRAPPERS ---
