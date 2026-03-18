@@ -43,11 +43,7 @@ PRIORITY_PACKAGES = [
     "torchaudio",
     "numpy>=2.1.0,<=2.3.0", 
     "pillow>=11.0.0", 
-    "pydantic>=2.12.5",
-    "comfyui-manager",
-    "requests==2.32.3",
-    "urllib3>=1.26.0,<2.0.0",
-    "charset-normalizer>=3.0.0,<4.0.0"
+    "pydantic>=2.12.5"
 ]
 
 # --- COMMAND WRAPPERS ---
@@ -195,9 +191,10 @@ def main():
         # A. Hardware-specific Torch (Must be first)
         install_torch(venv_env, hw)
         
-        # B. ComfyUI Core requirements
+        # B. ComfyUI Core requirements and manager
         Logger.log("Installing core requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
+        run_cmd(["uv", "pip", "install", "-r", "manager_requirements.txt"], env=venv_env)
 
         # C. Custom Node synchronization
         Logger.log("Synchronizing Custom Nodes and their dependencies...", "info")
@@ -211,7 +208,7 @@ def main():
 
         # D. FINAL STEP: Install Priority Packages (The "Enforcer" step)
         Logger.log("Ensuring Priority Packages & Fixing Dependencies...", "info")
-        
+
         run_cmd([
             "uv", "pip", "install", 
             "--upgrade"
