@@ -1,9 +1,13 @@
 #!/bin/bash
-# --- install.sh (Robust Bootstrapper) ---
+# --- install.sh (Robust Web-Ready Bootstrapper) ---
 
 # 1. Absolute Anchor
-# Ensures we don't create "home" folders in ~/Downloads
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+# If running as a file, use its directory. If piped via curl, use the current directory.
+if [ -n "${BASH_SOURCE[0]}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+else
+    SCRIPT_DIR="$PWD"
+fi
 cd "$SCRIPT_DIR"
 
 echo -e "\e[32m==========================================="
@@ -11,14 +15,13 @@ echo -e "    DaSiWa ComfyUI Installer (Linux)"
 echo -e "===========================================\e[0m"
 
 # 2. Define URLs and Paths
-# We hardcode the fallback URL since config.json might not exist on first run
+# Fallback URL used if config.json isn't present yet
 REPO_ZIP_URL="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
 ZIP_FILE="$SCRIPT_DIR/repo.zip"
 TEMP_DIR="$SCRIPT_DIR/temp_extract"
 
 # Check if config exists to override the URL
 if [ -f "config.json" ]; then
-    # Try to extract the zip_url using a simple python one-liner (more robust than grep)
     CONF_URL=$(python3 -c "import json; print(json.load(open('config.json'))['repository']['zip_url'])" 2>/dev/null)
     if [ -n "$CONF_URL" ]; then REPO_ZIP_URL="$CONF_URL"; fi
 fi
@@ -40,10 +43,9 @@ INNER_DIR=$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)
 if [ -n "$INNER_DIR" ]; then
     echo "[*] Syncing files to $SCRIPT_DIR..."
     # Copying content of INNER_DIR to SCRIPT_DIR
-    # Using 'cp' with a dot slash avoids the "copying into itself" error
     cp -af "$INNER_DIR"/. "$SCRIPT_DIR/"
     
-    # Cleanup download artifacts
+    # Cleanup download artifacts so the next run is fresh 
     rm -rf "$ZIP_FILE" "$TEMP_DIR"
 else
     echo -e "\e[31m[-] ERROR: Extraction failed. Is the ZIP corrupted?\e[0m"
@@ -58,7 +60,7 @@ if ! command -v uv &> /dev/null; then
     source "$HOME/.cargo/env" 2>/dev/null || export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
-# Now that sync is done, config.json is guaranteed to exist
+# Use Python to read config or fallback to 3.12
 TARGET_VER=$(python3 -c "import json; print(json.load(open('config.json'))['python']['display_name'])" 2>/dev/null || echo "3.12")
 
 echo "[*] Ensuring Portable Python $TARGET_VER via UV..."

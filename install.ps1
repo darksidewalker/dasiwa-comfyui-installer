@@ -1,86 +1,88 @@
-# --- install.ps1 (Improved Bootstrapper) ---
-# Anchor the execution to the folder where this script actually sits
-Set-Location $PSScriptRoot
+# --- install.ps1 (Web-Ready Bootstrapper) ---
+
+# 1. Handle Execution Environment
+$BaseDir = if ($null -ne $PSScriptRoot -and $PSScriptRoot -ne "") { $PSScriptRoot } else { Get-Location }
+[cite_start]Set-Location $BaseDir [cite: 2]
 
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host "=== DaSiWa ComfyUI Installer (Windows) ===" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
-# 1. Define Paths and Constants
-$zipFile = Join-Path $PSScriptRoot "repo.zip"
-$tempFolder = Join-Path $PSScriptRoot "temp_extract"
-$configPath = Join-Path $PSScriptRoot "config.json"
+# 2. Define Paths and Constants using $BaseDir
+[cite_start]$zipFile = Join-Path $BaseDir "repo.zip" [cite: 2]
+[cite_start]$tempFolder = Join-Path $BaseDir "temp_extract" [cite: 2]
+[cite_start]$configPath = Join-Path $BaseDir "config.json" [cite: 2]
 
-# Revert logic: If config exists, use it. Otherwise, use hardcoded fallback.
+# Revert logic: If config exists, use it. Otherwise, use hardcoded fallback. 
 if (Test-Path $configPath) {
     try {
-        $config = Get-Content $configPath -Raw | ConvertFrom-Json
-        $repoZip = $config.repository.zip_url
+        $config = Get-Content $configPath -Raw | [cite_start]ConvertFrom-Json [cite: 2]
+        [cite_start]$repoZip = $config.repository.zip_url [cite: 2]
     } catch {
-        $repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
+        [cite_start]$repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip" [cite: 2]
     }
 } else {
-    $repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
+    [cite_start]$repoZip = "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip" [cite: 2]
 }
 
-# 2. Download and Extract
+# 3. Download and Extract
 Write-Host "[*] Downloading installer components..." -ForegroundColor Cyan
 try {
-    Invoke-WebRequest -Uri $repoZip -OutFile $zipFile -ErrorAction Stop
+    [cite_start]Invoke-WebRequest -Uri $repoZip -OutFile $zipFile -ErrorAction Stop [cite: 2]
 } catch {
     Write-Host "[-] FATAL: Could not download installer. Check your internet." -ForegroundColor Red
     Pause; exit
 }
 
-# Clean temp extract folder if it exists from a failed previous run
-if (Test-Path $tempFolder) { Remove-Item $tempFolder -Recurse -Force }
+# Clean temp extract folder if it exists from a failed previous run 
+[cite_start]if (Test-Path $tempFolder) { Remove-Item $tempFolder -Recurse -Force } [cite: 2]
 
 Write-Host "[*] Extracting..." -ForegroundColor Gray
-Expand-Archive -Path $zipFile -DestinationPath $tempFolder -Force
+[cite_start]Expand-Archive -Path $zipFile -DestinationPath $tempFolder -Force [cite: 2]
 
-# GitHub Zips contain an inner folder (repo-name-branch). Find it.
-$innerFolder = Get-ChildItem -Path $tempFolder | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+# GitHub Zips contain an inner folder (repo-name-branch). Find it. 
+$innerFolder = Get-ChildItem -Path $tempFolder | Where-Object { $_.PSIsContainer } | [cite_start]Select-Object -First 1 [cite: 2]
 
 if ($null -ne $innerFolder) {
     Write-Host "[*] Syncing files to root..." -ForegroundColor Gray
     Get-ChildItem -Path $innerFolder.FullName | ForEach-Object {
-        $target = Join-Path $PSScriptRoot $_.Name
+        [cite_start]$target = Join-Path $BaseDir $_.Name [cite: 2]
         
-        # Avoid deleting the currently running script to prevent lock errors
+        # Avoid deleting the currently running script (if it exists locally) 
         if ($_.Name -ne "install.ps1" -and $_.Name -ne "install.bat") {
-            if (Test-Path $target) { Remove-Item $target -Recurse -Force }
-            Move-Item -Path $_.FullName -Destination $PSScriptRoot -Force
+            [cite_start]if (Test-Path $target) { Remove-Item $target -Recurse -Force } [cite: 2]
+            [cite_start]Move-Item -Path $_.FullName -Destination $BaseDir -Force [cite: 2]
         }
     }
 }
 
-# Cleanup zip and temp folder
-Remove-Item $zipFile, $tempFolder -Recurse -Force
+# Cleanup zip and temp folder 
+[cite_start]Remove-Item $zipFile, $tempFolder -Recurse -Force [cite: 2]
 
-# 3. UV & Portable Python Acquisition
+# 4. UV & Portable Python Acquisition
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "[*] Installing UV (Standalone)..." -ForegroundColor Cyan
-    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-    # Force update the path for the current session
-    $env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin"
+    [cite_start]powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex" [cite: 2]
+    # Force update the path for the current session 
+    [cite_start]$env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin" [cite: 2]
 }
 
-# Now that we have synced files, config.json definitely exists
-$config = Get-Content $configPath -Raw | ConvertFrom-Json
-$targetVer = $config.python.display_name
+# Now that we have synced files, config.json definitely exists 
+$config = Get-Content $configPath -Raw | [cite_start]ConvertFrom-Json [cite: 2]
+[cite_start]$targetVer = $config.python.display_name [cite: 2]
 
-if (-not $targetVer) { $targetVer = "3.12" } # Safety fallback
+[cite_start]if (-not $targetVer) { $targetVer = "3.12" } # Safety fallback 
 
 Write-Host "[*] Ensuring Portable Python $targetVer via UV..." -ForegroundColor Cyan
-& uv python install $targetVer
-$finalPyPath = (& uv python find $targetVer).Trim()
+[cite_start]& uv python install $targetVer [cite: 2]
+[cite_start]$finalPyPath = (& uv python find $targetVer).Trim() [cite: 2]
 
-# 4. Final Execution
+# 5. Final Execution
 if (Test-Path $finalPyPath) {
     Write-Host "[+] Launching Setup Logic..." -ForegroundColor Green
-    # Running setup_logic.py inside the absolute BASE_DIR
-    & $finalPyPath "setup_logic.py" --branch "main"
+    # Running setup_logic.py inside the absolute BASE_DIR 
+    [cite_start]& $finalPyPath "setup_logic.py" --branch "main" [cite: 2]
 } else {
     Write-Host "[-] ERROR: UV could not locate Python $targetVer." -ForegroundColor Red
-    Pause
+    [cite_start]Pause [cite: 2]
 }

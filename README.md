@@ -47,21 +47,27 @@ If you need to manually add a package to the environment without breaking the in
 
 ## 📥 Installation
 
-### 🪟 The One-Click Way (Windows)
-1. Download **`install.bat`**.
-2. Double-click to run. The script will fetch the portable logic and start the setup.
+To install DaSiWa ComfyUI, open your terminal (PowerShell for Windows, Bash for Linux) in the folder where you want the files to live and run the corresponding command:
 
-### 🐧 The Linux Way
-```bash
-chmod +x install.sh && ./install.sh
+### Windows (PowerShell)
+PowerShell
 ```
-🛠️ Prerequisites
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.ps1 | iex"
+```
+
+### Linux (Bash)
+Bash
+```
+curl -LsSf https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.sh | bash
+```
+
+## 🛠️ Prerequisites
 
 * GPU: An NVIDIA (GTX 10-series+), AMD, or Intel GPU.
 * Git: Strictly required for cloning ComfyUI and managing Node updates.
 * Internet: ~2GB of space and an active connection for the initial setup.
 
-⚖️ Disclaimer
+## ⚖️ Disclaimer
 
 * As-Is: Provided as a community tool without official warranty.
 * Hardware: AI generation is resource-intensive. Ensure adequate cooling.
