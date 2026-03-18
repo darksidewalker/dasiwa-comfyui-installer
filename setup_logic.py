@@ -189,7 +189,7 @@ def main():
     os.chdir(comfy_path)
     node_stats = None 
     try:
-        # A. Hardware-specific Torch
+        # A. Hardware-specific Torch (Must be first)
         install_torch(venv_env, hw)
         
         # B. ComfyUI Core requirements
@@ -197,7 +197,7 @@ def main():
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
 
         # C. Custom Node synchronization
-        Logger.log("Synchronizing Custom Nodes...", "info")
+        Logger.log("Synchronizing Custom Nodes and their dependencies...", "info")
         node_stats = task_custom_nodes(
             venv_env, 
             NODES_LIST_URL, 
@@ -205,6 +205,11 @@ def main():
             run_cmd, 
             comfy_path
         )
+
+        # D. FINAL STEP: Install Priority Packages
+        Logger.log("Ensuring Priority Packages (Manager & version locks)...", "info")
+        run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
+
     except Exception as e:
         Logger.error(f"Installation failed: {e}")
 
