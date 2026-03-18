@@ -47,7 +47,7 @@ If you need to manually add a package to the environment without breaking the in
 
 ## 📥 Installation
 
-To install DaSiWa ComfyUI, open your terminal (PowerShell for Windows, Bash for Linux) in the folder where you want the files to live and run the corresponding command:
+To install, open your terminal (PowerShell for Windows, Bash for Linux) in the folder where you want the files to live and run the corresponding command:
 
 ### Windows (PowerShell)
 PowerShell
