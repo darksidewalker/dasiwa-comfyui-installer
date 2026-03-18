@@ -16,16 +16,16 @@ from utils.hardware import get_gpu_report
 from utils.task_nodes import task_custom_nodes
 from utils.downloader import Downloader
 
-# --- INITIALIZATION ---
 IS_WIN = platform.system() == "Windows"
 Logger.init()
 
 def load_config():
+    config_file = Path.cwd() / "config.json"
     try:
-        with open("config.json", "r") as f:
+        with open(config_file, "r", encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        Logger.error(f"Failed to load config.json: {e}")
+        Logger.error(f"Failed to load config.json at {config_file}: {e}")
         sys.exit(1)
 
 CONFIG = load_config()
@@ -146,7 +146,7 @@ if str(SCRIPT_ROOT) not in sys.path:
 def main():
     start_time = time.time()
     
-    # 1. Define anchor paths at the absolute top
+    # 1. Define anchor paths
     CURRENT_RUN_DIR = Path.cwd().absolute()
     CONFIG_PATH = CURRENT_RUN_DIR / "config.json"
 
@@ -169,8 +169,8 @@ def main():
     # 3. ComfyUI Setup
     comfy_path = CURRENT_RUN_DIR / "ComfyUI"
     if not comfy_path.exists():
-        Logger.log(f"Cloning ComfyUI...", "info")
-        run_cmd(["git", "clone", "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
+        Logger.log(f"Cloning ComfyUI ({args.branch})...", "info")
+        run_cmd(["git", "clone", "-b", args.branch, "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
     
     # 4. Environment
     Logger.log("Setting up Virtual Environment (UV)...", "info")
@@ -204,7 +204,6 @@ def main():
             run_cmd, 
             comfy_path
         )
-
     except Exception as e:
         Logger.error(f"Installation failed: {e}")
 
@@ -212,11 +211,11 @@ def main():
     os.chdir(CURRENT_RUN_DIR)
     task_create_launchers(comfy_path, bin_dir)
     
-    # Pass node_stats to the reporter for the final summary
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_stats)
     
     Logger.success("Process Finished!")
-    input("\nPress Enter to exit...")
+    
+    Downloader.get_input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
     main()

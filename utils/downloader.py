@@ -32,7 +32,8 @@ class Downloader:
         for item in old_models_root.iterdir():
             if item.is_symlink(): continue
             if item.is_dir():
-                for file_item in item.rglob("*"):
+                # Using list() to avoid issues if the directory content changes during iteration
+                for file_item in list(item.rglob("*")):
                     if file_item.is_dir() or file_item.is_symlink(): continue
                         
                     relative_path = file_item.relative_to(old_models_root)
@@ -44,38 +45,60 @@ class Downloader:
                             Logger.log(f" Moving: {relative_path}", "info")
                             shutil.move(str(file_item), str(new_file_path))
                             try:
+                                # Create symlink back to original location so old install still "works"
                                 os.symlink(new_file_path, file_item)
                             except OSError:
-                                Logger.log(f" [!] Link-back failed (No Admin).", "warn")
+                                Logger.log(f" [!] Link-back failed (Requires Admin/Privileges).", "warn")
                         except Exception as e:
                             Logger.error(f" [!] Error moving {relative_path}: {e}")
             
         Logger.success("Migration Finished.")
 
     @staticmethod
-    def download(url, dest, name="item"): # Added 'name' parameter
+    def download(url, dest, name="item"):
         # Ensure the folder exists before downloading
         dest.parent.mkdir(parents=True, exist_ok=True)
         
         retries = 3
-        delay = 5 # seconds
+        delay = 5 
         
         for i in range(retries):
             try:
-                # Use the 'name' variable for better logging
                 Logger.log(f"Downloading {name}...", "info")
+                # Add a User-Agent to avoid being blocked by some servers
+                opener = urllib.request.build_opener()
+                opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+                urllib.request.install_opener(opener)
+                
                 urllib.request.urlretrieve(url, dest)
                 Logger.log(f"Successfully downloaded {name}", "ok")
                 return True
             except urllib.error.HTTPError as e:
                 if e.code == 429:
-                    # Added exponential backoff for 429 errors
                     Logger.log(f"Rate limited (429). Retrying in {delay}s... (Attempt {i+1}/{retries})", "warn")
                     time.sleep(delay)
                     delay *= 2 
                 else:
-                    raise e
+                    Logger.error(f"HTTP Error {e.code} for {name}: {e.reason}")
+                    break 
+            except Exception as e:
+                Logger.error(f"Download failed for {name}: {e}")
+                time.sleep(1)
         return False
+
+    @staticmethod
+    def get_input(prompt):
+        """Robust input handler that manages EOF errors from piped execution."""
+        try:
+            # On Linux/macOS, try to read directly from the terminal if stdin is a pipe
+            if sys.platform != "win32" and not sys.stdin.isatty():
+                with open('/dev/tty', 'r') as tty:
+                    print(prompt, end='', flush=True)
+                    return tty.readline().strip()
+            
+            return input(prompt).strip()
+        except EOFError:
+            return "" # Return empty to trigger default behavior/skip
 
     @staticmethod
     def show_cli_menu(config_downloads, comfy_path):
@@ -85,7 +108,6 @@ class Downloader:
         
         to_download = []
         for i, item in enumerate(config_downloads):
-            # Check if it's a model or a generic file to determine search root
             search_root = Path(comfy_path) / "models" if "models" in item['type'] else Path(comfy_path)
             
             exists = Downloader.file_exists_recursive(search_root, item['file'])
@@ -101,10 +123,14 @@ class Downloader:
         print("  > [Enter]   : Skip / Continue setup")
         print("—"*55)
         
-        choice = input("Enter choice: ").strip().lower()
+        choice = Downloader.get_input("Enter choice: ").lower()
+
+        if not choice:
+            Logger.log("Skipping component selection.", "info")
+            return
 
         if choice == 'm':
-            old_path = input("\nPaste path to OLD ComfyUI root: ").strip().replace('"', '')
+            old_path = Downloader.get_input("\nPaste path to OLD ComfyUI root: ").replace('"', '')
             if old_path:
                 Downloader.migrate_models(old_path, comfy_path)
             return
@@ -112,18 +138,18 @@ class Downloader:
         selected = to_download if choice == 'all' else []
         if choice and choice != 'all':
             try:
-                indices = [int(x.strip()) - 1 for x in choice.split(',')]
+                # Support comma-separated or space-separated numbers
+                raw_indices = choice.replace(',', ' ').split()
+                indices = [int(x) - 1 for x in raw_indices]
                 for idx in indices:
                     if 0 <= idx < len(config_downloads):
                         item = config_downloads[idx]
-                        # Final check
                         search_root = Path(comfy_path) / "models" if "models" in item['type'] else Path(comfy_path)
                         if not Downloader.file_exists_recursive(search_root, item['file']):
                             selected.append(item)
-            except: pass
+            except ValueError:
+                Logger.error("Invalid selection. Please use numbers (e.g., 1, 2).")
 
         for item in selected:
-            # Flexible pathing: If type starts with 'models', it goes there. 
-            # Otherwise, it's relative to the ComfyUI root.
             dest = Path(comfy_path) / item['type'] / item['file']
             Downloader.download(item['url'], dest, item['name'])

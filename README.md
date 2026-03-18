@@ -52,13 +52,13 @@ To install, open your terminal (PowerShell for Windows, Bash for Linux) in the f
 ### Windows (PowerShell)
 PowerShell
 ```
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -Command "iex (irm 'https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.ps1')"
 ```
 
 ### Linux (Bash)
 Bash
 ```
-curl -LsSf https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.sh | bash
+bash <(curl -sSf https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.sh)
 ```
 
 ## 🛠️ Prerequisites
