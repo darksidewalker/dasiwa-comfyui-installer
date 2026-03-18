@@ -1,6 +1,7 @@
 # --- install.ps1 (Web-Ready Bootstrapper) ---
 
 # 1. Handle Execution Environment
+# When running via 'iex', $PSScriptRoot is null. Fallback to current directory ($PWD).
 $BaseDir = if ($null -ne $PSScriptRoot -and $PSScriptRoot -ne "") { $PSScriptRoot } else { Get-Location }
 [cite_start]Set-Location $BaseDir [cite: 2]
 
@@ -13,7 +14,7 @@ Write-Host "==========================================" -ForegroundColor Green
 [cite_start]$tempFolder = Join-Path $BaseDir "temp_extract" [cite: 2]
 [cite_start]$configPath = Join-Path $BaseDir "config.json" [cite: 2]
 
-# Revert logic: If config exists, use it. Otherwise, use hardcoded fallback. 
+# Logic: If config exists, use its zip_url. Otherwise, use hardcoded fallback.
 if (Test-Path $configPath) {
     try {
         $config = Get-Content $configPath -Raw | [cite_start]ConvertFrom-Json [cite: 2]
@@ -34,21 +35,17 @@ try {
     Pause; exit
 }
 
-# Clean temp extract folder if it exists from a failed previous run 
 [cite_start]if (Test-Path $tempFolder) { Remove-Item $tempFolder -Recurse -Force } [cite: 2]
 
 Write-Host "[*] Extracting..." -ForegroundColor Gray
 [cite_start]Expand-Archive -Path $zipFile -DestinationPath $tempFolder -Force [cite: 2]
 
-# GitHub Zips contain an inner folder (repo-name-branch). Find it. 
 $innerFolder = Get-ChildItem -Path $tempFolder | Where-Object { $_.PSIsContainer } | [cite_start]Select-Object -First 1 [cite: 2]
 
 if ($null -ne $innerFolder) {
     Write-Host "[*] Syncing files to root..." -ForegroundColor Gray
     Get-ChildItem -Path $innerFolder.FullName | ForEach-Object {
         [cite_start]$target = Join-Path $BaseDir $_.Name [cite: 2]
-        
-        # Avoid deleting the currently running script (if it exists locally) 
         if ($_.Name -ne "install.ps1" -and $_.Name -ne "install.bat") {
             [cite_start]if (Test-Path $target) { Remove-Item $target -Recurse -Force } [cite: 2]
             [cite_start]Move-Item -Path $_.FullName -Destination $BaseDir -Force [cite: 2]
@@ -56,22 +53,18 @@ if ($null -ne $innerFolder) {
     }
 }
 
-# Cleanup zip and temp folder 
 [cite_start]Remove-Item $zipFile, $tempFolder -Recurse -Force [cite: 2]
 
 # 4. UV & Portable Python Acquisition
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "[*] Installing UV (Standalone)..." -ForegroundColor Cyan
     [cite_start]powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex" [cite: 2]
-    # Force update the path for the current session 
     [cite_start]$env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin" [cite: 2]
 }
 
-# Now that we have synced files, config.json definitely exists 
 $config = Get-Content $configPath -Raw | [cite_start]ConvertFrom-Json [cite: 2]
 [cite_start]$targetVer = $config.python.display_name [cite: 2]
-
-[cite_start]if (-not $targetVer) { $targetVer = "3.12" } # Safety fallback 
+if (-not $targetVer) { $targetVer = "3.12" } 
 
 Write-Host "[*] Ensuring Portable Python $targetVer via UV..." -ForegroundColor Cyan
 [cite_start]& uv python install $targetVer [cite: 2]
@@ -80,8 +73,8 @@ Write-Host "[*] Ensuring Portable Python $targetVer via UV..." -ForegroundColor 
 # 5. Final Execution
 if (Test-Path $finalPyPath) {
     Write-Host "[+] Launching Setup Logic..." -ForegroundColor Green
-    # Running setup_logic.py inside the absolute BASE_DIR 
-    [cite_start]& $finalPyPath "setup_logic.py" --branch "main" [cite: 2]
+    # FIXED: Changed branch from "main" to "master" to match the official ComfyUI repo
+    & $finalPyPath "setup_logic.py" --branch "master"
 } else {
     Write-Host "[-] ERROR: UV could not locate Python $targetVer." -ForegroundColor Red
     [cite_start]Pause [cite: 2]

@@ -8,11 +8,49 @@ from utils.logger import Logger
 
 class Downloader:
     @staticmethod
+    def get_input(prompt):
+        """
+        Robust input handler. 
+        If stdin is being used by a pipe (like curl | bash), it re-opens the 
+        terminal device (/dev/tty) to allow interactive user input.
+        """
+        try:
+            # Check if we are piped (not a TTY)
+            if not sys.stdin.isatty():
+                if os.name != 'nt': # Linux / macOS
+                    try:
+                        with open('/dev/tty', 'r') as tty:
+                            print(prompt, end='', flush=True)
+                            return tty.readline().strip()
+                    except:
+                        return "" # Fallback if /dev/tty is unavailable
+            
+            # Normal terminal behavior or Windows
+            return input(prompt).strip()
+        except (EOFError, KeyboardInterrupt):
+            return ""
+
+    @staticmethod
     def file_exists_recursive(base_path, filename):
         """Checks if a file exists anywhere in the directory subtree."""
         if not os.path.exists(base_path):
             return False
         return any(Path(base_path).rglob(filename))
+
+    @staticmethod
+    def download(url, dest, name):
+        """Downloads a file to a destination with progress logging."""
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists():
+            Logger.log(f" {name} already exists. Skipping.", "ok")
+            return
+            
+        Logger.log(f" Downloading {name}...", "info")
+        try:
+            urllib.request.urlretrieve(url, dest)
+            Logger.log(f" [DONE] {name}", "ok")
+        except Exception as e:
+            Logger.error(f" Failed to download {name}: {e}")
 
     @staticmethod
     def migrate_models(old_comfy_path, new_comfy_path):
@@ -29,10 +67,10 @@ class Downloader:
 
         Logger.log(f"Starting migration from {old_models_root}...", "info")
         
-        for item in old_models_root.iterdir():
+        # Using list() to prevent issues if directory content changes during iteration
+        for item in list(old_models_root.iterdir()):
             if item.is_symlink(): continue
             if item.is_dir():
-                # Using list() to avoid issues if the directory content changes during iteration
                 for file_item in list(item.rglob("*")):
                     if file_item.is_dir() or file_item.is_symlink(): continue
                         
@@ -45,7 +83,7 @@ class Downloader:
                             Logger.log(f" Moving: {relative_path}", "info")
                             shutil.move(str(file_item), str(new_file_path))
                             try:
-                                # Create symlink back to original location so old install still "works"
+                                # Create symlink back so old install remains functional
                                 os.symlink(new_file_path, file_item)
                             except OSError:
                                 Logger.log(f" [!] Link-back failed (Requires Admin/Privileges).", "warn")
@@ -55,78 +93,34 @@ class Downloader:
         Logger.success("Migration Finished.")
 
     @staticmethod
-    def download(url, dest, name="item"):
-        # Ensure the folder exists before downloading
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        
-        retries = 3
-        delay = 5 
-        
-        for i in range(retries):
-            try:
-                Logger.log(f"Downloading {name}...", "info")
-                # Add a User-Agent to avoid being blocked by some servers
-                opener = urllib.request.build_opener()
-                opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
-                urllib.request.install_opener(opener)
-                
-                urllib.request.urlretrieve(url, dest)
-                Logger.log(f"Successfully downloaded {name}", "ok")
-                return True
-            except urllib.error.HTTPError as e:
-                if e.code == 429:
-                    Logger.log(f"Rate limited (429). Retrying in {delay}s... (Attempt {i+1}/{retries})", "warn")
-                    time.sleep(delay)
-                    delay *= 2 
-                else:
-                    Logger.error(f"HTTP Error {e.code} for {name}: {e.reason}")
-                    break 
-            except Exception as e:
-                Logger.error(f"Download failed for {name}: {e}")
-                time.sleep(1)
-        return False
-
-    @staticmethod
-    def get_input(prompt):
-        """Robust input handler that manages EOF errors from piped execution."""
-        try:
-            # On Linux/macOS, try to read directly from the terminal if stdin is a pipe
-            if sys.platform != "win32" and not sys.stdin.isatty():
-                with open('/dev/tty', 'r') as tty:
-                    print(prompt, end='', flush=True)
-                    return tty.readline().strip()
-            
-            return input(prompt).strip()
-        except EOFError:
-            return "" # Return empty to trigger default behavior/skip
-
-    @staticmethod
     def show_cli_menu(config_downloads, comfy_path):
-        print("\n" + "="*55)
-        print("      DASIWA COMPONENT DOWNLOADER & MIGRATOR")
-        print("="*55)
-        
+        """Displays an interactive menu for optional downloads."""
         to_download = []
-        for i, item in enumerate(config_downloads):
+        
+        # Filter for missing items
+        for item in config_downloads:
             search_root = Path(comfy_path) / "models" if "models" in item['type'] else Path(comfy_path)
-            
-            exists = Downloader.file_exists_recursive(search_root, item['file'])
-            status = "[INSTALLED]" if exists else "[ ]"
-            print(f" {i+1}. {status} {item['name']} ({item['type']})")
-            if not exists: to_download.append(item)
+            if not Downloader.file_exists_recursive(search_root, item['file']):
+                to_download.append(item)
 
-        print("\n" + "—"*55)
-        print("  COMMANDS:")
-        print("  > [Numbers] : Select specific items (e.g., 1,3)")
-        print("  > 'all'     : Download all missing items")
+        if not to_download:
+            return
+
+        print(f"\n{Logger.BOLD}{Logger.CYAN}--- OPTIONAL COMPONENTS ---{Logger.END}")
+        for i, item in enumerate(config_downloads, 1):
+            status = f"{Logger.GREEN}[Installed]{Logger.END}" if item not in to_download else f"{Logger.YELLOW}[Missing]{Logger.END}"
+            print(f" {i}. {item['name']:<30} {status}")
+
+        print("\nCommands:")
+        print("  > [Numbers] : Select items (e.g., 1,3)")
+        print("  > 'all'     : Download all missing")
         print("  > 'm'       : Migrate models from old install")
-        print("  > [Enter]   : Skip / Continue setup")
-        print("—"*55)
+        print("  > [Enter]   : Skip / Continue")
+        print("—" * 55)
         
         choice = Downloader.get_input("Enter choice: ").lower()
 
         if not choice:
-            Logger.log("Skipping component selection.", "info")
             return
 
         if choice == 'm':
@@ -138,17 +132,15 @@ class Downloader:
         selected = to_download if choice == 'all' else []
         if choice and choice != 'all':
             try:
-                # Support comma-separated or space-separated numbers
                 raw_indices = choice.replace(',', ' ').split()
                 indices = [int(x) - 1 for x in raw_indices]
                 for idx in indices:
                     if 0 <= idx < len(config_downloads):
                         item = config_downloads[idx]
-                        search_root = Path(comfy_path) / "models" if "models" in item['type'] else Path(comfy_path)
-                        if not Downloader.file_exists_recursive(search_root, item['file']):
+                        if item in to_download:
                             selected.append(item)
             except ValueError:
-                Logger.error("Invalid selection. Please use numbers (e.g., 1, 2).")
+                Logger.error("Invalid selection. Using numbers (e.g., 1, 2).")
 
         for item in selected:
             dest = Path(comfy_path) / item['type'] / item['file']

@@ -2,7 +2,7 @@
 # --- install.sh (Robust Web-Ready Bootstrapper) ---
 
 # 1. Absolute Anchor
-# If running as a file, use its directory. If piped via curl, use the current directory.
+# If running as a file, use its directory. If piped via curl, use the current directory. 
 if [ -n "${BASH_SOURCE[0]}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 else
@@ -15,12 +15,12 @@ echo -e "    DaSiWa ComfyUI Installer (Linux)"
 echo -e "===========================================\e[0m"
 
 # 2. Define URLs and Paths
-# Fallback URL used if config.json isn't present yet
+# Fallback URL used if config.json isn't present yet 
 REPO_ZIP_URL="https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
 ZIP_FILE="$SCRIPT_DIR/repo.zip"
 TEMP_DIR="$SCRIPT_DIR/temp_extract"
 
-# Check if config exists to override the URL
+# Check if config exists to override the URL 
 if [ -f "config.json" ]; then
     CONF_URL=$(python3 -c "import json; print(json.load(open('config.json'))['repository']['zip_url'])" 2>/dev/null)
     if [ -n "$CONF_URL" ]; then REPO_ZIP_URL="$CONF_URL"; fi
@@ -30,19 +30,19 @@ fi
 echo "[*] Downloading installer components..."
 curl -L -o "$ZIP_FILE" "$REPO_ZIP_URL"
 
-# Clean up previous failed attempts
+# Clean up previous failed attempts 
 rm -rf "$TEMP_DIR"
 mkdir -p "$TEMP_DIR"
 
 echo "[*] Extracting..."
 unzip -q -o "$ZIP_FILE" -d "$TEMP_DIR"
 
-# GitHub zips nest everything inside a folder like 'repo-main/'
+# GitHub zips nest everything inside a folder like 'repo-main/' 
 INNER_DIR=$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)
 
 if [ -n "$INNER_DIR" ]; then
     echo "[*] Syncing files to $SCRIPT_DIR..."
-    # Copying content of INNER_DIR to SCRIPT_DIR
+    # Copying content of INNER_DIR to SCRIPT_DIR 
     cp -af "$INNER_DIR"/. "$SCRIPT_DIR/"
     
     # Cleanup download artifacts so the next run is fresh 
@@ -56,11 +56,11 @@ fi
 if ! command -v uv &> /dev/null; then
     echo "[*] UV not found. Installing UV..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    # Refresh path for the current shell session
+    # Refresh path for the current shell session 
     source "$HOME/.cargo/env" 2>/dev/null || export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
-# Use Python to read config or fallback to 3.12
+# Use Python to read config or fallback to 3.12 
 TARGET_VER=$(python3 -c "import json; print(json.load(open('config.json'))['python']['display_name'])" 2>/dev/null || echo "3.12")
 
 echo "[*] Ensuring Portable Python $TARGET_VER via UV..."
@@ -70,7 +70,7 @@ PY_PATH=$(uv python find "$TARGET_VER" | tr -d '\r')
 # 5. Hand off to Python
 if [ -f "$PY_PATH" ]; then
     echo -e "\e[32m[+] Launching Setup Logic...\e[0m"
-    "$PY_PATH" setup_logic.py --branch "main"
+    "$PY_PATH" setup_logic.py --branch "master"
 else
     echo -e "\e[31m[-] ERROR: Could not locate Python via UV.\e[0m"
     exit 1

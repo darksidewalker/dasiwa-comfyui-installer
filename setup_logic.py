@@ -151,7 +151,7 @@ def main():
     CONFIG_PATH = CURRENT_RUN_DIR / "config.json"
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--branch", default="main", help="Installer branch")
+    parser.add_argument("--branch", default="master", help="Branch of ComfyUI to clone")
     args = parser.parse_args()
 
     # Pre-flight: Git and Version checks

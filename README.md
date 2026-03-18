@@ -58,7 +58,7 @@ powershell -ExecutionPolicy ByPass -Command "iex (irm 'https://raw.githubusercon
 ### Linux (Bash)
 Bash
 ```
-bash <(curl -sSf https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.sh)
+curl -sSf https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.sh | bash
 ```
 
 ## 🛠️ Prerequisites

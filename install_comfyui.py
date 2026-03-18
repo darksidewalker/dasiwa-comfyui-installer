@@ -66,10 +66,9 @@ def main():
         except Exception as e:
             Logger.log(f"Logic update failed, using local: {e}", "fail")
 
-    # 3. Execution (Hand off control to setup_logic.py)
+    # 3. Execution
     try:
-        # We pass the branch name as an argument so setup_logic knows which branch to clone
-        subprocess.run([sys.executable, LOGIC_FILE, "--branch", REPO_BRANCH], check=True)
+        subprocess.run([sys.executable, LOGIC_FILE, "--branch", "master"])
     except Exception as e:
         Logger.error(f"\n[!] Error during installation: {e}")
 
