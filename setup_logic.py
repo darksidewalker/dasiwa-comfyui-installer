@@ -214,8 +214,7 @@ def main():
         
         run_cmd([
             "uv", "pip", "install", 
-            "--upgrade", 
-            "--force-reinstall"
+            "--upgrade"
         ] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:
