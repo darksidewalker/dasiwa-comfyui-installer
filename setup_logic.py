@@ -89,15 +89,15 @@ def install_torch(env, hw):
     target_cu, is_nightly = GLOBAL_CUDA_VERSION, False
     
     if vendor == "NVIDIA":
+        # Detects both real hardware names and our manual string
         if "RTX 50" in gpu_name:
             target_cu, is_nightly = MIN_CUDA_FOR_50XX, True
-        elif any(x in gpu_name for x in ["GTX 10", "PASCAL"]):
+        elif any(x in gpu_name for x in ["GTX 10", "PASCAL", "LEGACY"]):
             target_cu = "12.1"
 
     cmd = ["uv", "pip", "install"]
     if is_nightly: cmd += ["--pre"]
     
-    # Specific versions for older CUDA fallback
     if target_cu == "12.1":
         cmd += ["torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"]
     else:
@@ -108,8 +108,10 @@ def install_torch(env, hw):
         cmd += ["--extra-index-url", f"{whl_url}cu{target_cu.replace('.', '')}"]
     elif vendor == "AMD":
         cmd += ["--index-url", f"{whl_url}rocm6.2"]
+    elif vendor == "INTEL":
+        cmd += ["--extra-index-url", "https://pytorch-extension.intel.com/release-whl/stable/xpu/us/"]
     
-    Logger.log(f"Installing Torch for {vendor}...", "info")
+    Logger.log(f"Installing Torch for {vendor} ({gpu_name})...", "info")
     run_cmd(cmd, env=env)
 
 def task_create_launchers(comfy_path, bin_dir):
