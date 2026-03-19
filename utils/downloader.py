@@ -8,27 +8,29 @@ from utils.logger import Logger
 
 class Downloader:
     @staticmethod
-    def get_input(prompt):
-        """
-        Robust input handler. 
-        If stdin is being used by a pipe (like curl | bash), it re-opens the 
-        terminal device (/dev/tty) to allow interactive user input.
-        """
-        try:
-            # Check if we are piped (not a TTY)
-            if not sys.stdin.isatty():
-                if os.name != 'nt': # Linux / macOS
-                    try:
-                        with open('/dev/tty', 'r') as tty:
-                            print(prompt, end='', flush=True)
-                            return tty.readline().strip()
-                    except:
-                        return "" # Fallback if /dev/tty is unavailable
+    def download(url, dest, name, retries=3, delay=2):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists():
+            Logger.log(f" {name} already exists. Skipping.", "ok")
+            return
             
-            # Normal terminal behavior or Windows
-            return input(prompt).strip()
-        except (EOFError, KeyboardInterrupt):
-            return ""
+        for attempt in range(retries):
+            try:
+                Logger.log(f" Downloading {name} (Attempt {attempt + 1}/{retries})...", "info")
+                
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                
+                with urllib.request.urlopen(req, timeout=20) as response, open(dest, 'wb') as out_file:
+                    shutil.copyfileobj(response, out_file)
+                
+                Logger.log(f" [DONE] {name}", "ok")
+                return 
+            except Exception as e:
+                if attempt < retries - 1:
+                    Logger.warn(f" Error on {name}: {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
+                else:
+                    Logger.error(f" Download failed for {name} after {retries} attempts: {e}")
 
     @staticmethod
     def file_exists_recursive(base_path, filename):
