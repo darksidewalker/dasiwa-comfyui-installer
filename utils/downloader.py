@@ -8,8 +8,15 @@ from utils.logger import Logger
 
 class Downloader:
     @staticmethod
+    def get_input(prompt):
+        """Standardized input method to prevent AttributeError in setup_logic."""
+        return input(prompt)
+
+    @staticmethod
     def download(url, dest, name, retries=3, delay=2):
+        dest = Path(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)
+        
         if dest.exists():
             Logger.log(f" {name} already exists. Skipping.", "ok")
             return
@@ -18,9 +25,10 @@ class Downloader:
             try:
                 Logger.log(f" Downloading {name} (Attempt {attempt + 1}/{retries})...", "info")
                 
+                # Using Request with headers to avoid being blocked by hosts like GitHub/HuggingFace
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
                 
-                with urllib.request.urlopen(req, timeout=20) as response, open(dest, 'wb') as out_file:
+                with urllib.request.urlopen(req, timeout=25) as response, open(dest, 'wb') as out_file:
                     shutil.copyfileobj(response, out_file)
                 
                 Logger.log(f" [DONE] {name}", "ok")
@@ -35,31 +43,15 @@ class Downloader:
     @staticmethod
     def file_exists_recursive(base_path, filename):
         """Checks if a file exists anywhere in the directory subtree."""
-        if not os.path.exists(base_path):
+        base_path = Path(base_path)
+        if not base_path.exists():
             return False
-        return any(Path(base_path).rglob(filename))
-
-    @staticmethod
-    def download(url, dest, name):
-        """Downloads a file to a destination with progress logging."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.exists():
-            Logger.log(f" {name} already exists. Skipping.", "ok")
-            return
-            
-        Logger.log(f" Downloading {name}...", "info")
-        try:
-            urllib.request.urlretrieve(url, dest)
-            Logger.log(f" [DONE] {name}", "ok")
-        except Exception as e:
-            Logger.error(f" Failed to download {name}: {e}")
+        # Uses rglob to find the file even if it is in a subfolder
+        return any(base_path.rglob(filename))
 
     @staticmethod
     def migrate_models(old_comfy_path, new_comfy_path):
-        """
-        Migrates EVERY folder inside .../models/
-        Moves physical data to new install, then links back.
-        """
+        """Migrates folders inside .../models/ and creates symlinks."""
         old_models_root = Path(old_comfy_path) / "models"
         new_models_root = Path(new_comfy_path) / "models"
 
@@ -69,7 +61,6 @@ class Downloader:
 
         Logger.log(f"Starting migration from {old_models_root}...", "info")
         
-        # Using list() to prevent issues if directory content changes during iteration
         for item in list(old_models_root.iterdir()):
             if item.is_symlink(): continue
             if item.is_dir():
@@ -85,7 +76,6 @@ class Downloader:
                             Logger.log(f" Moving: {relative_path}", "info")
                             shutil.move(str(file_item), str(new_file_path))
                             try:
-                                # Create symlink back so old install remains functional
                                 os.symlink(new_file_path, file_item)
                             except OSError:
                                 Logger.log(f" [!] Link-back failed (Requires Admin/Privileges).", "warn")
@@ -98,20 +88,21 @@ class Downloader:
     def show_cli_menu(config_downloads, comfy_path):
         """Displays an interactive menu for optional downloads."""
         to_download = []
+        comfy_path = Path(comfy_path)
         
-        # Filter for missing items
         for item in config_downloads:
-            search_root = Path(comfy_path) / "models" if "models" in item['type'] else Path(comfy_path)
+            search_root = comfy_path / "models" if "models" in item['type'] else comfy_path
             if not Downloader.file_exists_recursive(search_root, item['file']):
                 to_download.append(item)
 
         if not to_download:
+            Logger.log("All optional components are already present.", "ok")
             return
 
         print(f"\n{Logger.BOLD}{Logger.CYAN}--- OPTIONAL COMPONENTS ---{Logger.END}")
         for i, item in enumerate(config_downloads, 1):
             status = f"{Logger.GREEN}[Installed]{Logger.END}" if item not in to_download else f"{Logger.YELLOW}[Missing]{Logger.END}"
-            print(f" {i}. {item['name']:<30} {status}")
+            print(f" {i}. {item['name']:<40} {status}")
 
         print("\nCommands:")
         print("  > [Numbers] : Select items (e.g., 1,3)")
@@ -120,7 +111,7 @@ class Downloader:
         print("  > [Enter]   : Skip / Continue")
         print("—" * 55)
         
-        choice = Downloader.get_input("Enter choice: ").lower()
+        choice = Downloader.get_input("Enter choice: ").lower().strip()
 
         if not choice:
             return
@@ -131,8 +122,10 @@ class Downloader:
                 Downloader.migrate_models(old_path, comfy_path)
             return
 
-        selected = to_download if choice == 'all' else []
-        if choice and choice != 'all':
+        selected = []
+        if choice == 'all':
+            selected = to_download
+        else:
             try:
                 raw_indices = choice.replace(',', ' ').split()
                 indices = [int(x) - 1 for x in raw_indices]
@@ -142,8 +135,8 @@ class Downloader:
                         if item in to_download:
                             selected.append(item)
             except ValueError:
-                Logger.error("Invalid selection. Using numbers (e.g., 1, 2).")
+                Logger.error("Invalid selection. Please use numbers or 'all'.")
 
         for item in selected:
-            dest = Path(comfy_path) / item['type'] / item['file']
+            dest = comfy_path / item['type'] / item['file']
             Downloader.download(item['url'], dest, item['name'])
