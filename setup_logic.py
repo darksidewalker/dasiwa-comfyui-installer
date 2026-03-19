@@ -15,7 +15,7 @@ from utils.reporter import Reporter
 from utils.hardware import get_gpu_report
 from utils.task_nodes import task_custom_nodes
 from utils.downloader import Downloader
-from utils.comfyui_clone import sync_comfyui_to_latest
+from utils.comfyui_clone import sync_comfyui
 
 IS_WIN = platform.system() == "Windows"
 Logger.init()
