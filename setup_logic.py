@@ -246,7 +246,7 @@ def main():
         Logger.log("Enforcing Priority Packages & ComfyUI-Manager...", "info")
         
         # Install Manager via UV as a package
-        run_cmd(["uv", "pip", "install", "comfyui-manager"], env=venv_env)
+        run_cmd(["uv", "pip", "install", "-r", "comfyui-manager"], env=venv_env)
         
         # Apply version locks
         run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
