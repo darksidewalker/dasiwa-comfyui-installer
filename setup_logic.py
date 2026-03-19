@@ -166,7 +166,6 @@ def main():
     # 2b. IMPLEMENT LOCAL OVERRIDES (Manual only)
     LOCAL_CONFIG_PATH = CURRENT_RUN_DIR / "config.local.json"
     
-    # We REMOVED the shutil.copy logic here to prevent auto-conversion
     if LOCAL_CONFIG_PATH.exists():
         Logger.log("Applying local configuration overrides...", "info")
         try:
