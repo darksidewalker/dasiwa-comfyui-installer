@@ -16,6 +16,7 @@ from utils.hardware import get_gpu_report
 from utils.task_nodes import task_custom_nodes
 from utils.downloader import Downloader
 from utils.comfyui_clone import sync_comfyui
+from utils.task_sageattention import SageInstaller
 
 IS_WIN = platform.system() == "Windows"
 Logger.init()
@@ -221,7 +222,11 @@ def main():
         Logger.log("Installing core requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
 
-        # C. Custom Node synchronization
+        # C. SageAttention
+        if input("\nDo you want to build SageAttention? (y/n): ").lower() == 'y':
+            SageInstaller.build_sage(venv_env, comfy_path, config_data.get("urls", {}))
+
+        # D. Custom Node synchronization
         Logger.log("Synchronizing Custom Nodes...", "info")
         node_stats = task_custom_nodes(
             venv_env, 
@@ -231,13 +236,13 @@ def main():
             comfy_path
         )
 
-        # D. FINAL STEP: The "Enforcer"
+        # E. FINAL STEP: The "Enforcer"
         Logger.log("Enforcing Priority Packages & ComfyUI-Manager...", "info")
         
-        # Install Manager via UV as a package
+        # F. Install Manager via UV as a package
         run_cmd(["uv", "pip", "install", "-r", "manager_requirements.txt"], env=venv_env)
         
-        # Apply version locks
+        # G. Apply version locks
         run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:

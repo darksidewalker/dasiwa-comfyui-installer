@@ -21,7 +21,9 @@
     },
     "urls": {
         "custom_nodes": "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt",
-        "git_windows": "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/Git-2.53.0-64-bit.exe"
+        "git_windows": "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/Git-2.53.0-64-bit.exe",
+        "sage_repo": "https://github.com/thu-ml/SageAttention.git",
+        "msvc_build_tools": "https://visualstudio.microsoft.com/visual-cpp-build-tools/"
     },
     "optional_downloads": [
         {"name": "DaSiWa C-AiO Workflow v6.4", "type": "user/default/workflows", "url": "https://raw.githubusercontent.com/darksidewalker/dasiwa-wan2.2-workflows/refs/heads/main/C-AiO/DaSiWa%20WAN%202.2%20i2v%20FastFidelity%20C-AiO-64.json", "file": "DaSiWa WAN 2.2 i2v FastFidelity C-AiO-64.json"},
