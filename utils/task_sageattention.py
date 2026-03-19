@@ -80,12 +80,11 @@ class SageInstaller:
 
     @staticmethod
     def build_sage(venv_env, comfy_path, config_urls):
-        """Clones and builds SageAttention inside the ComfyUI folder."""
+        """Clones and builds SageAttention using UV to manage dependencies."""
         if not SageInstaller.install_system_dependencies(config_urls):
-            Logger.warn("Dependencies not resolved. Skipping SageAttention build.")
+            Logger.log("Dependencies not resolved. Skipping SageAttention build.", "warn")
             return
 
-        # FIX: Clone inside ComfyUI, not the script root
         sage_dir = Path(comfy_path) / "SageAttention"
         repo_url = config_urls.get("sage_repo")
         
@@ -102,25 +101,19 @@ class SageInstaller:
         original_cwd = os.getcwd()
         os.chdir(sage_dir)
         try:
-            is_win = platform.system() == "Windows"
-            venv_path = Path(venv_env.get("VIRTUAL_ENV", ""))
-            python_exe = venv_path / ("Scripts/python.exe" if is_win else "bin/python")
+            # FIX 1: Use 'uv pip install' instead of 'python -m pip'
+            # This works even if the venv has no pip installed.
+            Logger.log("Preparing build tools via UV...", "info")
+            subprocess.run(["uv", "pip", "install", "setuptools", "wheel"], env=venv_env, check=True)
 
-            if not python_exe.exists():
-                Logger.error(f"Venv Python not found at {python_exe}")
-                return
-
-            # FIX: Ensure build tools are present in the venv before running setup.py
-            Logger.log("Preparing build tools (setuptools, wheel)...", "info")
-            subprocess.run([str(python_exe), "-m", "pip", "install", "setuptools", "wheel"], env=build_env, check=True)
-
-            Logger.log("Starting SageAttention source build (this may take a few minutes)...", "info")
-            # Using 'pip install .' is often more reliable than 'setup.py install'
-            subprocess.run([str(python_exe), "-m", "pip", "install", "."], env=build_env, check=True)
+            Logger.log("Starting SageAttention source build via UV...", "info")
+            # FIX 2: Use 'uv pip install .' to build the local folder
+            subprocess.run(["uv", "pip", "install", "."], env=venv_env, check=True)
             
-            Logger.success("SageAttention installed successfully.")
+            Logger.log("SageAttention installed successfully.", "ok")
         except Exception as e:
-            Logger.error(f"SageAttention build failed: {e}")
-            Logger.info("Check if CUDA Toolkit version matches your Torch CUDA version.")
+            # FIX 3: Corrected Logger attribute error
+            Logger.log(f"SageAttention build failed: {e}", "error")
+            Logger.log("Verify that your system CUDA Toolkit matches your Torch CUDA version.", "info")
         finally:
             os.chdir(original_cwd)
