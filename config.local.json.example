@@ -1,12 +1,12 @@
 {
     "version": "1.0.0-local",
     "python": {
-        "full_version": "3.12.10",
-        "short_version": "312",
-        "display_name": "3.12"
+        "full_version": "3.13.12",
+        "short_version": "313",
+        "display_name": "3.13"
     },
     "comfyui": {
-        "version": "latest",
+        "version": "v0.16.4",
         "fallback_branch": "master"
     }
 }

@@ -170,9 +170,9 @@ def main():
 
     # 2b. IMPLEMENT LOCAL OVERRIDES
     LOCAL_CONFIG_PATH = CURRENT_RUN_DIR / "config.local.json"
-    
-    # If the local file doesn't exist, try to create it from the example as a courtesy
     EXAMPLE_PATH = CURRENT_RUN_DIR / "config.local.json.example"
+    
+    # Auto-create local config from example if missing
     if not LOCAL_CONFIG_PATH.exists() and EXAMPLE_PATH.exists():
         Logger.log("Creating config.local.json from example...", "info")
         shutil.copy(EXAMPLE_PATH, LOCAL_CONFIG_PATH)
@@ -183,35 +183,29 @@ def main():
             with open(LOCAL_CONFIG_PATH, 'r', encoding='utf-8') as f:
                 local_data = json.load(f)
             
-            # Deep merge logic for nested dictionaries (python, comfyui, cuda)
-            for section in ["python", "comfyui", "cuda"]:
+            # Deep merge logic for nested dictionaries
+            for section in ["python", "comfyui", "cuda", "urls"]:
                 if section in local_data and isinstance(local_data[section], dict):
                     config_data.setdefault(section, {}).update(local_data[section])
-                elif section in local_data: # If it's a direct value
+                elif section in local_data:
                     config_data[section] = local_data[section]
         except Exception as e:
             Logger.warn(f"Failed to parse config.local.json: {e}. Using defaults.")
 
-    # --- Use the merged data ---
+    # --- EXTRACT FINAL PREFS (Post-Merge) ---
     comfy_prefs = config_data.get("comfyui", {})
     TARGET_VERSION = comfy_prefs.get("version", "latest")
     FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
     
-    # Update global constants if they were overridden
-    global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION
+    # Update global constants from merged config
+    global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION, NODES_LIST_URL
     TARGET_PYTHON_VERSION = config_data["python"].get("full_version", TARGET_PYTHON_VERSION)
     GLOBAL_CUDA_VERSION = config_data["cuda"].get("global", GLOBAL_CUDA_VERSION)
-    
-    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-        config_data = json.load(f)
-
-    # --- EXTRACT CONFIG PREFS ---
-    comfy_prefs = config_data.get("comfyui", {})
-    TARGET_VERSION = comfy_prefs.get("version", "latest")
-    FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
+    NODES_LIST_URL = config_data.get("urls", {}).get("custom_nodes", NODES_LIST_URL)
 
     # 3. ComfyUI Setup
     comfy_path = CURRENT_RUN_DIR / "ComfyUI"
+    # Import utility and sync to the specific TARGET_VERSION
     from utils.comfyui_clone import sync_comfyui
     sync_comfyui(comfy_path, target_version=TARGET_VERSION, fallback_branch=FALLBACK_BRANCH)
     
@@ -231,14 +225,14 @@ def main():
     os.chdir(comfy_path)
     node_stats = None 
     try:
-        # A. Hardware-specific Torch (Ensures CUDA 13.0 from config)
+        # A. Hardware-specific Torch
         install_torch(venv_env, hw)
         
         # B. ComfyUI Core requirements
         Logger.log("Installing core requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
 
-        # C. Custom Node synchronization (Standard Git-based nodes)
+        # C. Custom Node synchronization
         Logger.log("Synchronizing Custom Nodes...", "info")
         node_stats = task_custom_nodes(
             venv_env, 
@@ -248,14 +242,13 @@ def main():
             comfy_path
         )
 
-        # D. FINAL STEP: The "Enforcer" (Manager & Dependency Fixes)
-        # This runs AFTER nodes to ensure your versions 'win'
+        # D. FINAL STEP: The "Enforcer"
         Logger.log("Enforcing Priority Packages & ComfyUI-Manager...", "info")
         
-        # Install Manager first (Package mode)
+        # Install Manager via UV as a package
         run_cmd(["uv", "pip", "install", "comfyui-manager @ git+https://github.com/ltdrdata/ComfyUI-Manager"], env=venv_env)
         
-        # Apply version locks (urllib3, requests, etc.)
+        # Apply version locks
         run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:
