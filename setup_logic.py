@@ -164,6 +164,44 @@ def main():
         Logger.error(f"Critical Error: config.json not found at {CONFIG_PATH}")
         return
     
+    # Load the base config synced from GitHub
+    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+        config_data = json.load(f)
+
+    # 2b. IMPLEMENT LOCAL OVERRIDES
+    LOCAL_CONFIG_PATH = CURRENT_RUN_DIR / "config.local.json"
+    
+    # If the local file doesn't exist, try to create it from the example as a courtesy
+    EXAMPLE_PATH = CURRENT_RUN_DIR / "config.local.json.example"
+    if not LOCAL_CONFIG_PATH.exists() and EXAMPLE_PATH.exists():
+        Logger.log("Creating config.local.json from example...", "info")
+        shutil.copy(EXAMPLE_PATH, LOCAL_CONFIG_PATH)
+
+    if LOCAL_CONFIG_PATH.exists():
+        Logger.log("Applying local configuration overrides...", "info")
+        try:
+            with open(LOCAL_CONFIG_PATH, 'r', encoding='utf-8') as f:
+                local_data = json.load(f)
+            
+            # Deep merge logic for nested dictionaries (python, comfyui, cuda)
+            for section in ["python", "comfyui", "cuda"]:
+                if section in local_data and isinstance(local_data[section], dict):
+                    config_data.setdefault(section, {}).update(local_data[section])
+                elif section in local_data: # If it's a direct value
+                    config_data[section] = local_data[section]
+        except Exception as e:
+            Logger.warn(f"Failed to parse config.local.json: {e}. Using defaults.")
+
+    # --- Use the merged data ---
+    comfy_prefs = config_data.get("comfyui", {})
+    TARGET_VERSION = comfy_prefs.get("version", "latest")
+    FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
+    
+    # Update global constants if they were overridden
+    global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION
+    TARGET_PYTHON_VERSION = config_data["python"].get("full_version", TARGET_PYTHON_VERSION)
+    GLOBAL_CUDA_VERSION = config_data["cuda"].get("global", GLOBAL_CUDA_VERSION)
+    
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         config_data = json.load(f)
 
