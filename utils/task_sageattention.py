@@ -80,20 +80,27 @@ class SageInstaller:
 
     @staticmethod
     def build_sage(venv_env, comfy_path, config_urls):
-        """Clones and builds SageAttention by running the build inside the uv context."""
+        """Clones and builds SageAttention targeting the ComfyUI venv specifically."""
         if not SageInstaller.install_system_dependencies(config_urls):
             Logger.log("Dependencies not resolved. Skipping SageAttention build.", "warn")
             return
 
-        # Clone into ComfyUI/SageAttention
         sage_dir = Path(comfy_path) / "SageAttention"
         repo_url = config_urls.get("sage_repo")
         
         if not sage_dir.exists():
             Logger.log(f"Cloning SageAttention into {sage_dir}...", "info")
             subprocess.run(["git", "clone", repo_url, str(sage_dir)], check=True)
-        
-        # Build Environment Optimization
+
+        venv_root = Path(venv_env.get("VIRTUAL_ENV", ""))
+        is_win = platform.system() == "Windows"
+        python_exe = venv_root / ("Scripts/python.exe" if is_win else "bin/python")
+
+        if not python_exe.exists():
+            Logger.log(f"Could not find ComfyUI venv Python at {python_exe}", "error")
+            return
+
+        # 2. Build Environment Optimization
         build_env = venv_env.copy()
         build_env["EXT_PARALLEL"] = "4"
         build_env["NVCC_APPEND_FLAGS"] = "--threads 8"
@@ -103,13 +110,11 @@ class SageInstaller:
         os.chdir(sage_dir)
         
         try:
-            Logger.log("Starting SageAttention source build via UV context...", "info")
+            Logger.log("Starting SageAttention source build targeting ComfyUI venv...", "info")
             
             cmd = [
-                "uv", "run", 
-                "--with", "setuptools", 
-                "--with", "wheel",
-                "pip", "install", 
+                "uv", "pip", "install", 
+                "--python", str(python_exe),
                 "--no-build-isolation", 
                 "."
             ]
@@ -119,6 +124,6 @@ class SageInstaller:
             Logger.log("SageAttention installed successfully.", "ok")
         except Exception as e:
             Logger.log(f"SageAttention build failed: {e}", "error")
-            Logger.log("Ensure CUDA Toolkit (nvcc) is installed and matches your Torch version.", "info")
+            Logger.log("Verify that 'nvcc --version' is available in your terminal.", "info")
         finally:
             os.chdir(original_cwd)
