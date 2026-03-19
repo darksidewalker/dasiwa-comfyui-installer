@@ -80,20 +80,20 @@ class SageInstaller:
 
     @staticmethod
     def build_sage(venv_env, comfy_path, config_urls):
-        """Clones and builds SageAttention with pre-flight dependency checks."""
-        # Smart Check before asking to build
+        """Clones and builds SageAttention inside the ComfyUI folder."""
         if not SageInstaller.install_system_dependencies(config_urls):
             Logger.warn("Dependencies not resolved. Skipping SageAttention build.")
             return
 
-        sage_dir = Path(comfy_path).parent / "SageAttention"
+        # FIX: Clone inside ComfyUI, not the script root
+        sage_dir = Path(comfy_path) / "SageAttention"
         repo_url = config_urls.get("sage_repo")
         
         if not sage_dir.exists():
-            Logger.log(f"Cloning SageAttention from {repo_url}...", "info")
+            Logger.log(f"Cloning SageAttention into {sage_dir}...", "info")
             subprocess.run(["git", "clone", repo_url, str(sage_dir)], check=True)
         
-        # Build Environment with Parallel Flags
+        # Build Environment
         build_env = venv_env.copy()
         build_env["EXT_PARALLEL"] = "4"
         build_env["NVCC_APPEND_FLAGS"] = "--threads 8"
@@ -102,8 +102,6 @@ class SageInstaller:
         original_cwd = os.getcwd()
         os.chdir(sage_dir)
         try:
-            Logger.log("Starting SageAttention source build...", "info")
-            
             is_win = platform.system() == "Windows"
             venv_path = Path(venv_env.get("VIRTUAL_ENV", ""))
             python_exe = venv_path / ("Scripts/python.exe" if is_win else "bin/python")
@@ -112,10 +110,17 @@ class SageInstaller:
                 Logger.error(f"Venv Python not found at {python_exe}")
                 return
 
-            # Run build process
-            subprocess.run([str(python_exe), "setup.py", "install"], env=build_env, check=True)
+            # FIX: Ensure build tools are present in the venv before running setup.py
+            Logger.log("Preparing build tools (setuptools, wheel)...", "info")
+            subprocess.run([str(python_exe), "-m", "pip", "install", "setuptools", "wheel"], env=build_env, check=True)
+
+            Logger.log("Starting SageAttention source build (this may take a few minutes)...", "info")
+            # Using 'pip install .' is often more reliable than 'setup.py install'
+            subprocess.run([str(python_exe), "-m", "pip", "install", "."], env=build_env, check=True)
+            
             Logger.success("SageAttention installed successfully.")
         except Exception as e:
             Logger.error(f"SageAttention build failed: {e}")
+            Logger.info("Check if CUDA Toolkit version matches your Torch CUDA version.")
         finally:
             os.chdir(original_cwd)
