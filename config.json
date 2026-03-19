@@ -5,6 +5,10 @@
         "short_version": "312",
         "display_name": "3.12"
     },
+    "comfyui": {
+        "version": "16.4.0",
+        "fallback_branch": "master"
+    },
     "cuda": {
         "global": "13.0",
         "min_cuda_for_50xx": "12.8"

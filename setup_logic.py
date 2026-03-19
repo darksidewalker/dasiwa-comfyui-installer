@@ -15,6 +15,7 @@ from utils.reporter import Reporter
 from utils.hardware import get_gpu_report
 from utils.task_nodes import task_custom_nodes
 from utils.downloader import Downloader
+from utils.comfyui_clone import sync_comfyui_to_latest
 
 IS_WIN = platform.system() == "Windows"
 Logger.init()
@@ -166,13 +167,17 @@ def main():
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         config_data = json.load(f)
 
+    # --- EXTRACT CONFIG PREFS ---
+    comfy_prefs = config_data.get("comfyui", {})
+    TARGET_VERSION = comfy_prefs.get("version", "latest")
+    FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
+
     # 3. ComfyUI Setup
     comfy_path = CURRENT_RUN_DIR / "ComfyUI"
-    if not comfy_path.exists():
-        Logger.log(f"Cloning ComfyUI ({args.branch})...", "info")
-        run_cmd(["git", "clone", "-b", args.branch, "https://github.com/comfyanonymous/ComfyUI", str(comfy_path)])
+    from utils.comfyui_clone import sync_comfyui
+    sync_comfyui(comfy_path, target_version=TARGET_VERSION, fallback_branch=FALLBACK_BRANCH)
     
-    # 4. Environment
+    # 4. Environment Setup
     Logger.log("Setting up Virtual Environment (UV)...", "info")
     run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_dir = get_venv_env(comfy_path)
@@ -188,16 +193,15 @@ def main():
     os.chdir(comfy_path)
     node_stats = None 
     try:
-        # A. Hardware-specific Torch (Must be first)
+        # A. Hardware-specific Torch (Ensures CUDA 13.0 from config)
         install_torch(venv_env, hw)
         
-        # B. ComfyUI Core requirements and manager
+        # B. ComfyUI Core requirements
         Logger.log("Installing core requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
-        run_cmd(["uv", "pip", "install", "-r", "manager_requirements.txt"], env=venv_env)
 
-        # C. Custom Node synchronization
-        Logger.log("Synchronizing Custom Nodes and their dependencies...", "info")
+        # C. Custom Node synchronization (Standard Git-based nodes)
+        Logger.log("Synchronizing Custom Nodes...", "info")
         node_stats = task_custom_nodes(
             venv_env, 
             NODES_LIST_URL, 
@@ -206,13 +210,15 @@ def main():
             comfy_path
         )
 
-        # D. FINAL STEP: Install Priority Packages (The "Enforcer" step)
-        Logger.log("Ensuring Priority Packages & Fixing Dependencies...", "info")
-
-        run_cmd([
-            "uv", "pip", "install", 
-            "--upgrade"
-        ] + PRIORITY_PACKAGES, env=venv_env)
+        # D. FINAL STEP: The "Enforcer" (Manager & Dependency Fixes)
+        # This runs AFTER nodes to ensure your versions 'win'
+        Logger.log("Enforcing Priority Packages & ComfyUI-Manager...", "info")
+        
+        # Install Manager first (Package mode)
+        run_cmd(["uv", "pip", "install", "comfyui-manager @ git+https://github.com/ltdrdata/ComfyUI-Manager"], env=venv_env)
+        
+        # Apply version locks (urllib3, requests, etc.)
+        run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:
         Logger.error(f"Installation failed: {e}")
@@ -222,9 +228,7 @@ def main():
     task_create_launchers(comfy_path, bin_dir)
     
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_stats)
-    
     Logger.success("Process Finished!")
-    
     Downloader.get_input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
