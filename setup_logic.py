@@ -159,24 +159,14 @@ def main():
     ensure_dependencies()
     hw = get_gpu_report(IS_WIN, Logger)
     
-    # 2. Load Config
-    if not CONFIG_PATH.exists():
-        Logger.error(f"Critical Error: config.json not found at {CONFIG_PATH}")
-        return
-    
-    # Load the base config synced from GitHub
+    # 2. Load Base Config
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         config_data = json.load(f)
 
-    # 2b. IMPLEMENT LOCAL OVERRIDES
+    # 2b. IMPLEMENT LOCAL OVERRIDES (Manual only)
     LOCAL_CONFIG_PATH = CURRENT_RUN_DIR / "config.local.json"
-    EXAMPLE_PATH = CURRENT_RUN_DIR / "config.local.json.example"
     
-    # Auto-create local config from example if missing
-    if not LOCAL_CONFIG_PATH.exists() and EXAMPLE_PATH.exists():
-        Logger.log("Creating config.local.json from example...", "info")
-        shutil.copy(EXAMPLE_PATH, LOCAL_CONFIG_PATH)
-
+    # We REMOVED the shutil.copy logic here to prevent auto-conversion
     if LOCAL_CONFIG_PATH.exists():
         Logger.log("Applying local configuration overrides...", "info")
         try:

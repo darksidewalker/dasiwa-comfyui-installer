@@ -9,6 +9,7 @@ venv/
 temp_setup_logic.py
 custom_nodes.txt
 setup_logic.py
+config.local.json
 
 # ComfyUI (if installed inside the repo folder)
 ComfyUI/
