@@ -100,7 +100,6 @@ class SageInstaller:
             Logger.log(f"Could not find ComfyUI venv Python at {python_exe}", "error")
             return
 
-        # 2. Build Environment Optimization
         build_env = venv_env.copy()
         build_env["EXT_PARALLEL"] = "4"
         build_env["NVCC_APPEND_FLAGS"] = "--threads 8"
@@ -110,6 +109,10 @@ class SageInstaller:
         os.chdir(sage_dir)
         
         try:
+            local_uv_venv = Path(".venv")
+            if local_uv_venv.exists():
+                shutil.rmtree(local_uv_venv)
+
             Logger.log("Starting SageAttention source build targeting ComfyUI venv...", "info")
             
             cmd = [
@@ -124,6 +127,6 @@ class SageInstaller:
             Logger.log("SageAttention installed successfully.", "ok")
         except Exception as e:
             Logger.log(f"SageAttention build failed: {e}", "error")
-            Logger.log("Verify that 'nvcc --version' is available in your terminal.", "info")
+            Logger.log("Verify that 'nvcc --version' matches your Torch CUDA version.", "info")
         finally:
             os.chdir(original_cwd)
