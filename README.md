@@ -32,19 +32,65 @@ The installer is data-driven. You can reconfigure almost every aspect by editing
 | `cuda.min_cuda_for_50xx` | Safety floor for new GPUs. | Ensures Blackwell/50-series GPUs get a compatible runtime. | 
 | `urls.custom_nodes` | Remote node list source. | Point this to your own GitHub Gist to share your setup with friends. | 
 
-### 2. Customizing `custom_nodes.txt`
+# 🛠️ Advanced Customization & Tweaking
 
-You can modify this file locally to change which nodes are installed:
+The installer is designed to be "set and forget," but if you need to target specific hardware, private node lists, or custom Python versions, you can bypass the defaults using the **Local Override** system.
+
+## 1. The Override Layer (`config.local.json`)
+**Rule #1:** Do not edit `config.json` directly. Updates to the repository will overwrite your changes. Instead, create a file named `config.local.json` in the root directory. The installer will automatically merge these settings over the defaults.
+
+### Key Configuration Overrides
+| Key Path | Purpose | Why change it? |
+| :--- | :--- | :--- |
+| `python.display_name` | The broad Python version (e.g., `3.13`) | **Primary Control:** Use this to let UV find the best matching installed version (3.13.x). |
+| `python.full_version` | The exact micro-version (e.g., `3.13.12`) | Use this only if a specific node requires an exact build. |
+| `cuda.global` | The default CUDA version for Torch. | Default is `13.0`. Lower to `12.1` or `12.4` for older plugins or GPUs. |
+| `cuda.min_cuda_for_50xx` | Safety floor for Blackwell GPUs. | Ensures RTX 50-series get the required `12.8+` runtime. |
+| `urls.custom_nodes` | Remote node list source. | Point this to your own GitHub Gist to sync your personal setup across machines. |
+
+> **Note:** The installer performs a "deep merge." If you only want to change the Python version, your `config.local.json` only needs to contain the `python` section.
+
+---
+
+## 2. Customizing `custom_nodes.txt`
+You can modify this file locally to change which extensions are installed. The installer identifies special requirements based on flags added to the end of the URL:
+
 * **Standard:** `https://github.com/user/repo`
-* **Submodules:** Add `| sub` at the end for nodes like **CosyVoice** that require nested git fetches.
-* **Editable/Library:** Add `| pkg` for nodes that need to be installed as a system-link (Editable Install).
+    * A standard git clone.
+* **Submodules (`| sub`):** `https://github.com/user/repo | sub`
+    * Required for nodes like **CosyVoice** or **Foley** that use nested git repositories.
+* **Editable/Library (`| pkg`):** `https://github.com/user/repo | pkg`
+    * Installs the node folder as a system-link (Editable Install). Necessary for nodes that function as shared libraries.
 
-### 3. Manual "uv" Commands
+---
 
-If you need to manually add a package to the environment without breaking the installer's logic:
-* **Windows:** `ComfyUI\venv\Scripts\uv pip install <package-name>`
-* **Linux:** `./ComfyUI/venv/bin/uv pip install <package-name>`
-  *Using `uv` instead of `pip` ensures the installer can still track and update the environment later.*
+## 3. Manual "uv" Commands
+This installer uses **uv** for maximum speed and environment isolation. To manually add a package without breaking the installer's logic or "Enforcer" rules, use the following commands from the root folder:
+
+### **Windows**
+```powershell
+.\ComfyUI\venv\Scripts\uv pip install <package-name>
+```
+
+### **Linux**
+```
+Bash
+./ComfyUI/venv/bin/uv pip install <package-name>
+```
+
+Using uv instead of standard pip ensures the environment remains optimized and the installer can continue to track updates correctly.
+
+## 4. Hardware Fallbacks
+
+If the automated GPU detection fails or you want to force a specific mode for testing, the installer provides a Mandatory Selection menu:
+
+* **NVIDIA Modern:** Standard path using the cuda.global version (Default 13.0).
+
+* **NVIDIA Legacy:** Forces CUDA 12.1 and Torch 2.4.1. Use this for GTX 10-series (Pascal) cards to avoid compatibility crashes.
+
+* **AMD Experimental:** Targets the latest ROCm nightlies for GFX11/12 (RX 7000/9000) hardware.
+
+* **Intel:** Targets Intel Arc/iGPU using the xpu torch wheel.
 
 ## 📥 Installation
 
