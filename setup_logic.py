@@ -33,7 +33,7 @@ def load_config():
 CONFIG = load_config()
 
 # --- CONSTANTS FROM CONFIG ---
-TARGET_PYTHON_VERSION = CONFIG["python"]["full_version"]
+TARGET_PYTHON_VERSION = CONFIG["python"].get("display_name", "3.12")
 GLOBAL_CUDA_VERSION = CONFIG["cuda"]["global"]
 MIN_CUDA_FOR_50XX = CONFIG["cuda"]["min_cuda_for_50xx"]
 NODES_LIST_URL = CONFIG["urls"]["custom_nodes"]
@@ -63,9 +63,9 @@ def get_venv_env(comfy_path):
 # --- BOOTSTRAPS ---
 def ensure_dependencies():
     """Ensures Python version and Git are present."""
-    # Check Python
+    # Check Python - Compare against display_name (e.g., 3.13) to allow micro-version flexibility
     current_py = platform.python_version()
-    if not current_py.startswith(CONFIG["python"]["display_name"]):
+    if not current_py.startswith(TARGET_PYTHON_VERSION):
         Logger.warn(f"Running on Python {current_py}, but {TARGET_PYTHON_VERSION} is preferred.")
 
     # Check Git
@@ -116,7 +116,7 @@ def install_torch(env, hw):
         cmd += ["--extra-index-url", f"{whl_url}cu{target_cu.replace('.', '')}"]
 
     elif vendor == "AMD":
-        # Supports the ROCm 6.2/7.1 labels from hardware.py and your new references
+        # Supports the ROCm 6.2/7.1 labels from hardware.py
         if any(x in gpu_name for x in ["GFX110", "RX 7000"]):
             cmd += ["--pre", "torch", "torchvision", "torchaudio", "--index-url", "https://rocm.nightlies.amd.com/v2/gfx110X-all/"]
         elif any(x in gpu_name for x in ["GFX1151", "STRIX"]):
@@ -209,20 +209,20 @@ def main():
     TARGET_VERSION = comfy_prefs.get("version", "latest")
     FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
     
-    # Update global constants from merged config
-    global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION, NODES_LIST_URL
-    TARGET_PYTHON_VERSION = config_data["python"].get("full_version", TARGET_PYTHON_VERSION)
+    global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION, NODES_LIST_URL, CONFIG
+    CONFIG = config_data
+    
+    TARGET_PYTHON_VERSION = config_data["python"].get("display_name", "3.12")
+    
     GLOBAL_CUDA_VERSION = config_data["cuda"].get("global", GLOBAL_CUDA_VERSION)
     NODES_LIST_URL = config_data.get("urls", {}).get("custom_nodes", NODES_LIST_URL)
 
     # 3. ComfyUI Setup
     comfy_path = CURRENT_RUN_DIR / "ComfyUI"
-    # Import utility and sync to the specific TARGET_VERSION
-    from utils.comfyui_clone import sync_comfyui
     sync_comfyui(comfy_path, target_version=TARGET_VERSION, fallback_branch=FALLBACK_BRANCH)
     
     # 4. Environment Setup
-    Logger.log("Setting up Virtual Environment (UV)...", "info")
+    Logger.log(f"Setting up Virtual Environment (UV) with Python {TARGET_PYTHON_VERSION}...", "info")
     run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_dir = get_venv_env(comfy_path)
 
@@ -276,7 +276,7 @@ def main():
     
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_stats)
     Logger.success("Process Finished!")
-    Downloader.get_input("\nPress Enter to exit...")
+    input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
     main()
