@@ -65,21 +65,28 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     $env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin"
 }
 
-# Refresh config object after extraction to ensure we have the latest
+# --- MERGE LOCAL CONFIG LOGIC ---
+$configPath = Join-Path $BaseDir "config.json"
+$localConfigPath = Join-Path $BaseDir "config.local.json"
+
+# Load Base Config
 $config = Get-Content $configPath -Raw | ConvertFrom-Json
+
+# Merge Local Override if it exists
+if (Test-Path $localConfigPath) {
+    Write-Host "[*] Applying local configuration overrides for Python acquisition..." -ForegroundColor Magenta
+    $localConfig = Get-Content $localConfigPath -Raw | ConvertFrom-Json
+    
+    # Manually override the Python object if present in local
+    if ($null -ne $localConfig.python) {
+        if ($null -ne $localConfig.python.display_name) { $config.python.display_name = $localConfig.python.display_name }
+        if ($null -ne $localConfig.python.full_version) { $config.python.full_version = $localConfig.python.full_version }
+    }
+}
+
 $targetVer = $config.python.display_name
 if (-not $targetVer) { $targetVer = "3.12" } 
 
 Write-Host "[*] Ensuring Portable Python $targetVer via UV..." -ForegroundColor Cyan
 & uv python install $targetVer
 $finalPyPath = (& uv python find $targetVer).Trim()
-
-# 5. Final Execution
-if (Test-Path $finalPyPath) {
-    Write-Host "[+] Launching Setup Logic..." -ForegroundColor Green
-    # branch "master" for the official ComfyUI repo
-    & $finalPyPath "setup_logic.py" --branch "master"
-} else {
-    Write-Host "[-] ERROR: UV could not locate Python $targetVer." -ForegroundColor Red
-    Pause
-}
