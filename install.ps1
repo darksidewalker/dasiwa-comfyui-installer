@@ -12,6 +12,7 @@ Write-Host "==========================================" -ForegroundColor Green
 $zipFile = Join-Path $BaseDir "repo.zip"
 $tempFolder = Join-Path $BaseDir "temp_extract"
 $configPath = Join-Path $BaseDir "config.json"
+$localConfigPath = Join-Path $BaseDir "config.local.json"
 
 # Logic: Ensure config exists to get the zip_url
 if (-not (Test-Path $configPath)) {
@@ -66,18 +67,13 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 }
 
 # --- MERGE LOCAL CONFIG LOGIC ---
-$configPath = Join-Path $BaseDir "config.json"
-$localConfigPath = Join-Path $BaseDir "config.local.json"
-
-# Load Base Config
+# Reload config objects to ensure we have the files synced from the ZIP
 $config = Get-Content $configPath -Raw | ConvertFrom-Json
 
-# Merge Local Override if it exists
 if (Test-Path $localConfigPath) {
     Write-Host "[*] Applying local configuration overrides for Python acquisition..." -ForegroundColor Magenta
     $localConfig = Get-Content $localConfigPath -Raw | ConvertFrom-Json
     
-    # Manually override the Python object if present in local
     if ($null -ne $localConfig.python) {
         if ($null -ne $localConfig.python.display_name) { $config.python.display_name = $localConfig.python.display_name }
         if ($null -ne $localConfig.python.full_version) { $config.python.full_version = $localConfig.python.full_version }
@@ -89,4 +85,17 @@ if (-not $targetVer) { $targetVer = "3.12" }
 
 Write-Host "[*] Ensuring Portable Python $targetVer via UV..." -ForegroundColor Cyan
 & uv python install $targetVer
-$finalPyPath = (& uv python find $targetVer).Trim()
+
+# Capture only the last line of output to avoid "Already installed" messages polluting the path
+$uvPathOutput = & uv python find $targetVer
+$finalPyPath = ($uvPathOutput | Select-Object -Last 1).Trim().Trim('"')
+
+# 5. Final Execution
+if ($null -ne $finalPyPath -and (Test-Path $finalPyPath)) {
+    Write-Host "[+] Launching Setup Logic with Python $targetVer..." -ForegroundColor Green
+    # Execute setup_logic.py using the specific python executable found by UV
+    & $finalPyPath "setup_logic.py"
+} else {
+    Write-Host "[-] ERROR: Could not find or install Python $targetVer. Path: $finalPyPath" -ForegroundColor Red
+    Pause
+}
