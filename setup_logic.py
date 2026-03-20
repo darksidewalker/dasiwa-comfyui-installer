@@ -86,32 +86,52 @@ def ensure_dependencies():
 # --- CORE TASKS ---
 def install_torch(env, hw):
     vendor, gpu_name = hw['vendor'], hw['name'].upper()
-    target_cu, is_nightly = GLOBAL_CUDA_VERSION, False
     
-    if vendor == "NVIDIA":
-        # Detects both real hardware names and our manual string
-        if "RTX 50" in gpu_name:
-            target_cu, is_nightly = MIN_CUDA_FOR_50XX, True
-        elif any(x in gpu_name for x in ["GTX 10", "PASCAL", "LEGACY"]):
-            target_cu = "12.1"
-
-    cmd = ["uv", "pip", "install"]
-    if is_nightly: cmd += ["--pre"]
+    # Respect versions from config.json
+    target_cu = CONFIG.get("cuda", {}).get("global", "13.0")
+    min_50xx_cu = CONFIG.get("cuda", {}).get("min_cuda_for_50xx", "12.8")
     
-    if target_cu == "12.1":
-        cmd += ["torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"]
-    else:
-        cmd += ["torch", "torchvision", "torchaudio"]
-    
+    is_nightly = False
     whl_url = "https://download.pytorch.org/whl/"
+    cmd = ["uv", "pip", "install"]
+
     if vendor == "NVIDIA":
+        # 1. Respect 'Manual: NVIDIA GTX 10' or Legacy cards from hardware.py
+        if "GTX 10" in gpu_name or any(x in gpu_name for x in ["PASCAL", "LEGACY"]):
+            target_cu = "12.1"
+            
+        # 2. Check for RTX 50-series (Requires 12.8+ and --pre)
+        elif "RTX 50" in gpu_name:
+            target_cu = min_50xx_cu
+            is_nightly = True
+        
+        if is_nightly: cmd += ["--pre"]
+        
+        # Version locking for the legacy 12.1 path
+        if target_cu == "12.1":
+            cmd += ["torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"]
+        else:
+            cmd += ["torch", "torchvision", "torchaudio"]
+            
         cmd += ["--extra-index-url", f"{whl_url}cu{target_cu.replace('.', '')}"]
+
     elif vendor == "AMD":
-        cmd += ["--index-url", f"{whl_url}rocm6.2"]
+        # Supports the ROCm 6.2/7.1 labels from hardware.py and your new references
+        if any(x in gpu_name for x in ["GFX110", "RX 7000"]):
+            cmd += ["--pre", "torch", "torchvision", "torchaudio", "--index-url", "https://rocm.nightlies.amd.com/v2/gfx110X-all/"]
+        elif any(x in gpu_name for x in ["GFX1151", "STRIX"]):
+            cmd += ["--pre", "torch", "torchvision", "torchaudio", "--index-url", "https://rocm.nightlies.amd.com/v2/gfx1151/"]
+        elif any(x in gpu_name for x in ["GFX120", "RX 9000"]):
+            cmd += ["--pre", "torch", "torchvision", "torchaudio", "--index-url", "https://rocm.nightlies.amd.com/v2/gfx120X-all/"]
+        else:
+            # Fallback to standard ROCm 7.1 stable
+            cmd += ["torch", "torchvision", "torchaudio", "--index-url", f"{whl_url}rocm7.1"]
+
     elif vendor == "INTEL":
-        cmd += ["--extra-index-url", "https://pytorch-extension.intel.com/release-whl/stable/xpu/us/"]
+        # Respects 'Manual: INTEL' or 'Arc' detection
+        cmd += ["torch", "torchvision", "torchaudio", "--index-url", f"{whl_url}xpu"]
     
-    Logger.log(f"Installing Torch for {vendor} ({gpu_name})...", "info")
+    Logger.log(f"Installing Torch for {vendor} ({gpu_name}) using Config v{target_cu}...", "info")
     run_cmd(cmd, env=env)
 
 def task_create_launchers(comfy_path, bin_dir):
