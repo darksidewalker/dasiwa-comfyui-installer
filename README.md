@@ -68,13 +68,12 @@ You can modify this file locally to change which extensions are installed. The i
 This installer uses **uv** for maximum speed and environment isolation. To manually add a package without breaking the installer's logic or "Enforcer" rules, use the following commands from the root folder:
 
 ### **Windows**
-```powershell
+```
 .\ComfyUI\venv\Scripts\uv pip install <package-name>
 ```
 
 ### **Linux**
 ```
-Bash
 ./ComfyUI/venv/bin/uv pip install <package-name>
 ```
 
