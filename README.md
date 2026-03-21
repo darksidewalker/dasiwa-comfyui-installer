@@ -10,6 +10,7 @@ A high-performance, one-click solution for ComfyUI. Built on a **Zero-Conflict**
 * **Smart Node Sync:** Automated installation of nodes from `custom_nodes.txt`, supporting Git submodules and editable packages (`| pkg`).
 * **Self-Healing Logic:** The installer automatically checks for logic updates and launcher improvements on every run.
 * **Sage-Attention v2:** The installer can optionally try to build and install Sage-Attention v2 into the portable environment.
+* **Starters:** Creates convenient "run_comfyui" starters with predefined parameters (inside the ComfyUI folder).
 
 ## 🛡️ Zero-Conflict Architecture
 
