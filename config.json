@@ -6,7 +6,7 @@
         "display_name": "3.12"
     },
     "comfyui": {
-        "version": "v0.16.4",
+        "version": "latest",
         "fallback_branch": "master"
     },
     "cuda": {
