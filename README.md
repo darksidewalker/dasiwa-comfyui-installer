@@ -53,8 +53,8 @@ The installer is designed to be "set and forget," but if you need to target spec
 
 ---
 
-## 2. Customizing `custom_nodes.txt`
-You can modify this file locally to change which extensions are installed. The installer identifies special requirements based on flags added to the end of the URL:
+## 2. Customizing `custom_nodes.local.txt`
+You can modify/create this file locally to change which extensions are installed. The installer identifies special requirements based on flags added to the end of the URL:
 
 * **Standard:** `https://github.com/user/repo`
     * A standard git clone.
