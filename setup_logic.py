@@ -287,3 +287,6 @@ def main():
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_stats)
     Logger.success("Process Finished!")
     input("\nPress Enter to exit...")
+
+if __name__ == "__main__":
+    main()
