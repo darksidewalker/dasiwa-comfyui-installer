@@ -175,6 +175,8 @@ def main():
     # 1. Define anchor paths
     CURRENT_RUN_DIR = Path.cwd().absolute()
     CONFIG_PATH = CURRENT_RUN_DIR / "config.json"
+    LOCAL_CONFIG_PATH = CURRENT_RUN_DIR / "config.local.json"
+    LOCAL_NODES_PATH = CURRENT_RUN_DIR / "custom_nodes.local.txt"
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--branch", default="master", help="Branch of ComfyUI to clone")
@@ -188,11 +190,10 @@ def main():
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         config_data = json.load(f)
 
-    # 2b. IMPLEMENT LOCAL OVERRIDES (Manual only)
-    LOCAL_CONFIG_PATH = CURRENT_RUN_DIR / "config.local.json"
-    
+    # 3. Handle Local Overrides (Config & Nodes)
+    # --- Config Override ---
     if LOCAL_CONFIG_PATH.exists():
-        Logger.log("Applying local configuration overrides...", "info")
+        Logger.log("Applying local configuration overrides...", "magenta")
         try:
             with open(LOCAL_CONFIG_PATH, 'r', encoding='utf-8') as f:
                 local_data = json.load(f)
@@ -206,36 +207,43 @@ def main():
         except Exception as e:
             Logger.warn(f"Failed to parse config.local.json: {e}. Using defaults.")
 
+    # --- Node Override Logic ---
+    if LOCAL_NODES_PATH.exists():
+        Logger.log("Manual Override: Using custom_nodes.local.txt", "magenta")
+        final_nodes_source = str(LOCAL_NODES_PATH)
+    else:
+        # Fallback to the URL in config.json (or config.local.json if updated)
+        # We use a secondary fallback to the global NODES_LIST_URL constant
+        final_nodes_source = config_data.get("urls", {}).get("custom_nodes", NODES_LIST_URL)
+
     # --- EXTRACT FINAL PREFS (Post-Merge) ---
     comfy_prefs = config_data.get("comfyui", {})
     TARGET_VERSION = comfy_prefs.get("version", "latest")
     FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
     
-    global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION, NODES_LIST_URL, CONFIG
+    global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION, CONFIG
     CONFIG = config_data
     
     TARGET_PYTHON_VERSION = config_data["python"].get("display_name", "3.12")
-    
     GLOBAL_CUDA_VERSION = config_data["cuda"].get("global", GLOBAL_CUDA_VERSION)
-    NODES_LIST_URL = config_data.get("urls", {}).get("custom_nodes", NODES_LIST_URL)
 
-    # 3. ComfyUI Setup
+    # 4. ComfyUI Setup
     comfy_path = CURRENT_RUN_DIR / "ComfyUI"
     sync_comfyui(comfy_path, target_version=TARGET_VERSION, fallback_branch=FALLBACK_BRANCH)
     
-    # 4. Environment Setup
+    # 5. Environment Setup
     Logger.log(f"Setting up Virtual Environment (UV) with Python {TARGET_PYTHON_VERSION}...", "info")
     run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_dir = get_venv_env(comfy_path)
 
-    # 5. Model Management
+    # 6. Model Management
     if "optional_downloads" in config_data:
         try:
             Downloader.show_cli_menu(config_data["optional_downloads"], comfy_path)
         except Exception as e:
             Logger.error(f"Download menu encountered an error: {e}")
 
-    # 6. Core Installation & Custom Nodes
+    # 7. Core Installation & Custom Nodes
     os.chdir(comfy_path)
     node_stats = None 
     try:
@@ -254,7 +262,7 @@ def main():
         Logger.log("Synchronizing Custom Nodes...", "info")
         node_stats = task_custom_nodes(
             venv_env, 
-            NODES_LIST_URL, 
+            final_nodes_source, 
             NODES_LIST_FILE, 
             run_cmd, 
             comfy_path
@@ -272,13 +280,10 @@ def main():
     except Exception as e:
         Logger.error(f"Installation failed: {e}")
 
-    # 7. Finalize
+    # 8. Finalize
     os.chdir(CURRENT_RUN_DIR)
     task_create_launchers(comfy_path, bin_dir)
     
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_stats)
     Logger.success("Process Finished!")
     input("\nPress Enter to exit...")
-
-if __name__ == "__main__":
-    main()
