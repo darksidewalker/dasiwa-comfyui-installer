@@ -198,7 +198,6 @@ def main():
             with open(LOCAL_CONFIG_PATH, 'r', encoding='utf-8') as f:
                 local_data = json.load(f)
             
-            # Deep merge logic for nested dictionaries
             for section in ["python", "comfyui", "cuda", "urls"]:
                 if section in local_data and isinstance(local_data[section], dict):
                     config_data.setdefault(section, {}).update(local_data[section])
@@ -208,15 +207,14 @@ def main():
             Logger.warn(f"Failed to parse config.local.json: {e}. Using defaults.")
 
     # --- Node Override Logic ---
+    # Logic: .local.txt > config.urls.custom_nodes > default constant
     if LOCAL_NODES_PATH.exists():
         Logger.log("Manual Override: Using custom_nodes.local.txt", "magenta")
         final_nodes_source = str(LOCAL_NODES_PATH)
     else:
-        # Fallback to the URL in config.json (or config.local.json if updated)
-        # We use a secondary fallback to the global NODES_LIST_URL constant
         final_nodes_source = config_data.get("urls", {}).get("custom_nodes", NODES_LIST_URL)
 
-    # --- EXTRACT FINAL PREFS (Post-Merge) ---
+    # --- EXTRACT FINAL PREFS ---
     comfy_prefs = config_data.get("comfyui", {})
     TARGET_VERSION = comfy_prefs.get("version", "latest")
     FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
@@ -247,18 +245,15 @@ def main():
     os.chdir(comfy_path)
     node_stats = None 
     try:
-        # A. Hardware-specific Torch
         install_torch(venv_env, hw)
         
-        # B. ComfyUI Core requirements
         Logger.log("Installing core requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
 
-        # C. SageAttention
         if input("\nDo you want to build SageAttention? (y/n): ").lower() == 'y':
             SageInstaller.build_sage(venv_env, comfy_path, config_data.get("urls", {}))
 
-        # D. Custom Node synchronization
+        # D. Custom Node synchronization using our dynamic source
         Logger.log("Synchronizing Custom Nodes...", "info")
         node_stats = task_custom_nodes(
             venv_env, 
@@ -268,13 +263,8 @@ def main():
             comfy_path
         )
 
-        # E. FINAL STEP: The "Enforcer"
         Logger.log("Enforcing Priority Packages & ComfyUI-Manager...", "info")
-        
-        # F. Install Manager via UV as a package
         run_cmd(["uv", "pip", "install", "-r", "manager_requirements.txt"], env=venv_env)
-        
-        # G. Apply version locks
         run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:
@@ -287,3 +277,6 @@ def main():
     Reporter.show_summary(hw, venv_env, start_time, node_stats=node_stats)
     Logger.success("Process Finished!")
     input("\nPress Enter to exit...")
+
+if __name__ == "__main__":
+    main()

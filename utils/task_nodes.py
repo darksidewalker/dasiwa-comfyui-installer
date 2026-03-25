@@ -11,29 +11,29 @@ def remove_readonly(func, path, excinfo=None):
     func(path)
 
 def fetch_node_list(source, retries=3, delay=2):
-    """
-    Determines if source is a local file or a URL and returns the content lines.
-    """
+    """Safely fetches nodes from either a local file or a URL."""
+    # 1. Check if source is a local file
     local_path = Path(source)
     if local_path.exists() and local_path.is_file():
         try:
             with open(local_path, "r", encoding="utf-8") as f:
                 return f.read().splitlines()
         except Exception as e:
-            Logger.error(f"Failed to read local node list: {e}")
+            Logger.error(f"Local file read error: {e}")
             return []
 
+    # 2. Otherwise, treat as a URL
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(source, headers={'User-Agent': 'Mozilla/5.0'})
+            req = urllib.request.Request(source, headers={'User-Agent': 'Python-Installer'})
             with urllib.request.urlopen(req, timeout=15) as response:
                 return response.read().decode('utf-8').splitlines()
         except Exception as e:
             if attempt < retries - 1:
-                Logger.warn(f"Node list fetch failed: {e}. Retrying {attempt + 2}/{retries}...")
+                Logger.warn(f"Retry {attempt + 2}/{retries} for node list...")
                 time.sleep(delay)
             else:
-                Logger.error(f"Could not fetch remote node list: {e}")
+                Logger.error(f"Failed to fetch remote node list: {e}")
                 return []
     return []
 
