@@ -191,7 +191,7 @@ def main():
         config_data = json.load(f)
 
     # 3. Handle Local Overrides (Config & Nodes)
-    # --- Config Override ---
+    # --- Config Override (Deep Merge) ---
     if LOCAL_CONFIG_PATH.exists():
         Logger.log("Applying local configuration overrides...", "magenta")
         try:
@@ -212,15 +212,22 @@ def main():
         Logger.log("Manual Override: Using custom_nodes.local.txt", "magenta")
         final_nodes_source = str(LOCAL_NODES_PATH)
     else:
-        # Fallback to the URL in config.json (or config.local.json if updated)
-        # We use a secondary fallback to the global NODES_LIST_URL constant
+        # Fallback to the URL in config.json (or local override)
         final_nodes_source = config_data.get("urls", {}).get("custom_nodes", NODES_LIST_URL)
 
-    # --- EXTRACT FINAL PREFS (Post-Merge) ---
+    # --- VERSION LOGIC: The "Latest is Master" Bridge ---
     comfy_prefs = config_data.get("comfyui", {})
-    TARGET_VERSION = comfy_prefs.get("version", "latest")
+    raw_version = comfy_prefs.get("version", "latest")
+
+    # If config says "latest", we explicitly target the master branch
+    if raw_version.lower() == "latest":
+        TARGET_VERSION = "master"
+    else:
+        TARGET_VERSION = raw_version
+
     FALLBACK_BRANCH = comfy_prefs.get("fallback_branch", args.branch)
     
+    # Global assignments
     global TARGET_PYTHON_VERSION, GLOBAL_CUDA_VERSION, CONFIG
     CONFIG = config_data
     
@@ -232,6 +239,7 @@ def main():
     sync_comfyui(comfy_path, target_version=TARGET_VERSION, fallback_branch=FALLBACK_BRANCH)
     
     # 5. Environment Setup
+    # IV handles the requirements.txt and creates a venv
     Logger.log(f"Setting up Virtual Environment (UV) with Python {TARGET_PYTHON_VERSION}...", "info")
     run_cmd(["uv", "venv", str(comfy_path / "venv"), "--python", TARGET_PYTHON_VERSION, "--clear"])
     venv_env, bin_dir = get_venv_env(comfy_path)
@@ -250,7 +258,7 @@ def main():
         # A. Hardware-specific Torch
         install_torch(venv_env, hw)
         
-        # B. ComfyUI Core requirements
+        # B. ComfyUI Core requirements using uv
         Logger.log("Installing core requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
 
@@ -271,10 +279,10 @@ def main():
         # E. FINAL STEP: The "Enforcer"
         Logger.log("Enforcing Priority Packages & ComfyUI-Manager...", "info")
         
-        # F. Install Manager via UV as a package
+        # F. Install Manager requirements via UV
         run_cmd(["uv", "pip", "install", "-r", "manager_requirements.txt"], env=venv_env)
         
-        # G. Apply version locks
+        # G. Apply version locks for priority packages
         run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:
