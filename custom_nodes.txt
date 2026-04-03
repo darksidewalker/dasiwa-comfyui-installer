@@ -5,6 +5,7 @@ https://github.com/yolain/ComfyUI-Easy-Use
 # --- Essential Tools & GGUF Support ---
 https://github.com/kijai/ComfyUI-KJNodes
 https://github.com/city96/ComfyUI-GGUF
+https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes
 
 # --- Video & Animation ---
 https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite
