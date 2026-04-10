@@ -10,7 +10,6 @@ https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes
 # --- Video & Animation ---
 https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite
 https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit
-https://github.com/Fannovel16/ComfyUI-Frame-Interpolation
 https://github.com/Comfy-Org/Nvidia_RTX_Nodes_ComfyUI
 
 # --- Audio & Special Media ---
@@ -20,3 +19,6 @@ https://github.com/kijai/ComfyUI-MMAudio
 
 # Package nodes (Requires editable install)
 #https://... | pkg
+
+# Custom requirement file install
+https://github.com/Fannovel16/ComfyUI-Frame-Interpolation | req:requirements-with-cupy.txt
