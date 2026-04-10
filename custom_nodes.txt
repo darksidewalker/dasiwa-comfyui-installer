@@ -21,4 +21,4 @@ https://github.com/kijai/ComfyUI-MMAudio
 #https://... | pkg
 
 # Custom requirement file install
-https://github.com/Fannovel16/ComfyUI-Frame-Interpolation | req:requirements-with-cupy.txt
+https://github.com/Fannovel16/ComfyUI-Frame-Interpolation | req:requirements-no-cupy.txt
