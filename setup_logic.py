@@ -52,8 +52,24 @@ PRIORITY_PACKAGES = [
 ]
 
 # --- COMMAND WRAPPERS ---
-def run_cmd(cmd, env=None, shell=False, capture=False):
-    return subprocess.run(cmd, check=True, env=env, shell=shell, capture_output=capture, text=True)
+def run_cmd(cmd, env=None, **kwargs):
+    """Run a command and log output, supporting flexible arguments like cwd."""
+    try:
+        # Pass all extra arguments (like cwd) into subprocess.run
+        subprocess.run(
+            cmd, 
+            env=env, 
+            check=True, 
+            capture_output=True, 
+            text=True, 
+            **kwargs 
+        )
+    except subprocess.CalledProcessError as e:
+        # Enhanced error logging for debugging builds
+        Logger.error(f"Command failed: {' '.join(cmd)}")
+        if e.stderr:
+            Logger.log(e.stderr, "error")
+        raise e
 
 def get_venv_env(comfy_path):
     venv_path = comfy_path / "venv"
