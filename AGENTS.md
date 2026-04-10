@@ -12,6 +12,7 @@ The project utilizes a **Modular Micro-Agent Pattern**. Logic is strictly siloed
 | Module | Agent Role | Responsibility |
 | :--- | :--- | :--- |
 | `utils/hardware.py` | **Hardware Scout** | Probes GPU (NVIDIA/AMD/Intel). Must handle PowerShell/SMI fallbacks. |
+| `utils/task_ffmpeg.py` | **Media Specialist** | Ensures FFmpeg binaries are available for video-processing nodes. |
 | `utils/downloader.py` | **Scavenger** | Handles GitHub API, recursive downloads, and model migration. |
 | `utils/comfyui_clone.py` | **Version Controller** | Manages Git tags/branches for the core ComfyUI repository. |
 | `utils/logger.py` | **Chronicler** | Standardizes ANSI color output. Use `Logger.log(text, level)`. |
@@ -45,6 +46,10 @@ The project utilizes a **Modular Micro-Agent Pattern**. Logic is strictly siloed
 ### 4. Self-Healing & Hash Integrity
 * **Instruction:** The system checks `.version_hash` on startup.
 * **Protocol:** If modifying the core logic, agents must be aware that `install_comfyui.py` will attempt to overwrite local changes with the remote GitHub version unless the user is in a "Developer Mode" or the hash check is bypassed.
+
+### 5. Persistent Binary Injection
+* **Rule:** System-level dependencies (like FFmpeg) must be accessible every launch.
+* **Protocol:** When generating launchers (`task_create_launchers`), agents must verify the presence of the `ffmpeg/bin` directory and inject a `set PATH` (Win) or `export PATH` (Linux) command to ensure child processes (ComfyUI Nodes) inherit the correct binary context.
 
 ---
 

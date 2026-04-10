@@ -17,6 +17,7 @@ from utils.task_nodes import task_custom_nodes
 from utils.downloader import Downloader
 from utils.comfyui_clone import sync_comfyui
 from utils.task_sageattention import SageInstaller
+from utils.task_ffmpeg import FFmpegInstaller
 
 IS_WIN = platform.system() == "Windows"
 Logger.init()
@@ -137,22 +138,44 @@ def install_torch(env, hw):
     run_cmd(cmd, env=env)
 
 def task_create_launchers(comfy_path, bin_dir):
-    """Creates the startup scripts for Linux and Windows."""
-    # Use paths relative to the ComfyUI folder
+    """Creates the startup scripts with integrated FFmpeg path injection."""
+    # Define the local ffmpeg path relative to ComfyUI root
+    ffmpeg_bin_subpath = "ffmpeg/bin"
+    ffmpeg_path = comfy_path / ffmpeg_bin_subpath
+    
+    # Check if FFmpeg was installed locally
+    has_local_ffmpeg = ffmpeg_path.exists()
+
     if os.name == "nt":
         venv_python = r"venv\Scripts\python.exe"
         args = "--enable-manager --preview-method auto"
-        content = f'@echo off\ncd /d "%~dp0"\nstart http://127.0.0.1:8188\n"{venv_python}" main.py {args}\npause'
+        
+        # Windows: Inject ffmpeg/bin into the session PATH
+        path_injection = f"set PATH=%~dp0{ffmpeg_bin_subpath};%PATH%\n" if has_local_ffmpeg else ""
+        
+        content = (
+            f"@echo off\n"
+            f'cd /d "%~dp0"\n'
+            f"{path_injection}"
+            f"start http://127.0.0.1:8188\n"
+            f'"{venv_python}" main.py {args}\n'
+            f"pause"
+        )
         launcher_path = comfy_path / "run_comfyui.bat"
     else:
-        # For Linux, use venv/bin/python3
+        # Linux: Inject ffmpeg/bin into the session PATH
         venv_python = "./venv/bin/python3"
         args = "--enable-manager --preview-method auto"
-        content = f"""#!/bin/bash
-cd "$(dirname "$0")"
-(sleep 5 && xdg-open http://127.0.0.1:8188) &
-"{venv_python}" main.py {args}
-"""
+        
+        path_injection = f'export PATH="$PWD/{ffmpeg_bin_subpath}:$PATH"\n' if has_local_ffmpeg else ""
+        
+        content = (
+            f"#!/bin/bash\n"
+            f'cd "$(dirname "$0")"\n'
+            f"{path_injection}"
+            f"(sleep 5 && xdg-open http://127.0.0.1:8188) &\n"
+            f'"{venv_python}" main.py {args}\n'
+        )
         launcher_path = comfy_path / "run_comfyui.sh"
 
     with open(launcher_path, "w", newline='\n') as f:
@@ -161,7 +184,7 @@ cd "$(dirname "$0")"
     if os.name != "nt":
         os.chmod(launcher_path, 0o755)
     
-    Logger.log(f"Launcher created at: {launcher_path}", "ok")
+    Logger.log(f"Launcher created with FFmpeg pathing: {launcher_path}", "ok")
 
 # Ensures 'utils' is findable regardless of where the script is called from
 SCRIPT_ROOT = Path(__file__).parent.absolute()
@@ -255,18 +278,22 @@ def main():
     os.chdir(comfy_path)
     node_stats = None 
     try:
-        # A. Hardware-specific Torch
+        # Hardware-specific Torch
         install_torch(venv_env, hw)
         
-        # B. ComfyUI Core requirements using uv
+        # ComfyUI Core requirements using uv
         Logger.log("Installing core requirements...", "info")
         run_cmd(["uv", "pip", "install", "-r", "requirements.txt"], env=venv_env)
 
-        # C. SageAttention
+        # FFmpeg Task
+        if input("\nInstall FFmpeg for Video Support? (y/n): ").lower() == 'y':
+            FFmpegInstaller.run(comfy_path)
+
+        # SageAttention
         if input("\nDo you want to build SageAttention? (y/n): ").lower() == 'y':
             SageInstaller.build_sage(venv_env, comfy_path, config_data.get("urls", {}))
 
-        # D. Custom Node synchronization
+        # Custom Node synchronization
         Logger.log("Synchronizing Custom Nodes...", "info")
         node_stats = task_custom_nodes(
             venv_env, 
@@ -276,13 +303,13 @@ def main():
             comfy_path
         )
 
-        # E. FINAL STEP: The "Enforcer"
+        # FINAL STEP: The "Enforcer"
         Logger.log("Enforcing Priority Packages & ComfyUI-Manager...", "info")
         
-        # F. Install Manager requirements via UV
+        # Install Manager requirements via UV
         run_cmd(["uv", "pip", "install", "-r", "manager_requirements.txt"], env=venv_env)
         
-        # G. Apply version locks for priority packages
+        # Apply version locks for priority packages
         run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES, env=venv_env)
 
     except Exception as e:

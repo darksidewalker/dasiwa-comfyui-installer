@@ -23,7 +23,8 @@
         "custom_nodes": "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt",
         "git_windows": "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/Git-2.53.0-64-bit.exe",
         "sage_repo": "https://github.com/thu-ml/SageAttention.git",
-        "msvc_build_tools": "https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+        "msvc_build_tools": "https://visualstudio.microsoft.com/visual-cpp-build-tools/",
+        "ffmpeg_windows": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
     },
     "optional_downloads": [
     {
