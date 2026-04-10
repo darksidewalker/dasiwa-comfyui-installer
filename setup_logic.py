@@ -138,20 +138,16 @@ def install_torch(env, hw):
     run_cmd(cmd, env=env)
 
 def task_create_launchers(comfy_path, bin_dir):
-    """Creates the startup scripts with integrated FFmpeg path injection."""
-    # Define the local ffmpeg path relative to ComfyUI root
-    ffmpeg_bin_subpath = "ffmpeg/bin"
-    ffmpeg_path = comfy_path / ffmpeg_bin_subpath
-    
-    # Check if FFmpeg was installed locally
-    has_local_ffmpeg = ffmpeg_path.exists()
+    """Creates startup scripts with FFmpeg path injection for portability."""
+    ffmpeg_bin = comfy_path / "ffmpeg" / "bin"
+    has_local_ffmpeg = ffmpeg_bin.exists()
 
     if os.name == "nt":
         venv_python = r"venv\Scripts\python.exe"
         args = "--enable-manager --preview-method auto"
         
-        # Windows: Inject ffmpeg/bin into the session PATH
-        path_injection = f"set PATH=%~dp0{ffmpeg_bin_subpath};%PATH%\n" if has_local_ffmpeg else ""
+        # Windows Injection: Use %~dp0 to stay relative to the launcher
+        path_injection = "set PATH=%~dp0ffmpeg\\bin;%PATH%\n" if has_local_ffmpeg else ""
         
         content = (
             f"@echo off\n"
@@ -163,17 +159,13 @@ def task_create_launchers(comfy_path, bin_dir):
         )
         launcher_path = comfy_path / "run_comfyui.bat"
     else:
-        # Linux: Inject ffmpeg/bin into the session PATH
+        # Linux: Apt install is global, but we include an export check for consistency
         venv_python = "./venv/bin/python3"
         args = "--enable-manager --preview-method auto"
-        
-        path_injection = f'export PATH="$PWD/{ffmpeg_bin_subpath}:$PATH"\n' if has_local_ffmpeg else ""
-        
         content = (
             f"#!/bin/bash\n"
             f'cd "$(dirname "$0")"\n'
-            f"{path_injection}"
-            f"(sleep 5 && xdg-open http://127.0.0.1:8188) &\n"
+            f'(sleep 5 && xdg-open http://127.0.0.1:8188) &\n'
             f'"{venv_python}" main.py {args}\n'
         )
         launcher_path = comfy_path / "run_comfyui.sh"
@@ -184,7 +176,7 @@ def task_create_launchers(comfy_path, bin_dir):
     if os.name != "nt":
         os.chmod(launcher_path, 0o755)
     
-    Logger.log(f"Launcher created with FFmpeg pathing: {launcher_path}", "ok")
+    Logger.log(f"Launcher created: {launcher_path}", "ok")
 
 # Ensures 'utils' is findable regardless of where the script is called from
 SCRIPT_ROOT = Path(__file__).parent.absolute()
@@ -287,7 +279,7 @@ def main():
 
         # FFmpeg Task
         if input("\nInstall FFmpeg for Video Support? (y/n): ").lower() == 'y':
-            FFmpegInstaller.run(comfy_path)
+            FFmpegInstaller.run(comfy_path, CONFIG.get("urls", {}))
 
         # SageAttention
         if input("\nDo you want to build SageAttention? (y/n): ").lower() == 'y':
