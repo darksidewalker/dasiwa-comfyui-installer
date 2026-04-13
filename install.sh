@@ -43,7 +43,7 @@ INNER_DIR=$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)
 if [ -n "$INNER_DIR" ]; then
     echo "[*] Syncing files to $SCRIPT_DIR..."
     # Copying content of INNER_DIR to SCRIPT_DIR 
-    cp -af "$INNER_DIR"/. "$SCRIPT_DIR/"
+    # cp -af "$INNER_DIR"/. "$SCRIPT_DIR/"
     
     # Cleanup download artifacts so the next run is fresh 
     rm -rf "$ZIP_FILE" "$TEMP_DIR"

@@ -89,7 +89,7 @@ def ensure_dependencies():
 
     # Check Git
     try:
-        run_cmd(["git", "--version"], capture=True)
+        run_cmd(["git", "--version"])
     except:
         if IS_WIN:
             Logger.log("Downloading Git...", "info")
