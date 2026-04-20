@@ -634,84 +634,109 @@ def main():
     sage_installed = False
     ffmpeg_installed = FFmpegInstaller.is_installed() or plan["state"]["ffmpeg_local"]
 
+    # Define a helper for phase-isolated error handling:
+    # If a phase raises, log it and continue with the next one instead of
+    # aborting the entire install.
+    def _phase(name, fn, *args, critical=False, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            if critical:
+                Logger.error(f"CRITICAL phase failed: {name}: {e}")
+                raise
+            Logger.error(f"Phase failed: {name}: {e}")
+            Logger.warn(f"Continuing with remaining phases...")
+            return None
+
     try:
         # Handle wipe: remove old folder
         if plan["install_mode"] == "wipe" and comfy_path.exists():
             Logger.log(f"Wiping {comfy_path} ...", "warn")
             shutil.rmtree(comfy_path, ignore_errors=True)
 
-        # ComfyUI checkout (clone or update)
-        sync_comfyui(
-            comfy_path,
-            target_version=plan["target_version"],
-            fallback_branch=plan["fallback_branch"],
-        )
+        # ComfyUI checkout is CRITICAL — without it, nothing else makes sense
+        _phase("ComfyUI checkout", sync_comfyui,
+               comfy_path,
+               target_version=plan["target_version"],
+               fallback_branch=plan["fallback_branch"],
+               critical=True)
 
-        # Venv (create fresh on fresh/refresh/wipe; reuse on 'update')
+        # Venv creation is CRITICAL — everything downstream needs it
         need_new_venv = plan["install_mode"] in ("fresh", "refresh", "wipe") \
                         or not plan["state"]["venv_exists"]
         if need_new_venv:
             Logger.log(f"Setting up Virtual Environment (UV) with "
                        f"Python {target_python}...", "info")
-            run_cmd(
-                ["uv", "venv", str(comfy_path / "venv"),
-                 "--python", target_python, "--clear"],
-                stream=True,
-            )
+            _phase("venv create", run_cmd,
+                   ["uv", "venv", str(comfy_path / "venv"),
+                    "--python", target_python, "--clear"],
+                   stream=True, critical=True)
         else:
             Logger.log("Reusing existing virtual environment.", "ok")
 
         venv_env, bin_dir = get_venv_env(comfy_path)
 
-        # Downloads selected in wizard
+        # Downloads — non-critical, failures here must not block torch/nodes/sage
         if plan["selected_downloads"]:
-            Downloader.install_selected(plan["selected_downloads"], comfy_path)
+            _phase("optional downloads",
+                   Downloader.install_selected,
+                   plan["selected_downloads"], comfy_path)
 
         # Switch cwd to ComfyUI for subsequent operations
         os.chdir(comfy_path)
 
-        # Torch (always ensure a matching build, with possibly downgraded CUDA)
-        install_torch(venv_env, hw, plan["cuda_target"], config_data)
+        # Torch — critical for everything downstream
+        _phase("torch install", install_torch,
+               venv_env, hw, plan["cuda_target"], config_data,
+               critical=True)
 
-        # ComfyUI requirements
+        # ComfyUI requirements — critical
         Logger.log("Installing core requirements...", "info")
-        run_cmd(["uv", "pip", "install", "-r", "requirements.txt"],
-                env=venv_env, stream=True)
+        _phase("ComfyUI requirements", run_cmd,
+               ["uv", "pip", "install", "-r", "requirements.txt"],
+               env=venv_env, stream=True, critical=True)
 
-        # FFmpeg
+        # FFmpeg — non-critical
         if plan["want_ffmpeg"]:
-            FFmpegInstaller.run(comfy_path, config_data.get("urls", {}))
+            _phase("ffmpeg install",
+                   FFmpegInstaller.run, comfy_path, config_data.get("urls", {}))
             ffmpeg_installed = (
                 FFmpegInstaller.is_installed() or
                 FFmpegInstaller.is_local_installed(comfy_path)
             )
 
-        # Custom nodes
+        # Custom nodes — non-critical, individual node failures are already caught inside
         Logger.log("Synchronizing Custom Nodes...", "info")
         nodes_source = resolve_nodes_source(config_data, CURRENT_RUN_DIR)
-        node_stats = task_custom_nodes(
-            venv_env, nodes_source, "custom_nodes.txt", run_cmd, comfy_path,
-        )
+        node_stats = _phase("custom nodes sync", task_custom_nodes,
+                            venv_env, nodes_source, "custom_nodes.txt",
+                            run_cmd, comfy_path)
 
-        # ComfyUI-Manager + priority package enforcement
+        # ComfyUI-Manager requirements — non-critical
         Logger.log("Enforcing priority packages & ComfyUI-Manager...", "info")
         manager_req = comfy_path / "manager_requirements.txt"
         if manager_req.exists():
-            run_cmd(["uv", "pip", "install", "-r", str(manager_req)],
-                    env=venv_env, stream=True)
-        run_cmd(["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES,
-                env=venv_env, stream=True)
+            _phase("manager requirements", run_cmd,
+                   ["uv", "pip", "install", "-r", str(manager_req)],
+                   env=venv_env, stream=True)
 
-        # SageAttention LAST (after torch is locked in)
+        # Priority package enforcement — non-critical (torch is already installed)
+        _phase("priority package enforcement", run_cmd,
+               ["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES,
+               env=venv_env, stream=True)
+
+        # SageAttention — non-critical, runs LAST (after torch is locked in)
         if plan["want_sage"]:
-            SageInstaller.build_sage(venv_env, comfy_path, config_data.get("urls", {}))
+            _phase("SageAttention install",
+                   SageInstaller.build_sage,
+                   venv_env, comfy_path, config_data.get("urls", {}))
             # Re-check after attempt
             bin_suffix = "Scripts/python.exe" if IS_WIN else "bin/python"
             python_exe = comfy_path / "venv" / bin_suffix
             sage_installed = SageInstaller.is_installed(python_exe)
 
     except Exception as e:
-        Logger.error(f"Installation failed: {e}")
+        Logger.error(f"Installation aborted: {e}")
 
     # 6. Finalise
     os.chdir(CURRENT_RUN_DIR)

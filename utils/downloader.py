@@ -1,4 +1,5 @@
 import urllib.request
+import urllib.error
 import os
 import shutil
 import time
@@ -58,8 +59,15 @@ class Downloader:
                         "name": json_files[0]['name'],
                         "download_url": json_files[0]['download_url'],
                     }
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                Logger.warn(f"GitHub: '{repo_path}/{folder}' not found (404). "
+                            f"Check repo_path and folder in config.")
+            else:
+                Logger.warn(f"GitHub API error {e.code} for {repo_path}/{folder}: {e.reason}")
+            return None
         except Exception as e:
-            Logger.error(f"GitHub API Error: {e}")
+            Logger.warn(f"GitHub API unreachable for {repo_path}/{folder}: {e}")
             return None
 
     # ---------- Download core ----------
@@ -173,10 +181,11 @@ class Downloader:
 
     @staticmethod
     def filter_missing(config_downloads, comfy_path):
-        """Return only the items that are not yet installed."""
+        """Return only the items that are not yet installed and have a resolvable URL."""
         comfy_path = Path(comfy_path)
         missing = []
         for item in config_downloads:
+            # Resolve 'latest' items via GitHub API
             if item.get('version') == 'latest' and 'repo_path' in item:
                 latest = Downloader.get_latest_github_file(item['repo_path'], item['folder'])
                 if latest:
@@ -184,8 +193,25 @@ class Downloader:
                     item['url'] = latest['download_url']
                     if "(Latest:" not in item['name']:
                         item['name'] = f"{item['name']} (Latest: {latest['name']})"
+                else:
+                    # Remote lookup failed — skip this item entirely. No URL to download from.
+                    Logger.warn(f"Skipping '{item.get('name', '?')}': "
+                                f"could not resolve latest version from GitHub.")
+                    continue
+
+            # Any item that reaches this point must have a URL to be downloadable
+            if not item.get('url'):
+                Logger.warn(f"Skipping '{item.get('name', '?')}': no URL available.")
+                continue
+
             search_root = comfy_path / "models" if "models" in item['type'] else comfy_path
-            if not Downloader.file_exists_recursive(search_root, item.get('file')):
+            filename = item.get('file')
+            # If we don't have a filename yet and it's not a 'latest' item, derive from URL
+            if not filename:
+                filename = item['url'].split('/')[-1].split('?')[0]
+                item['file'] = filename
+
+            if not Downloader.file_exists_recursive(search_root, filename):
                 missing.append(item)
         return missing
 
@@ -193,8 +219,14 @@ class Downloader:
     def install_selected(selected, comfy_path):
         """Download every entry in `selected`."""
         for item in selected:
+            if not item.get('url'):
+                Logger.warn(f"Skipping '{item.get('name', '?')}': no URL to download from.")
+                continue
             dest_dir = Path(comfy_path) / item['type']
-            Downloader.download(
-                item['url'], dest_dir, item['name'],
-                explicit_file=item.get('file'),
-            )
+            try:
+                Downloader.download(
+                    item['url'], dest_dir, item['name'],
+                    explicit_file=item.get('file'),
+                )
+            except Exception as e:
+                Logger.error(f"Download failed for {item.get('name', '?')}: {e}")

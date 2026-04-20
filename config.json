@@ -29,14 +29,14 @@
     {
         "name": "DaSiWa WAN2.2 C-AiO Workflow",
         "type": "user/default/workflows",
-        "repo_path": "darksidewalker/dasiwa-comnfyui-workflows",
+        "repo_path": "darksidewalker/dasiwa-comfyui-workflows",
         "folder": "C-AiO",
         "version": "latest"
     },
     {
         "name": "DaSiWa LTX2.3 C-LTX23 Workflow",
         "type": "user/default/workflows",
-        "repo_path": "darksidewalker/dasiwa-comnfyui-workflows",
+        "repo_path": "darksidewalker/dasiwa-comfyui-workflows",
         "folder": "C-LTX23",
         "version": "latest"
     },
