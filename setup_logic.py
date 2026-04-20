@@ -385,6 +385,20 @@ def preflight_wizard(config_data, current_dir, hw):
     # ----- 5. CUDA target (with conditional Windows downgrade) -----
     cuda_target, downgraded = _resolve_cuda_target(config_data, want_sage)
 
+    # ----- 5b. Windows + Sage: pick a torch version that has prebuilt Sage wheels -----
+    pinned_torch = None
+    if IS_WIN and want_sage and hw["vendor"] == "NVIDIA":
+        py_display = config_data["python"].get("display_name", "3.12")
+        pinned_torch, resolved_cu = SageInstaller.plan_windows_torch(py_display, cuda_target)
+        if pinned_torch and resolved_cu:
+            # If the wheels.json combo uses a different CUDA (e.g. 12.9), honour it
+            resolved_cu_nice = resolved_cu.replace("cu", "")
+            resolved_cu_nice = resolved_cu_nice[:2] + "." + resolved_cu_nice[2:]
+            if resolved_cu_nice != cuda_target:
+                Logger.log(f"CUDA adjusted to {resolved_cu_nice} to match wheel availability.",
+                           "info")
+                cuda_target = resolved_cu_nice
+
     # ----- 6. Optional downloads -----
     selected_downloads = []
     if config_data.get("optional_downloads") and install_mode != "wipe":
@@ -406,22 +420,24 @@ def preflight_wizard(config_data, current_dir, hw):
         else:
             for i, item in enumerate(missing, 1):
                 print(f"  {Logger.DIM}{i}.{Logger.END} {item['name']}")
-            print(f"\n  {Logger.DIM}Commands: numbers (e.g. 1,3), 'all', or empty "
-                  f"to skip{Logger.END}")
-            raw = Logger.ask("Which to download?", default="all")
-            if raw:
-                if raw.lower() == "all":
-                    selected_downloads = missing
-                else:
-                    try:
-                        indices = [int(x) - 1 for x
-                                   in raw.replace(',', ' ').split()]
-                        selected_downloads = [
-                            missing[i] for i in indices
-                            if 0 <= i < len(missing)
-                        ]
-                    except ValueError:
-                        Logger.warn("Unrecognised selection — skipping downloads.")
+            print(f"\n  {Logger.DIM}Commands: numbers (e.g. 1,3), 'all', or "
+                  f"'none' (default) to skip{Logger.END}")
+            raw = Logger.ask("Which to download?", default="none")
+            raw_lower = raw.lower().strip()
+            if raw_lower in ("", "none", "skip", "n"):
+                selected_downloads = []
+            elif raw_lower == "all":
+                selected_downloads = missing
+            else:
+                try:
+                    indices = [int(x) - 1 for x
+                               in raw.replace(',', ' ').split()]
+                    selected_downloads = [
+                        missing[i] for i in indices
+                        if 0 <= i < len(missing)
+                    ]
+                except ValueError:
+                    Logger.warn("Unrecognised selection — skipping downloads.")
 
     # ----- 7. Review & confirm -----
     Logger.banner("Configuration Summary", "Review before starting")
@@ -431,6 +447,8 @@ def preflight_wizard(config_data, current_dir, hw):
     Logger.kv("Python:",      config_data["python"].get("display_name", "3.12"))
     cuda_label = f"{cuda_target}" + (" (downgraded for Sage compat)" if downgraded else "")
     Logger.kv("CUDA target:", cuda_label)
+    if pinned_torch:
+        Logger.kv("Torch pin:",   f"{pinned_torch} (matches prebuilt Sage wheel)")
     Logger.kv("ComfyUI:",     target_version)
     Logger.kv("SageAttention:", "yes" if want_sage else "no")
     Logger.kv("FFmpeg:",      "yes" if want_ffmpeg else "no")
@@ -450,6 +468,7 @@ def preflight_wizard(config_data, current_dir, hw):
         "want_ffmpeg":        want_ffmpeg,
         "cuda_target":        cuda_target,
         "cuda_downgraded":    downgraded,
+        "pinned_torch":       pinned_torch,
         "selected_downloads": selected_downloads,
     }
 
@@ -458,7 +477,14 @@ def preflight_wizard(config_data, current_dir, hw):
 #  TORCH INSTALL
 # ============================================================================
 
-def install_torch(env, hw, cuda_target, config):
+def install_torch(env, hw, cuda_target, config, pin_torch=None):
+    """Install torch for the detected vendor.
+
+    `pin_torch` is an optional torch version string (e.g. '2.8.0') used when we
+    need to lock to a specific release — notably on Windows when SageAttention
+    is requested, because not all torch+cuda combinations have prebuilt
+    SageAttention wheels.
+    """
     vendor, gpu_name = hw["vendor"], hw["name"].upper()
     min_50xx_cu = config.get("cuda", {}).get("min_cuda_for_50xx", "12.8")
 
@@ -480,7 +506,12 @@ def install_torch(env, hw, cuda_target, config):
             cmd += ["--pre"]
 
         if target_cu == "12.1":
+            # Legacy Pascal path — already pinned
             cmd += ["torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"]
+        elif pin_torch:
+            # Sage-aware pinning: lock torch to a version that has prebuilt Sage wheels
+            Logger.log(f"Pinning torch=={pin_torch} for SageAttention compatibility.", "info")
+            cmd += [f"torch=={pin_torch}", "torchvision", "torchaudio"]
         else:
             cmd += ["torch", "torchvision", "torchaudio"]
 
@@ -688,6 +719,7 @@ def main():
         # Torch — critical for everything downstream
         _phase("torch install", install_torch,
                venv_env, hw, plan["cuda_target"], config_data,
+               pin_torch=plan.get("pinned_torch"),
                critical=True)
 
         # ComfyUI requirements — critical

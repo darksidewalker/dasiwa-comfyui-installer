@@ -102,7 +102,7 @@ Detection uses `nvidia-smi` and `lspci` (Linux) or `Win32_VideoController` (Wind
 SageAttention delivers significantly faster attention kernels for NVIDIA GPUs. The installer handles the full complexity of getting it working:
 
 **Windows — prebuilt wheel (default)**
-Queries the [woct0rdho/SageAttention](https://github.com/woct0rdho/SageAttention) release API at install time, finds the ABI3 wheel that matches your installed Torch version and CUDA tag, and installs it in seconds. No compiler needed for most users.
+Queries the [wildminder.github.io](https://wildminder.github.io/AI-windows-whl/) release API at install time, finds the ABI3 wheel that matches your installed Torch version and CUDA tag, and installs it in seconds. No compiler needed for most users.
 
 **Windows — source build (fallback)**
 If no matching prebuilt wheel exists, falls back to a full CUDA source build with proper MSVC environment loading (`vcvars64.bat` is sourced and verified, `CUDA_HOME` is auto-detected, `DISTUTILS_USE_SDK=1` is set). Build parallelism is tuned to your available RAM to avoid out-of-memory linker failures.
