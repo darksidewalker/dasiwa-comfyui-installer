@@ -273,62 +273,72 @@ class SageInstaller:
 
     # ---------- Prebuilt wheel path (woct0rdho) ----------
 
+    # Known-good Sage-compatible torch/cuda combos. Used as a fallback when
+    # wildminder's wheels.json cannot be fetched (transient 10054 resets, AV TLS
+    # inspection, corporate proxy, etc.). Keep this in sync with the newest
+    # wheels published at https://huggingface.co/Wildminder/AI-windows-whl
+    _FALLBACK_SAGE_COMBOS = {
+        # (python_major_minor, cuda_major_minor) -> torch_version
+        ("3.12", "12.8"): "2.10.0",
+        ("3.12", "13.0"): "2.10.0",
+        ("3.13", "12.8"): "2.10.0",
+        ("3.13", "13.0"): "2.10.0",
+        ("3.11", "12.8"): "2.8.0",
+        ("3.10", "12.8"): "2.8.0",
+    }
+
     @classmethod
     def plan_windows_torch(cls, python_display, cuda_target):
         """Called from setup_logic BEFORE torch install on Windows.
         Queries wildminder's wheels.json to find a (torch, cuda) combo that has
         a prebuilt SageAttention wheel for the target Python + cuda_target.
+        Falls back to a hardcoded table if the API is unreachable.
 
         Returns (torch_version, cuda_tag) tuple or (None, None) if nothing matches.
-        The returned torch_version is the one to pin during torch install.
-        cuda_tag is like 'cu128', already normalised.
-
-        Example: for python 3.12 + cuda 12.8, returns ('2.8.0', 'cu128')."""
-        wheels = cls._fetch_wildminder_wheels()
-        if not wheels:
-            return None, None
-
-        sage_pkg = next((p for p in wheels.get("packages", [])
-                         if p.get("id") == "sageattention"), None)
-        if not sage_pkg:
-            return None, None
-
-        # Normalise the target CUDA to match the minor form used in wheels.json
-        # (they use "12.8" not "cu128")
+        """
+        py_mm = ".".join(str(python_display).split(".")[:2])
         try:
             cu_major_minor = ".".join(cuda_target.split(".")[:2])
         except Exception:
             cu_major_minor = cuda_target
-
-        py_mm = ".".join(str(python_display).split(".")[:2])
-
-        # Filter candidates: match python (exact, ABI3 via >3.9 or "3.9") and CUDA
-        candidates = []
-        for w in sage_pkg.get("wheels", []):
-            w_py = str(w.get("python_version", ""))
-            w_cu = str(w.get("cuda_version", ""))
-            w_torch = str(w.get("torch_version", ""))
-            # Python match: exact OR ABI3 markers (>3.9, 3.9 by convention means ABI3)
-            py_ok = (w_py == py_mm) or w_py.startswith(">") or w_py == "3.9"
-            # CUDA match: exact minor (e.g. "12.8")
-            cu_ok = (w_cu == cu_major_minor)
-            if py_ok and cu_ok and w_torch:
-                clean_torch = w_torch.lstrip(">")
-                candidates.append((cls._parse_ver(clean_torch), clean_torch, w))
-
-        if not candidates:
-            Logger.warn(f"No SageAttention wheel available for Python {py_mm} + "
-                        f"CUDA {cu_major_minor}. Torch will not be pinned.")
-            return None, None
-
-        # Pick the NEWEST torch version among candidates — that's the best combo
-        candidates.sort(key=lambda t: t[0], reverse=True)
-        _, chosen_torch, chosen_wheel = candidates[0]
         cu_tag = "cu" + cu_major_minor.replace(".", "")
 
-        Logger.log(f"Sage-compatible combo: torch {chosen_torch} + {cu_tag} "
-                   f"(wheels available for Python {py_mm})", "ok")
-        return chosen_torch, cu_tag
+        wheels = cls._fetch_wildminder_wheels()
+
+        # Live path: query wheels.json and pick the newest matching combo
+        if wheels:
+            sage_pkg = next((p for p in wheels.get("packages", [])
+                             if p.get("id") == "sageattention"), None)
+            if sage_pkg:
+                candidates = []
+                for w in sage_pkg.get("wheels", []):
+                    w_py = str(w.get("python_version", ""))
+                    w_cu = str(w.get("cuda_version", ""))
+                    w_torch = str(w.get("torch_version", ""))
+                    py_ok = (w_py == py_mm) or w_py.startswith(">") or w_py == "3.9"
+                    cu_ok = (w_cu == cu_major_minor)
+                    if py_ok and cu_ok and w_torch:
+                        clean_torch = w_torch.lstrip(">")
+                        candidates.append((cls._parse_ver(clean_torch), clean_torch, w))
+
+                if candidates:
+                    candidates.sort(key=lambda t: t[0], reverse=True)
+                    _, chosen_torch, _ = candidates[0]
+                    Logger.log(f"Sage-compatible combo: torch {chosen_torch} + {cu_tag} "
+                               f"(from wildminder wheels.json)", "ok")
+                    return chosen_torch, cu_tag
+
+        # Offline fallback: use the hardcoded known-good table
+        fallback_torch = cls._FALLBACK_SAGE_COMBOS.get((py_mm, cu_major_minor))
+        if fallback_torch:
+            Logger.log(f"Using offline fallback: torch {fallback_torch} + {cu_tag} "
+                       f"(known-good Sage combo for Python {py_mm})", "ok")
+            return fallback_torch, cu_tag
+
+        Logger.warn(f"No known Sage-compatible torch pin for Python {py_mm} + "
+                    f"CUDA {cu_major_minor}. Torch will not be pinned, and Sage "
+                    f"may fail to find a prebuilt wheel.")
+        return None, None
 
     @staticmethod
     def _parse_ver(v):
@@ -340,20 +350,49 @@ class SageInstaller:
 
     @staticmethod
     def _fetch_wildminder_wheels():
-        """Fetch wildminder/AI-windows-whl wheels.json. Cached for this process."""
+        """Fetch wildminder/AI-windows-whl wheels.json with retries and mirrors.
+        Cached for this process."""
+        import time
         if hasattr(SageInstaller, "_wheels_cache"):
             return SageInstaller._wheels_cache
-        url = "https://raw.githubusercontent.com/wildminder/AI-windows-whl/main/wheels.json"
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "DaSiWa-Installer/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as r:
-                data = json.loads(r.read().decode())
-            SageInstaller._wheels_cache = data
-            return data
-        except Exception as e:
-            Logger.warn(f"Could not fetch wildminder wheels.json: {e}")
-            SageInstaller._wheels_cache = None
-            return None
+
+        # Two mirrors for the same wheels.json — one or the other tends to work
+        # when corporate firewalls / AV TLS inspection drop the first attempt.
+        mirrors = [
+            "https://raw.githubusercontent.com/wildminder/AI-windows-whl/main/wheels.json",
+            "https://huggingface.co/Wildminder/AI-windows-whl/raw/main/wheels.json",
+        ]
+        headers = {
+            "User-Agent": "DaSiWa-Installer/1.0",
+            "Accept": "application/json, text/plain, */*",
+            # Some AV/firewall proxies break HTTPS keep-alive; force a fresh
+            # connection per request to avoid stale socket reuse.
+            "Connection": "close",
+        }
+
+        last_err = None
+        for mirror in mirrors:
+            for attempt in range(1, 4):
+                try:
+                    req = urllib.request.Request(mirror, headers=headers)
+                    with urllib.request.urlopen(req, timeout=30) as r:
+                        data = json.loads(r.read().decode())
+                    SageInstaller._wheels_cache = data
+                    return data
+                except Exception as e:
+                    last_err = e
+                    if attempt < 3:
+                        Logger.debug(f"wheels.json fetch attempt {attempt}/3 failed "
+                                     f"({type(e).__name__}); retrying in {attempt * 2}s...")
+                        time.sleep(attempt * 2)
+            Logger.debug(f"Mirror failed: {mirror}")
+
+        Logger.warn(f"Could not fetch wildminder wheels.json after retries: {last_err}")
+        Logger.log("This is usually a transient connection reset from AV/firewall "
+                   "TLS inspection. SageAttention install will fall back to the "
+                   "source-build path (slower but works offline).", "info")
+        SageInstaller._wheels_cache = None
+        return None
 
     @classmethod
     def _try_prebuilt_wheel(cls, python_exe, venv_env):
@@ -405,9 +444,13 @@ class SageInstaller:
         # 2. Try wildminder wheels.json (authoritative, covers newest combos)
         wheel_url = cls._select_from_wildminder(py_mm, torch_clean, torch_mm, cu_mm)
 
-        # 3. Fall back to woct0rdho release API
+        # 3. Fall back to woct0rdho release API (uses api.github.com, different endpoint)
         if not wheel_url:
             wheel_url = cls._select_from_woct0rdho(torch_mm, cu_tag)
+
+        # 4. Last-resort hardcoded table (works fully offline for common combos)
+        if not wheel_url:
+            wheel_url = cls._select_from_fallback_table(py_mm, torch_mm, cu_mm)
 
         if not wheel_url:
             Logger.warn(f"No prebuilt wheel found for torch {torch_clean} / {cu_tag} / Python {py_mm}. "
@@ -480,6 +523,39 @@ class SageInstaller:
                 best = w
 
         return best["url"] if best else None
+
+    # Last-resort hardcoded SageAttention wheel URLs when both wildminder
+    # wheels.json and woct0rdho's GitHub API are unreachable. These URLs were
+    # verified from wildminder's wheels.json and point at HuggingFace-hosted
+    # wheels that do not require the GitHub API to resolve. Keep in sync with
+    # https://huggingface.co/Wildminder/AI-windows-whl
+    _FALLBACK_SAGE_WHEELS = {
+        # (python_major_minor, torch_major_minor, cuda_major_minor) -> URL
+        ("3.12", "2.10", "12.8"):
+            "https://huggingface.co/Wildminder/AI-windows-whl/resolve/main/"
+            "sageattention-2.2.0.post3+cu128torch2.10.0-cp312-cp312-win_amd64.whl",
+        ("3.12", "2.10", "13.0"):
+            "https://huggingface.co/Wildminder/AI-windows-whl/resolve/main/"
+            "sageattention-2.2.0.post3+cu130torch2.10.0-cp312-cp312-win_amd64.whl",
+        ("3.13", "2.10", "12.8"):
+            "https://huggingface.co/Wildminder/AI-windows-whl/resolve/main/"
+            "sageattention-2.2.0.post3+cu128torch2.10.0-cp313-cp313-win_amd64.whl",
+        ("3.13", "2.10", "13.0"):
+            "https://huggingface.co/Wildminder/AI-windows-whl/resolve/main/"
+            "sageattention-2.2.0.post3+cu130torch2.10.0-cp313-cp313-win_amd64.whl",
+        ("3.13", "2.9", "12.8"):
+            "https://huggingface.co/Wildminder/AI-windows-whl/resolve/main/"
+            "sageattention-2.2.0.post3+cu128torch2.9.0-cp313-cp313-win_amd64.whl",
+    }
+
+    @classmethod
+    def _select_from_fallback_table(cls, py_mm, torch_mm, cu_mm):
+        """Return a hardcoded wheel URL if one exists for this exact combo."""
+        url = cls._FALLBACK_SAGE_WHEELS.get((py_mm, torch_mm, cu_mm))
+        if url:
+            Logger.log(f"Using offline fallback wheel URL (py{py_mm} torch{torch_mm} cu{cu_mm})",
+                       "ok")
+        return url
 
     @classmethod
     def _select_from_woct0rdho(cls, torch_mm, cu_tag):
