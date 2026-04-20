@@ -1,12 +1,21 @@
-# --- install.ps1 (Full Fixed Version) ---
+# --- install.ps1 ---
 
 # 1. Handle Execution Environment
 $BaseDir = if ($null -ne $PSScriptRoot -and $PSScriptRoot -ne "") { $PSScriptRoot } else { Get-Location }
 Set-Location $BaseDir
 
-Write-Host "==========================================" -ForegroundColor Green
-Write-Host "=== DaSiWa ComfyUI Installer (Windows) ===" -ForegroundColor Green
-Write-Host "==========================================" -ForegroundColor Green
+$Interactive = ($Host.Name -eq 'ConsoleHost')
+
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║           DaSiWa ComfyUI Installer (Windows)                 ║" -ForegroundColor Cyan
+Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+
+function Exit-Installer($code) {
+    if ($Interactive) { Pause }
+    exit $code
+}
 
 # 2. Define Paths and Constants
 $zipFile = Join-Path $BaseDir "repo.zip"
@@ -17,7 +26,12 @@ $localConfigPath = Join-Path $BaseDir "config.local.json"
 # Ensure config exists to get the zip_url
 if (-not (Test-Path $configPath)) {
     Write-Host "[*] config.json missing, fetching defaults..." -ForegroundColor Yellow
-    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/config.json" -OutFile $configPath
+    try {
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/config.json" -OutFile $configPath -ErrorAction Stop
+    } catch {
+        Write-Host "[-] FATAL: Could not fetch default config.json: $_" -ForegroundColor Red
+        Exit-Installer 1
+    }
 }
 
 try {
@@ -32,8 +46,8 @@ Write-Host "[*] Downloading installer components..." -ForegroundColor Cyan
 try {
     Invoke-WebRequest -Uri $repoZip -OutFile $zipFile -ErrorAction Stop
 } catch {
-    Write-Host "[-] FATAL: Could not download installer." -ForegroundColor Red
-    Pause; exit
+    Write-Host "[-] FATAL: Could not download installer: $_" -ForegroundColor Red
+    Exit-Installer 1
 }
 
 if (Test-Path $tempFolder) { Remove-Item $tempFolder -Recurse -Force }
@@ -53,20 +67,35 @@ if ($null -ne $innerFolder) {
     }
 }
 
+# Cleanup download artefacts
+Remove-Item $zipFile -Force -ErrorAction SilentlyContinue
+Remove-Item $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
+
 # 4. UV & Portable Python Acquisition
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "[*] Installing UV..." -ForegroundColor Cyan
-    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-    $env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin"
+    try {
+        powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+        $env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin;$env:LOCALAPPDATA\Programs\uv"
+    } catch {
+        Write-Host "[-] FATAL: Could not install UV: $_" -ForegroundColor Red
+        Exit-Installer 1
+    }
 }
 
-# --- CRITICAL: LOCAL CONFIG MERGE ---
+# --- LOCAL CONFIG MERGE ---
 $config = Get-Content $configPath -Raw | ConvertFrom-Json
 if (Test-Path $localConfigPath) {
     Write-Host "[*] Applying local configuration overrides..." -ForegroundColor Magenta
-    $localConfig = Get-Content $localConfigPath -Raw | ConvertFrom-Json
-    if ($null -ne $localConfig.python) {
-        if ($null -ne $localConfig.python.display_name) { $config.python.display_name = $localConfig.python.display_name }
+    try {
+        $localConfig = Get-Content $localConfigPath -Raw | ConvertFrom-Json
+        if ($null -ne $localConfig.python) {
+            if ($null -ne $localConfig.python.display_name) {
+                $config.python.display_name = $localConfig.python.display_name
+            }
+        }
+    } catch {
+        Write-Host "[!] Warning: Could not parse config.local.json — using defaults." -ForegroundColor Yellow
     }
 }
 
@@ -81,7 +110,12 @@ $finalPyPath = ($uvOutput | Select-Object -Last 1).Trim().Trim('"')
 if ($null -ne $finalPyPath -and (Test-Path $finalPyPath)) {
     Write-Host "[+] Launching Setup Logic with: $finalPyPath" -ForegroundColor Green
     & $finalPyPath "setup_logic.py" --branch "master"
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        Write-Host "[-] Setup exited with code $exitCode" -ForegroundColor Red
+        Exit-Installer $exitCode
+    }
 } else {
     Write-Host "[-] ERROR: UV could not locate Python $targetVer. Found: $uvOutput" -ForegroundColor Red
-    Pause
+    Exit-Installer 1
 }

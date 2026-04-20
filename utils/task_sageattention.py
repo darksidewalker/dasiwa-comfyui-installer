@@ -2,41 +2,189 @@ import os
 import platform
 import subprocess
 import shutil
+import json
+import re
+import urllib.request
+import ctypes
 from pathlib import Path
+
 from utils.logger import Logger
 
+
 class SageInstaller:
+    # ---------- Small helpers ----------
+
     @staticmethod
     def get_input(prompt):
         return input(prompt)
 
     @staticmethod
-    def check_nvcc():
-        """Checks if the CUDA Toolkit (nvcc) is accessible in the PATH."""
+    def is_installed(python_exe):
+        """Check whether sageattention is already importable in the target venv."""
         try:
-            subprocess.run(["nvcc", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            res = subprocess.run(
+                [str(python_exe), "-c",
+                 "import sageattention,sys; "
+                 "print(getattr(sageattention,'__version__','installed'))"],
+                capture_output=True, text=True, timeout=30,
+            )
+            return res.returncode == 0
+        except Exception:
+            return False
+
+    # ---------- Dependency probes ----------
+
+    @staticmethod
+    def check_nvcc():
+        try:
+            subprocess.run(["nvcc", "--version"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           check=True)
             return True
-        except FileNotFoundError:
+        except (FileNotFoundError, subprocess.CalledProcessError):
             return False
 
     @staticmethod
     def check_cpp_compiler():
-        """Checks if a C++ compiler is present based on the OS."""
-        os_type = platform.system()
+        """
+        On Windows, a working MSVC environment requires more than cl.exe on PATH —
+        we need vcvars64.bat to exist so nvcc can load the full env.
+        """
+        if platform.system() == "Windows":
+            return SageInstaller._find_vcvars() is not None
+
+        for compiler in ("g++", "clang++"):
+            try:
+                subprocess.run([compiler, "--version"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               check=True)
+                return True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                continue
+        return False
+
+    @staticmethod
+    def _find_vcvars():
+        """Locate vcvars64.bat across VS 2017/2019/2022 (Community/Pro/Enterprise/BuildTools)."""
+        vswhere = (
+            Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
+            / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+        )
+        if vswhere.exists():
+            try:
+                res = subprocess.run(
+                    [str(vswhere), "-latest", "-products", "*",
+                     "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                     "-property", "installationPath", "-format", "value"],
+                    capture_output=True, text=True, check=True,
+                )
+                root = res.stdout.strip()
+                if root:
+                    candidate = Path(root) / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
+                    if candidate.exists():
+                        return candidate
+            except Exception:
+                pass
+
+        # Hard fallback: scan the usual install locations
+        roots = [
+            r"C:\Program Files\Microsoft Visual Studio",
+            r"C:\Program Files (x86)\Microsoft Visual Studio",
+        ]
+        for root in roots:
+            root_p = Path(root)
+            if not root_p.exists():
+                continue
+            for year in ("2022", "2019", "2017"):
+                for edition in ("Enterprise", "Professional", "Community", "BuildTools"):
+                    candidate = (root_p / year / edition / "VC" / "Auxiliary"
+                                 / "Build" / "vcvars64.bat")
+                    if candidate.exists():
+                        return candidate
+        return None
+
+    @staticmethod
+    def _find_cuda_home():
+        """Locate a working CUDA toolkit root."""
+        for var in ("CUDA_HOME", "CUDA_PATH"):
+            v = os.environ.get(var)
+            if v and Path(v).exists():
+                return Path(v)
+
+        nvcc = shutil.which("nvcc")
+        if nvcc:
+            return Path(nvcc).parent.parent  # <cuda>/bin/nvcc(.exe) -> <cuda>
+
+        standard = Path(r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA")
+        if standard.exists():
+            versions = sorted(
+                (d for d in standard.iterdir() if d.is_dir() and d.name.startswith("v")),
+                key=lambda d: d.name, reverse=True,
+            )
+            if versions:
+                return versions[0]
+        return None
+
+    @staticmethod
+    def _load_msvc_env(vcvars_path):
+        """Run vcvars64.bat in a subshell and capture the resulting env."""
         try:
-            if os_type == "Windows":
-                # Check for MSVC compiler (cl.exe)
-                subprocess.run(["cl"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            res = subprocess.run(
+                f'cmd /s /c ""{vcvars_path}" >nul 2>&1 && set"',
+                shell=True, capture_output=True, text=True, check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            Logger.warn(f"vcvars64.bat failed: {e}")
+            return None
+
+        env = os.environ.copy()
+        for line in res.stdout.splitlines():
+            if "=" in line:
+                k, _, v = line.partition("=")
+                env[k] = v
+        return env
+
+    @staticmethod
+    def _estimate_max_jobs():
+        """Pick MAX_JOBS based on CPU AND RAM. Overridable via DASIWA_SAGE_MAX_JOBS."""
+        if os.environ.get("DASIWA_SAGE_MAX_JOBS"):
+            return os.environ["DASIWA_SAGE_MAX_JOBS"]
+        cpu = os.cpu_count() or 4
+        gb = 16.0
+        try:
+            if platform.system() == "Windows":
+                class MEMSTAT(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ]
+                stat = MEMSTAT()
+                stat.dwLength = ctypes.sizeof(MEMSTAT)
+                ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+                gb = stat.ullTotalPhys / (1024 ** 3)
             else:
-                # Check for g++ or clang++
-                subprocess.run(["g++", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return True
-        except FileNotFoundError:
-            return False
+                with open("/proc/meminfo") as f:
+                    content = f.read()
+                m = re.search(r"MemTotal:\s+(\d+)", content)
+                if m:
+                    gb = int(m.group(1)) / (1024 ** 2)
+        except Exception:
+            pass
+        # Each linker job peaks ~2.5–3 GB; be conservative.
+        jobs_by_ram = max(1, int(gb // 3))
+        return str(min(cpu, jobs_by_ram))
+
+    # ---------- Dependency menu ----------
 
     @staticmethod
     def install_system_dependencies(config_urls):
-        """Smart dependency menu: only prompts if tools are missing."""
         os_type = platform.system()
         has_nvcc = SageInstaller.check_nvcc()
         has_cpp = SageInstaller.check_cpp_compiler()
@@ -45,88 +193,254 @@ class SageInstaller:
             Logger.log("All build dependencies (NVCC & C++ Compiler) detected.", "ok")
             return True
 
-        print(f"\n{Logger.BOLD}{Logger.CYAN}--- SAGEATTENTION DEPENDENCY CHECK ---{Logger.END}")
-        if not has_nvcc: Logger.warn("[-] CUDA Toolkit (nvcc) NOT found.")
-        if not has_cpp: Logger.warn("[-] C++ Compiler (MSVC/GCC) NOT found.")
-        
-        print("\nOptions to fix dependencies:")
-        if os_type == "Windows":
-            print(f" 1. [Windows] Open MSVC Build Tools Download Page")
-        elif os_type == "Linux":
-            print(" 2. [Ubuntu/Debian] Install build-essential & cmake (sudo)")
-            print(" 3. [Arch Linux] Install base-devel & cmake (sudo)")
-        
-        print(" s. Skip check and try building anyway")
-        print(" q. Cancel SageAttention installation")
-        
-        choice = SageInstaller.get_input("\nSelect an option: ").lower()
+        Logger.section("SageAttention Dependency Check")
+        if not has_nvcc:
+            Logger.warn("CUDA Toolkit (nvcc) NOT found.")
+        if not has_cpp:
+            Logger.warn("C++ Compiler (MSVC/GCC) NOT found.")
 
-        if choice == '1' and os_type == "Windows":
-            import webbrowser
-            webbrowser.open(config_urls.get("msvc_build_tools"))
-            Logger.log("Install 'Desktop development with C++' and restart the terminal.", "info")
-            return False
-        elif choice == '2' and os_type == "Linux":
-            subprocess.run(["sudo", "apt", "update"], check=True)
-            subprocess.run(["sudo", "apt", "install", "-y", "build-essential", "cmake", "git"], check=True)
-            return True
-        elif choice == '3' and os_type == "Linux":
-            subprocess.run(["sudo", "pacman", "-Sy", "--needed", "base-devel", "cmake", "git"], check=True)
-            return True
-        elif choice == 's':
-            return True
-        
+        options = []
+        if os_type == "Windows":
+            options.append(("[Windows] Open MSVC Build Tools download page", None))
+        elif os_type == "Linux":
+            options.append(("[Ubuntu/Debian] Install build-essential & cmake (sudo)", None))
+            options.append(("[Arch] Install base-devel & cmake (sudo)", None))
+        options.append(("Skip check and try building anyway", "Risky — may fail"))
+        options.append(("Cancel SageAttention installation", None))
+
+        idx = Logger.ask_choice("How do you want to resolve build dependencies?",
+                                options, default_index=len(options) - 1)
+
+        if os_type == "Windows":
+            if idx == 0:
+                import webbrowser
+                webbrowser.open(config_urls.get("msvc_build_tools", ""))
+                Logger.log("Install 'Desktop development with C++' and restart the terminal.",
+                           "info")
+                return False
+            if idx == 1:  # skip
+                return True
+            return False  # cancel
+        elif os_type == "Linux":
+            try:
+                if idx == 0:
+                    subprocess.run(["sudo", "apt", "update"], check=True)
+                    subprocess.run(
+                        ["sudo", "apt", "install", "-y", "build-essential", "cmake", "git"],
+                        check=True,
+                    )
+                    return True
+                if idx == 1:
+                    subprocess.run(
+                        ["sudo", "pacman", "-Sy", "--needed", "base-devel", "cmake", "git"],
+                        check=True,
+                    )
+                    return True
+                if idx == 2:  # skip
+                    return True
+            except subprocess.CalledProcessError as e:
+                Logger.error(f"Package install failed: {e}")
+                return False
+            return False  # cancel
         return False
 
-    @staticmethod
-    def build_sage(venv_env, comfy_path, config_urls):
-        """Clones and builds SageAttention targeting the ComfyUI venv specifically."""
-        if not SageInstaller.install_system_dependencies(config_urls):
-            Logger.log("Dependencies not resolved. Skipping SageAttention build.", "warn")
-            return
+    # ---------- Public entry point ----------
 
-        sage_dir = Path(comfy_path) / "SageAttention"
-        repo_url = config_urls.get("sage_repo")
-        
-        if not sage_dir.exists():
-            Logger.log(f"Cloning SageAttention into {sage_dir}...", "info")
-            subprocess.run(["git", "clone", repo_url, str(sage_dir)], check=True)
-
+    @classmethod
+    def build_sage(cls, venv_env, comfy_path, config_urls):
+        """Install SageAttention: prefer prebuilt wheel, fall back to source build."""
         venv_root = Path(venv_env.get("VIRTUAL_ENV", ""))
         is_win = platform.system() == "Windows"
         python_exe = venv_root / ("Scripts/python.exe" if is_win else "bin/python")
 
         if not python_exe.exists():
-            Logger.log(f"Could not find ComfyUI venv Python at {python_exe}", "error")
+            Logger.error(f"Could not find ComfyUI venv Python at {python_exe}")
             return
 
+        if cls.is_installed(python_exe):
+            Logger.log("SageAttention is already installed in the venv — skipping.", "ok")
+            return
+
+        # 1. Prebuilt wheel fast path (Windows only; no upstream wheels for Linux)
+        if is_win and cls._try_prebuilt_wheel(python_exe, venv_env):
+            return
+
+        # 2. Source build (with hardened env on Windows)
+        if not cls.install_system_dependencies(config_urls):
+            Logger.log("Dependencies not resolved. Skipping SageAttention build.", "warn")
+            return
+        cls._source_build(venv_env, comfy_path, config_urls, python_exe, is_win)
+
+    # ---------- Prebuilt wheel path (woct0rdho) ----------
+
+    @classmethod
+    def _try_prebuilt_wheel(cls, python_exe, venv_env):
+        """Find and install a matching woct0rdho wheel. Returns True on success."""
+        # Probe installed torch
+        try:
+            probe = subprocess.run(
+                [str(python_exe), "-c",
+                 "import torch,sys;"
+                 "print(torch.__version__);"
+                 "print(torch.version.cuda or '')"],
+                capture_output=True, text=True, check=True, timeout=30,
+            )
+            lines = probe.stdout.strip().splitlines()
+            torch_ver = lines[0].strip() if lines else ""
+            torch_cuda = lines[1].strip() if len(lines) > 1 else ""
+        except Exception as e:
+            Logger.warn(f"Could not probe torch version: {e}")
+            return False
+
+        if not torch_ver or not torch_cuda:
+            Logger.log("Torch has no CUDA — skipping prebuilt SageAttention wheel.", "warn")
+            return False
+
+        m = re.match(r"^(\d+\.\d+)", torch_ver)
+        if not m:
+            Logger.warn(f"Unrecognised torch version string: {torch_ver}")
+            return False
+        torch_mm = m.group(1)
+        cu_tag = f"cu{torch_cuda.replace('.', '')}"
+        Logger.log(f"Looking for prebuilt SageAttention wheel for "
+                   f"torch {torch_mm} + {cu_tag}...", "info")
+
+        api = "https://api.github.com/repos/woct0rdho/SageAttention/releases?per_page=10"
+        try:
+            req = urllib.request.Request(
+                api, headers={"User-Agent": "DaSiWa-Installer/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=15) as r:
+                releases = json.loads(r.read().decode())
+        except Exception as e:
+            Logger.warn(f"GitHub API unreachable ({e}). Falling back to source build.")
+            return False
+
+        # Prefer ABI3 wheel, then any matching win_amd64 wheel
+        abi3_pat = re.compile(
+            rf"sageattention-.*\+{re.escape(cu_tag)}torch{re.escape(torch_mm)}\..*"
+            rf"-cp39-abi3-win_amd64\.whl"
+        )
+        exact_pat = re.compile(
+            rf"sageattention-.*\+{re.escape(cu_tag)}torch{re.escape(torch_mm)}\..*"
+            rf"-win_amd64\.whl"
+        )
+
+        wheel_url = None
+        for pat in (abi3_pat, exact_pat):
+            for rel in releases:
+                for asset in rel.get("assets", []):
+                    if pat.match(asset.get("name", "")):
+                        wheel_url = asset["browser_download_url"]
+                        break
+                if wheel_url:
+                    break
+            if wheel_url:
+                break
+
+        if not wheel_url:
+            Logger.warn(f"No prebuilt wheel found for torch {torch_mm} / {cu_tag}. "
+                        f"Will build from source.")
+            return False
+
+        Logger.log(f"Installing prebuilt wheel: {wheel_url.rsplit('/', 1)[-1]}", "info")
+        try:
+            subprocess.run(
+                ["uv", "pip", "install", "--python", str(python_exe), wheel_url],
+                env=venv_env, check=True,
+            )
+            Logger.success("SageAttention installed from prebuilt wheel.")
+            return True
+        except subprocess.CalledProcessError as e:
+            Logger.warn(f"Prebuilt wheel install failed: {e}. Falling back to source build.")
+            return False
+
+    # ---------- Source build ----------
+
+    @classmethod
+    def _source_build(cls, venv_env, comfy_path, config_urls, python_exe, is_win):
+        sage_dir = Path(comfy_path) / "SageAttention"
+        repo_url = config_urls.get("sage_repo")
+
+        if not sage_dir.exists():
+            Logger.log(f"Cloning SageAttention into {sage_dir}...", "info")
+            subprocess.run(
+                ["git", "clone", "--depth", "1", repo_url, str(sage_dir)],
+                check=True,
+            )
+        else:
+            Logger.log("Updating existing SageAttention clone...", "info")
+            subprocess.run(
+                ["git", "-C", str(sage_dir), "fetch", "--all", "--tags"], check=False,
+            )
+            subprocess.run(
+                ["git", "-C", str(sage_dir), "reset", "--hard", "origin/HEAD"],
+                check=False,
+            )
+
         build_env = venv_env.copy()
-        build_env["EXT_PARALLEL"] = "4"
-        build_env["NVCC_APPEND_FLAGS"] = "--threads 8"
-        build_env["MAX_JOBS"] = "32"
+
+        if is_win:
+            vcvars = cls._find_vcvars()
+            if not vcvars:
+                Logger.error("Could not locate vcvars64.bat. Install VS 2019/2022 Build Tools "
+                             "with 'Desktop development with C++'.")
+                return
+            Logger.log(f"Loading MSVC environment from {vcvars}...", "info")
+            msvc_env = cls._load_msvc_env(vcvars)
+            if msvc_env is None:
+                Logger.error("Failed to load MSVC environment. Aborting SageAttention build.")
+                return
+            build_env.update(msvc_env)
+            # Re-assert the venv's PATH prefix so we use venv python, not system
+            build_env["PATH"] = (
+                venv_env.get("PATH", "") + os.pathsep + build_env.get("PATH", "")
+            )
+
+            cuda_home = cls._find_cuda_home()
+            if not cuda_home:
+                Logger.error("Could not locate CUDA Toolkit. Install CUDA 12.x or 13.x.")
+                return
+            build_env["CUDA_HOME"] = str(cuda_home)
+            build_env["CUDA_PATH"] = str(cuda_home)
+            build_env["PATH"] = str(cuda_home / "bin") + os.pathsep + build_env["PATH"]
+            build_env["DISTUTILS_USE_SDK"] = "1"
+            Logger.log(f"CUDA_HOME = {cuda_home}", "ok")
+
+        # Tuning knobs (conservative defaults, overridable)
+        build_env["EXT_PARALLEL"] = os.environ.get("DASIWA_SAGE_EXT_PARALLEL", "2")
+        build_env["NVCC_APPEND_FLAGS"] = os.environ.get(
+            "DASIWA_SAGE_NVCC_THREADS", "--threads 4"
+        )
+        build_env["MAX_JOBS"] = cls._estimate_max_jobs()
+        Logger.log(
+            f"Build parallelism: MAX_JOBS={build_env['MAX_JOBS']}, "
+            f"EXT_PARALLEL={build_env['EXT_PARALLEL']}", "info",
+        )
 
         original_cwd = os.getcwd()
         os.chdir(sage_dir)
-        
         try:
-            local_uv_venv = Path(".venv")
-            if local_uv_venv.exists():
-                shutil.rmtree(local_uv_venv)
-
             Logger.log("Starting SageAttention source build targeting ComfyUI venv...", "info")
-            
             cmd = [
-                "uv", "pip", "install", 
+                "uv", "pip", "install",
                 "--python", str(python_exe),
-                "--no-build-isolation", 
-                "."
+                "--no-build-isolation",
+                ".",
             ]
-            
             subprocess.run(cmd, env=build_env, check=True)
-            
-            Logger.log("SageAttention installed successfully.", "ok")
-        except Exception as e:
-            Logger.log(f"SageAttention build failed: {e}", "error")
-            Logger.log("Verify that 'nvcc --version' matches your Torch CUDA version.", "info")
+            Logger.success("SageAttention installed from source.")
+        except subprocess.CalledProcessError as e:
+            Logger.error(f"SageAttention build failed with exit code {e.returncode}.")
+            Logger.log("Common causes on Windows:", "info")
+            Logger.log("  - Torch 2.9 + CUDA 13 + MSVC has a known PyTorch header bug",
+                       "info")
+            Logger.log("    (std ambiguity in compiled_autograd.h). Downgrade cuda.global",
+                       "info")
+            Logger.log("    to 12.8 in config.local.json, or wait for the upstream fix.",
+                       "info")
+            Logger.log("  - VS 2025 / VS 17.13+ is unsupported by CUDA 12.x; use VS 2022.",
+                       "info")
+            Logger.log("  - Verify 'nvcc --version' matches your torch CUDA tag.", "info")
         finally:
             os.chdir(original_cwd)
