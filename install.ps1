@@ -76,7 +76,25 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "[*] Installing UV..." -ForegroundColor Cyan
     try {
         powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-        $env:Path += ";$env:USERPROFILE\.cargo\bin;$env:AppData\Roaming\uv\bin;$env:LOCALAPPDATA\Programs\uv"
+
+        # UV can land in several locations depending on version and install method.
+        # Subexpressions $(...) are required so PowerShell does not choke on the
+        # backslash-dot sequences inside double-quoted strings.
+        $uvPaths = @(
+            "$($env:USERPROFILE)\.cargo\bin",
+            "$($env:USERPROFILE)\.local\bin",
+            "$($env:LOCALAPPDATA)\uv\bin",
+            "$($env:LOCALAPPDATA)\Programs\uv"
+        )
+        foreach ($p in $uvPaths) {
+            if ((Test-Path $p) -and ($env:Path -notlike "*$p*")) {
+                $env:Path += ";$p"
+            }
+        }
+
+        if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+            throw "uv was installed but is not reachable on PATH"
+        }
     } catch {
         Write-Host "[-] FATAL: Could not install UV: $_" -ForegroundColor Red
         Exit-Installer 1
