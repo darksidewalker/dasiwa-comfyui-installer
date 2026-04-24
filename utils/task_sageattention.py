@@ -459,6 +459,7 @@ class SageInstaller:
 
         orig = os.getcwd()
         os.chdir(sage_dir)
+        build_ok = False
         try:
             Logger.log("Building SageAttention from source...", "info")
             subprocess.run(
@@ -468,7 +469,17 @@ class SageInstaller:
                 env=build_env, check=True,
             )
             Logger.success("SageAttention built and installed from source.")
+            build_ok = True
         except subprocess.CalledProcessError as e:
             Logger.error(f"Source build failed (exit {e.returncode}).")
         finally:
             os.chdir(orig)
+
+        # Remove the source clone — it's only needed for the build, not at runtime.
+        # Skip on failure so the user can inspect or retry manually.
+        if build_ok and sage_dir.exists():
+            try:
+                shutil.rmtree(sage_dir, ignore_errors=True)
+                Logger.debug("SageAttention source clone removed (no longer needed).")
+            except Exception as e:
+                Logger.debug(f"Could not remove SageAttention source clone: {e}")
