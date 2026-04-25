@@ -155,31 +155,80 @@ class Logger:
     @classmethod
     def ask_choice(cls, question, options, default_index=0):
         """Numbered menu. options = list of (label, description_or_None).
-        Returns the chosen index."""
+        Supports arrow keys and Enter for selection in interactive terminals."""
+        if not cls._ansi_enabled or not sys.stdout.isatty():
+            # Fallback for non-TTY or non-ANSI environments
+            print()
+            print(f"{cls.CYAN}{cls.BOLD}? {question}{cls.END}")
+            for i, opt in enumerate(options, 1):
+                label, desc = (opt if isinstance(opt, tuple) else (opt, None))
+                marker = f"{cls.GREEN}●{cls.END}" if (i - 1) == default_index else f"{cls.GRAY}○{cls.END}"
+                line = f"  {marker} {cls.BOLD}{i}.{cls.END} {label}"
+                if desc:
+                    line += f"  {cls.DIM}— {desc}{cls.END}"
+                print(line)
+            while True:
+                try:
+                    raw = input(f"\n{cls.CYAN}Select [1-{len(options)}] "
+                                f"{cls.DIM}(default: {default_index + 1}){cls.END}: ").strip()
+                except EOFError:
+                    return default_index
+                if not raw:
+                    return default_index
+                try:
+                    idx = int(raw) - 1
+                    if 0 <= idx < len(options):
+                        return idx
+                except ValueError:
+                    pass
+                cls.warn(f"Enter a number between 1 and {len(options)}.")
+
+        # Interactive TUI Mode
         print()
         print(f"{cls.CYAN}{cls.BOLD}? {question}{cls.END}")
-        for i, opt in enumerate(options, 1):
-            label, desc = (opt if isinstance(opt, tuple) else (opt, None))
-            marker = f"{cls.GREEN}●{cls.END}" if (i - 1) == default_index else f"{cls.GRAY}○{cls.END}"
-            line = f"  {marker} {cls.BOLD}{i}.{cls.END} {label}"
-            if desc:
-                line += f"  {cls.DIM}— {desc}{cls.END}"
-            print(line)
+        
+        # Initial print of options
+        for _ in options:
+            print("")
+            
+        idx = default_index
+        # Hide cursor
+        sys.stdout.write("\033[?25l")
+        sys.stdout.flush()
+        
         while True:
-            try:
-                raw = input(f"\n{cls.CYAN}Select [1-{len(options)}] "
-                            f"{cls.DIM}(default: {default_index + 1}){cls.END}: ").strip()
-            except EOFError:
-                return default_index
-            if not raw:
-                return default_index
-            try:
-                idx = int(raw) - 1
-                if 0 <= idx < len(options):
-                    return idx
-            except ValueError:
-                pass
-            cls.warn(f"Enter a number between 1 and {len(options)}.")
+            # Move cursor back up to start of options
+            sys.stdout.write(f"\033[{len(options)}A")
+            for i, opt in enumerate(options):
+                label, desc = (opt if isinstance(opt, tuple) else (opt, None))
+                if i == idx:
+                    marker = f"{cls.GREEN}❯{cls.END}"
+                    line = f"  {marker} {cls.BOLD}{cls.GREEN}{label}{cls.END}"
+                else:
+                    marker = " "
+                    line = f"    {cls.GRAY}{label}{cls.END}"
+                
+                if desc:
+                    line += f"  {cls.DIM}— {desc}{cls.END}"
+                
+                # Clear line and print
+                sys.stdout.write(f"\r\033[K{line}\n")
+            sys.stdout.flush()
+
+            key = cls._get_key()
+            if key == "up":
+                idx = (idx - 1) % len(options)
+            elif key == "down":
+                idx = (idx + 1) % len(options)
+            elif key == "enter":
+                # Show cursor and move past menu
+                sys.stdout.write("\033[?25h\n")
+                sys.stdout.flush()
+                return idx
+            elif key == "abort":
+                sys.stdout.write("\033[?25h\n")
+                sys.stdout.flush()
+                raise KeyboardInterrupt()
 
     # ---------- Spinner for long ops ----------
 
@@ -222,3 +271,36 @@ class Logger:
             sys.stdout.write("\r" + " " * (len(message) + 30) + "\r")
             sys.stdout.flush()
         cls.success(f"{message} ({time.time() - start:.1f}s)")
+
+    @staticmethod
+    def _get_key():
+        """Capture a single keypress from the user. Returns 'up', 'down', 'enter', or 'abort'."""
+        if os.name == 'nt':
+            import msvcrt
+            while True:
+                ch = msvcrt.getch()
+                if ch in (b'\x00', b'\xe0'):  # Special keys (Arrows)
+                    ch = msvcrt.getch()
+                    return {b'H': 'up', b'P': 'down'}.get(ch)
+                if ch == b'\r':
+                    return 'enter'
+                if ch == b'\x03':  # Ctrl+C
+                    return 'abort'
+        else:
+            import tty
+            import termios
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                ch = sys.stdin.read(1)
+                if ch == '\x1b':  # Escape sequence
+                    ch += sys.stdin.read(2)
+                    return {'\x1b[A': 'up', '\x1b[B': 'down'}.get(ch)
+                if ch in ('\r', '\n'):
+                    return 'enter'
+                if ch == '\x03':  # Ctrl+C
+                    return 'abort'
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return None
