@@ -4,6 +4,7 @@ import os
 import shutil
 import time
 import json
+import socket
 from pathlib import Path
 
 from utils.logger import Logger
@@ -13,6 +14,28 @@ class Downloader:
     @staticmethod
     def get_input(prompt):
         return input(prompt)
+
+    @staticmethod
+    def check_connectivity(hosts=None):
+        """Verify that the required hostnames are resolvable and reachable."""
+        if hosts is None:
+            hosts = ["github.com", "pypi.org", "download.pytorch.org"]
+        
+        Logger.log("Checking network connectivity...", "info")
+        all_ok = True
+        for host in hosts:
+            try:
+                # Perform a basic DNS lookup
+                ip = socket.gethostbyname(host)
+                Logger.debug(f" Resolved {host} to {ip}")
+            except socket.gaierror:
+                Logger.error(f"DNS lookup failed for {host}. "
+                             "Check your internet connection or DNS settings.")
+                all_ok = False
+            except Exception as e:
+                Logger.warn(f" Connectivity check failed for {host}: {e}")
+                all_ok = False
+        return all_ok
 
     # ---------- Remote lookup helpers ----------
 

@@ -150,13 +150,15 @@ class SageInstaller:
           3. Install with UV_SKIP_WHEEL_FILENAME_CHECK=1 because uv rejects the
              non-standard 'torch2.9.0andhigher' token in the wheel filename.
           4. Install the matching triton-windows from PyPI.
+
+        Returns True if installed successfully, False otherwise.
         """
         # 1. Probe installed torch
         torch_ver, torch_cuda, py_mm = cls._probe_torch(python_exe)
         if not torch_ver:
             Logger.error("Could not determine installed torch version. "
                          "Cannot select SageAttention wheel.")
-            return
+            return False
 
         torch_tuple = cls._parse_ver(torch_ver)
         Logger.log(
@@ -174,14 +176,14 @@ class SageInstaller:
                 "To fix: run the installer again after upgrading torch to >= 2.9, "
                 "or set cuda.global to 12.8 in config.local.json and reinstall.", "info"
             )
-            return
+            return False
 
         cu_tag = "cu" + torch_cuda.replace(".", "")
 
         # 2. Determine the right Sage release URL
         sage_url = cls._resolve_sage_wheel_url(cu_tag, uv_exe, venv_env, python_exe)
         if not sage_url:
-            return
+            return False
 
         # 3. Install SageAttention wheel
         Logger.log(f"Installing SageAttention from prebuilt wheel...", "info")
@@ -209,7 +211,7 @@ class SageInstaller:
                 "The wheel download may have been blocked by AV/firewall. "
                 "Try disabling real-time protection temporarily and re-run.", "info"
             )
-            return
+            return False
 
         # 4. Install triton-windows from PyPI
         triton_spec = _triton_spec_for_torch(torch_tuple)
@@ -240,6 +242,8 @@ class SageInstaller:
                 "This usually means a vcredist DLL is missing. Install from:\n"
                 "  https://aka.ms/vs/17/release/vc_redist.x64.exe"
             )
+            return False
+        return True
 
     @classmethod
     def _resolve_sage_wheel_url(cls, cu_tag, uv_exe, venv_env, python_exe):
