@@ -66,12 +66,12 @@
     },
     {
         "name": "LTX23 Audio VAE", 
-        "type": "models/text_encoders", 
+        "type": "models/vae/LTX", 
         "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_audio_vae_bf16.safetensors"
     },
     {
         "name": "LTX23 Video VAE", 
-        "type": "models/text_encoders", 
+        "type": "models/vae/LTX", 
         "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors"
     },
     {
