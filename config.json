@@ -41,6 +41,20 @@
         "version": "latest"
     },
     {
+        "name": "DaSiWa WAN2.2 C-SVI Workflow",
+        "type": "user/default/workflows",
+        "repo_path": "darksidewalker/dasiwa-comfyui-workflows",
+        "folder": "C-SVI",
+        "version": "latest"
+    },
+    {
+        "name": "DaSiWa Hybrid C-WLTX App Workflow",
+        "type": "user/default/workflows",
+        "repo_path": "darksidewalker/dasiwa-comfyui-workflows",
+        "folder": "C-WLTX",
+        "version": "latest"
+    },    
+    {
         "name": "WAN 2.1 VAE",
         "type": "models/vae/WAN",
         "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
@@ -49,6 +63,26 @@
         "name": "T5 Encoder", 
         "type": "models/text_encoders", 
         "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+    },
+    {
+        "name": "LTX23 Audio VAE", 
+        "type": "models/text_encoders", 
+        "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_audio_vae_bf16.safetensors"
+    },
+    {
+        "name": "LTX23 Video VAE", 
+        "type": "models/text_encoders", 
+        "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors"
+    },
+    {
+        "name": "T5 Encoder", 
+        "type": "models/text_encoders", 
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+    },
+    {
+        "name": "Interpolation Model Rife",
+        "type": "models/frame_interpolation",
+        "url": "https://huggingface.co/Comfy-Org/frame_interpolation/blob/main/frame_interpolation/rife_v4.26.safetensors"
     }
     ]
 }
