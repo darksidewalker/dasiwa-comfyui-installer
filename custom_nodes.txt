@@ -14,9 +14,9 @@ https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit
 https://github.com/Comfy-Org/Nvidia_RTX_Nodes_ComfyUI
 
 # --- Audio & Special Media ---
-https://github.com/phazei/ComfyUI-HunyuanVideo-Foley
-https://github.com/filliptm/ComfyUI_FL-CosyVoice3 | sub
-https://github.com/kijai/ComfyUI-MMAudio
+#https://github.com/phazei/ComfyUI-HunyuanVideo-Foley
+#https://github.com/filliptm/ComfyUI_FL-CosyVoice3 | sub
+#https://github.com/kijai/ComfyUI-MMAudio
 
 # Package nodes (Requires editable install)
 #https://... | pkg
