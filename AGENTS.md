@@ -75,11 +75,12 @@ The single source of truth for all terminal output and user prompts. No module m
 | `Logger.ask()` | `(question, default)` | Plain text prompt with optional default. |
 | `Logger.ask_yes_no()` | `(question, default)` | Boolean Y/N prompt. Returns `bool`. |
 | `Logger.ask_choice()` | `(question, options, default_index)` | Numbered menu. `options` = list of `str` or `(label, description)`. Returns chosen index `int`. |
+| `Logger.ask_multiselect()` | `(question, options, hint)` | Multi-select picker. `options` = list of `str` or `(label, description)`. Returns list of chosen indices. Interactive (up/down + Space + 'a'/'n' + Enter) on TTY+ANSI; falls back to comma/space-separated numbers (`'all'`, `'none'`) otherwise. |
 | `Logger.spinner()` | `(message)` | Context manager. Shows animated spinner while body runs; falls back to plain log when not a TTY. |
 
 **Agent rules:**
 - Always call `Logger.init()` before any output.
-- Use `Logger.ask_yes_no` / `Logger.ask_choice` for all prompts. Never raw `input()`.
+- Use `Logger.ask_yes_no` / `Logger.ask_choice` / `Logger.ask_multiselect` for all prompts. Never raw `input()`.
 - `Logger.spinner()` is for operations that produce no stdout (e.g. hashing, probing). Use
   `run_cmd(..., stream=True)` for long subprocesses where the user needs to see progress.
 

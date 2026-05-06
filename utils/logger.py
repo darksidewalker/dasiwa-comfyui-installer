@@ -155,80 +155,253 @@ class Logger:
     @classmethod
     def ask_choice(cls, question, options, default_index=0):
         """Numbered menu. options = list of (label, description_or_None).
-        Supports arrow keys and Enter for selection in interactive terminals."""
-        if not cls._ansi_enabled or not sys.stdout.isatty():
-            # Fallback for non-TTY or non-ANSI environments
-            print()
-            print(f"{cls.CYAN}{cls.BOLD}? {question}{cls.END}")
-            for i, opt in enumerate(options, 1):
-                label, desc = (opt if isinstance(opt, tuple) else (opt, None))
-                marker = f"{cls.GREEN}●{cls.END}" if (i - 1) == default_index else f"{cls.GRAY}○{cls.END}"
-                line = f"  {marker} {cls.BOLD}{i}.{cls.END} {label}"
-                if desc:
-                    line += f"  {cls.DIM}— {desc}{cls.END}"
-                print(line)
-            while True:
-                try:
-                    raw = input(f"\n{cls.CYAN}Select [1-{len(options)}] "
-                                f"{cls.DIM}(default: {default_index + 1}){cls.END}: ").strip()
-                except EOFError:
-                    return default_index
-                if not raw:
-                    return default_index
-                try:
-                    idx = int(raw) - 1
-                    if 0 <= idx < len(options):
-                        return idx
-                except ValueError:
-                    pass
-                cls.warn(f"Enter a number between 1 and {len(options)}.")
-
-        # Interactive TUI Mode
+        Returns the chosen index."""
         print()
         print(f"{cls.CYAN}{cls.BOLD}? {question}{cls.END}")
-        
-        # Initial print of options
-        for _ in options:
-            print("")
-            
-        idx = default_index
-        # Hide cursor
-        sys.stdout.write("\033[?25l")
-        sys.stdout.flush()
-        
+        for i, opt in enumerate(options, 1):
+            label, desc = (opt if isinstance(opt, tuple) else (opt, None))
+            marker = f"{cls.GREEN}●{cls.END}" if (i - 1) == default_index else f"{cls.GRAY}○{cls.END}"
+            line = f"  {marker} {cls.BOLD}{i}.{cls.END} {label}"
+            if desc:
+                line += f"  {cls.DIM}— {desc}{cls.END}"
+            print(line)
         while True:
-            # Move cursor back up to start of options
-            sys.stdout.write(f"\033[{len(options)}A")
-            for i, opt in enumerate(options):
-                label, desc = (opt if isinstance(opt, tuple) else (opt, None))
-                if i == idx:
-                    marker = f"{cls.GREEN}❯{cls.END}"
-                    line = f"  {marker} {cls.BOLD}{cls.GREEN}{label}{cls.END}"
-                else:
-                    marker = " "
-                    line = f"    {cls.GRAY}{label}{cls.END}"
-                
-                if desc:
-                    line += f"  {cls.DIM}— {desc}{cls.END}"
-                
-                # Clear line and print
-                sys.stdout.write(f"\r\033[K{line}\n")
+            try:
+                raw = input(f"\n{cls.CYAN}Select [1-{len(options)}] "
+                            f"{cls.DIM}(default: {default_index + 1}){cls.END}: ").strip()
+            except EOFError:
+                return default_index
+            if not raw:
+                return default_index
+            try:
+                idx = int(raw) - 1
+                if 0 <= idx < len(options):
+                    return idx
+            except ValueError:
+                pass
+            cls.warn(f"Enter a number between 1 and {len(options)}.")
+
+    # ---------- Single-key reader (cross-platform) ----------
+
+    @classmethod
+    @contextmanager
+    def _raw_terminal(cls):
+        """
+        Put the controlling terminal into a mode suitable for single-key reads
+        for the duration of the with-block. No-op on Windows (msvcrt does not
+        require mode changes). Yields True on success, False if unavailable.
+        """
+        if os.name == 'nt':
+            yield True
+            return
+        try:
+            import termios, tty
+        except ImportError:
+            yield False
+            return
+        if not sys.stdin.isatty():
+            yield False
+            return
+        fd = sys.stdin.fileno()
+        try:
+            old = termios.tcgetattr(fd)
+        except termios.error:
+            yield False
+            return
+        try:
+            tty.setcbreak(fd)
+            yield True
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    @classmethod
+    def _read_key(cls):
+        """
+        Read a single keypress. Must be called inside `with cls._raw_terminal()`
+        on POSIX, or any time on Windows. Returns one of:
+          'up', 'down', 'space', 'enter', 'a', 'n', 'q', 'abort', or a raw char.
+        Returns None if reading is not possible.
+        """
+        if os.name == 'nt':
+            try:
+                import msvcrt
+            except ImportError:
+                return None
+            ch = msvcrt.getwch()
+            # Arrow keys / function keys send a prefix (\x00 or \xe0) then a code
+            if ch in ('\x00', '\xe0'):
+                code = msvcrt.getwch()
+                if code == 'H': return 'up'
+                if code == 'P': return 'down'
+                return ''
+            if ch in ('\r', '\n'): return 'enter'
+            if ch == ' ': return 'space'
+            if ch == '\x03': return 'abort'      # Ctrl-C
+            if ch == '\x1b': return 'q'          # Esc
+            return ch.lower()
+
+        # POSIX (terminal already in cbreak mode via _raw_terminal).
+        # We use os.read on the raw fd rather than sys.stdin.read to avoid
+        # Python's input buffering hiding pending bytes from select().
+        try:
+            import select as _select
+        except ImportError:
+            return None
+        fd = sys.stdin.fileno()
+        try:
+            data = os.read(fd, 1)
+        except (OSError, ValueError):
+            return None
+        if not data:
+            return None
+        ch = data.decode('utf-8', errors='replace')
+        if ch == '\x1b':
+            # Could be Esc alone or start of escape sequence (arrow keys).
+            # Wait briefly for the rest of the sequence.
+            rlist, _, _ = _select.select([fd], [], [], 0.1)
+            if not rlist:
+                return 'q'
+            try:
+                seq = os.read(fd, 2).decode('utf-8', errors='replace')
+            except (OSError, ValueError):
+                return 'q'
+            if seq == '[A': return 'up'
+            if seq == '[B': return 'down'
+            return ''
+        if ch in ('\r', '\n'): return 'enter'
+        if ch == ' ': return 'space'
+        if ch == '\x03': return 'abort'      # Ctrl-C
+        if ch == '\x04': return 'q'          # Ctrl-D
+        return ch.lower()
+
+    # ---------- Multi-select prompt ----------
+
+    @classmethod
+    def ask_multiselect(cls, question, options, hint=None):
+        """
+        Multi-select picker. options = list of (label, description_or_None) or list of str.
+        Returns a list of selected indices (possibly empty).
+
+        Interactive mode (TTY + ANSI):
+          up/down navigate, Space toggle, 'a' all, 'n' none, Enter confirm, Esc/q cancel.
+
+        Fallback mode (non-TTY, no ANSI, or key reading unavailable):
+          Numbered list with comma-separated input. 'all', 'none' (default), or e.g. '1,3,5'.
+        """
+        # Normalise to (label, desc) tuples
+        norm = [(o if isinstance(o, tuple) else (o, None)) for o in options]
+        n = len(norm)
+        if n == 0:
+            return []
+
+        interactive = (
+            cls._ansi_enabled
+            and sys.stdout.isatty()
+            and sys.stdin.isatty()
+            and os.name in ('nt', 'posix')
+        )
+
+        if interactive:
+            result = cls._multiselect_interactive(question, norm, hint)
+            if result is not None:
+                return result
+            # Interactive failed (e.g. termios unavailable) — fall through to text mode
+
+        return cls._multiselect_fallback(question, norm, hint)
+
+    @classmethod
+    def _multiselect_interactive(cls, question, norm, hint):
+        n = len(norm)
+        selected = [False] * n
+        cursor = 0
+
+        print()
+        print(f"{cls.CYAN}{cls.BOLD}? {question}{cls.END}")
+        hint_line = hint or ("up/down move  ·  Space toggle  ·  'a' all  ·  "
+                             "'n' none  ·  Enter confirm  ·  Esc cancel")
+        print(f"  {cls.DIM}{hint_line}{cls.END}")
+
+        # Reserve lines for the option list
+        for _ in range(n):
+            print("")
+
+        sys.stdout.write("\033[?25l")  # hide cursor
+        sys.stdout.flush()
+
+        try:
+            with cls._raw_terminal() as raw_ok:
+                if not raw_ok:
+                    # Raw mode setup failed — fall back to text mode
+                    return None
+                while True:
+                    # Move back to start of list and redraw
+                    sys.stdout.write(f"\033[{n}A")
+                    for i, (label, desc) in enumerate(norm):
+                        box = (f"{cls.GREEN}[x]{cls.END}" if selected[i]
+                               else f"{cls.GRAY}[ ]{cls.END}")
+                        if i == cursor:
+                            arrow = f"{cls.CYAN}{cls.BOLD}>{cls.END}"
+                            text = f"{cls.BOLD}{label}{cls.END}"
+                        else:
+                            arrow = " "
+                            text = f"{cls.GRAY}{label}{cls.END}"
+                        line = f" {arrow} {box} {text}"
+                        if desc:
+                            line += f"  {cls.DIM}— {desc}{cls.END}"
+                        sys.stdout.write(f"\r\033[K{line}\n")
+                    sys.stdout.flush()
+
+                    key = cls._read_key()
+                    if key is None:
+                        return None
+                    if key == 'up':
+                        cursor = (cursor - 1) % n
+                    elif key == 'down':
+                        cursor = (cursor + 1) % n
+                    elif key == 'space':
+                        selected[cursor] = not selected[cursor]
+                    elif key == 'a':
+                        all_on = all(selected)
+                        selected = [not all_on] * n
+                    elif key == 'n':
+                        selected = [False] * n
+                    elif key == 'enter':
+                        return [i for i, s in enumerate(selected) if s]
+                    elif key == 'q':
+                        return []
+                    elif key == 'abort':
+                        raise KeyboardInterrupt()
+        finally:
+            sys.stdout.write("\033[?25h")  # show cursor
             sys.stdout.flush()
 
-            key = cls._get_key()
-            if key == "up":
-                idx = (idx - 1) % len(options)
-            elif key == "down":
-                idx = (idx + 1) % len(options)
-            elif key == "enter":
-                # Show cursor and move past menu
-                sys.stdout.write("\033[?25h\n")
-                sys.stdout.flush()
-                return idx
-            elif key == "abort":
-                sys.stdout.write("\033[?25h\n")
-                sys.stdout.flush()
-                raise KeyboardInterrupt()
+    @classmethod
+    def _multiselect_fallback(cls, question, norm, hint):
+        print()
+        print(f"{cls.CYAN}{cls.BOLD}? {question}{cls.END}")
+        for i, (label, desc) in enumerate(norm, 1):
+            line = f"  {cls.DIM}{i}.{cls.END} {label}"
+            if desc:
+                line += f"  {cls.DIM}— {desc}{cls.END}"
+            print(line)
+        print(f"\n  {cls.DIM}Enter numbers (e.g. 1,3), 'all', or "
+              f"'none' (default) to skip{cls.END}")
+        try:
+            raw = input(f"{cls.CYAN}{cls.BOLD}?{cls.END} Selection "
+                        f"{cls.DIM}[none]{cls.END}: ").strip()
+        except EOFError:
+            return []
+        low = raw.lower()
+        if low in ("", "none", "skip", "n"):
+            return []
+        if low == "all":
+            return list(range(len(norm)))
+        try:
+            indices = [int(x) - 1 for x in raw.replace(',', ' ').split()]
+        except ValueError:
+            cls.warn("Unrecognised selection — skipping.")
+            return []
+        return [i for i in indices if 0 <= i < len(norm)]
 
     # ---------- Spinner for long ops ----------
 
@@ -271,36 +444,3 @@ class Logger:
             sys.stdout.write("\r" + " " * (len(message) + 30) + "\r")
             sys.stdout.flush()
         cls.success(f"{message} ({time.time() - start:.1f}s)")
-
-    @staticmethod
-    def _get_key():
-        """Capture a single keypress from the user. Returns 'up', 'down', 'enter', or 'abort'."""
-        if os.name == 'nt':
-            import msvcrt
-            while True:
-                ch = msvcrt.getch()
-                if ch in (b'\x00', b'\xe0'):  # Special keys (Arrows)
-                    ch = msvcrt.getch()
-                    return {b'H': 'up', b'P': 'down'}.get(ch)
-                if ch == b'\r':
-                    return 'enter'
-                if ch == b'\x03':  # Ctrl+C
-                    return 'abort'
-        else:
-            import tty
-            import termios
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            try:
-                tty.setraw(fd)
-                ch = sys.stdin.read(1)
-                if ch == '\x1b':  # Escape sequence
-                    ch += sys.stdin.read(2)
-                    return {'\x1b[A': 'up', '\x1b[B': 'down'}.get(ch)
-                if ch in ('\r', '\n'):
-                    return 'enter'
-                if ch == '\x03':  # Ctrl+C
-                    return 'abort'
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return None
