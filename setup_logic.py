@@ -696,6 +696,7 @@ _INSTALLER_ARTIFACTS = [
     "LICENSE",
     # Dirs
     "utils",
+    "assets",
     # Sentinel hash files written by install_comfyui.py
     ".version_hash",
     ".install_comfyui.py.hash",

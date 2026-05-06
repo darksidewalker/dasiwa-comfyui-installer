@@ -208,6 +208,30 @@ class Downloader:
         comfy_path = Path(comfy_path)
         missing = []
         for item in config_downloads:
+            # Asset bundle: a single user-facing entry that copies multiple
+            # local files (shipped with the installer) to different ComfyUI
+            # subfolders. Considered missing if ANY target file is absent.
+            if item.get('kind') == 'asset_bundle':
+                files = item.get('files', [])
+                if not files:
+                    Logger.warn(f"Skipping '{item.get('name', '?')}': "
+                                f"asset_bundle has no files defined.")
+                    continue
+                any_missing = False
+                for f in files:
+                    f_type = f.get('type', '')
+                    f_name = f.get('file')
+                    if not f_name:
+                        any_missing = True
+                        break
+                    search_root = comfy_path / "models" if "models" in f_type else comfy_path
+                    if not Downloader.file_exists_recursive(search_root, f_name):
+                        any_missing = True
+                        break
+                if any_missing:
+                    missing.append(item)
+                continue
+
             # Resolve 'latest' items via GitHub API
             if item.get('version') == 'latest' and 'repo_path' in item:
                 latest = Downloader.get_latest_github_file(item['repo_path'], item['folder'])
@@ -239,9 +263,43 @@ class Downloader:
         return missing
 
     @staticmethod
-    def install_selected(selected, comfy_path):
+    def install_selected(selected, comfy_path, installer_root=None):
         """Download every entry in `selected`."""
+        # downloader.py lives in utils/, so installer root is two levels up.
+        if installer_root is None:
+            installer_root = Path(__file__).resolve().parent.parent
+        else:
+            installer_root = Path(installer_root)
+
         for item in selected:
+            # Asset bundle: copy each bundled file from the installer dir
+            # into its respective ComfyUI subfolder.
+            if item.get('kind') == 'asset_bundle':
+                for f in item.get('files', []):
+                    src_rel = f.get('src')
+                    f_type = f.get('type', '')
+                    f_name = f.get('file')
+                    if not (src_rel and f_type and f_name):
+                        Logger.warn(f"Skipping malformed asset entry in "
+                                    f"'{item.get('name', '?')}': {f}")
+                        continue
+                    src = installer_root / src_rel
+                    dest_dir = Path(comfy_path) / f_type
+                    dest = dest_dir / f_name
+                    if not src.exists():
+                        Logger.warn(f"Asset missing in installer bundle: {src}")
+                        continue
+                    if dest.exists():
+                        Logger.log(f" {f_name} already exists. Skipping.", "ok")
+                        continue
+                    try:
+                        dest_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src, dest)
+                        Logger.log(f" [DONE] {f_name}", "ok")
+                    except Exception as e:
+                        Logger.error(f"Copy failed for {f_name}: {e}")
+                continue
+
             if not item.get('url'):
                 Logger.warn(f"Skipping '{item.get('name', '?')}': no URL to download from.")
                 continue

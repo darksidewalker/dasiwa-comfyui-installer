@@ -80,6 +80,16 @@
         "name": "Interpolation Model Rife 4.26",
         "type": "models/frame_interpolation",
         "url": "https://huggingface.co/Comfy-Org/frame_interpolation/blob/main/frame_interpolation/rife_v4.26.safetensors"
+    },
+    {
+        "name": "Placeholder Files",
+        "kind": "asset_bundle",
+        "files": [
+            { "src": "assets/placeholder.safetensors", "type": "models/unet", "file": "placeholder.safetensors" },
+            { "src": "assets/placeholder.gguf",        "type": "models/unet", "file": "placeholder.gguf" },
+            { "src": "assets/placeholder.mp3",         "type": "input",       "file": "placeholder.mp3" },
+            { "src": "assets/placeholder.mp4",         "type": "input",       "file": "placeholder.mp4" }
+        ]
     }
     ]
 }
