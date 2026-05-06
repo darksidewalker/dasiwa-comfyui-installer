@@ -87,6 +87,7 @@
         "files": [
             { "src": "assets/placeholder.safetensors", "type": "models/unet", "file": "placeholder.safetensors" },
             { "src": "assets/placeholder.gguf",        "type": "models/unet", "file": "placeholder.gguf" },
+            { "src": "assets/placeholder.gguf",        "type": "models/text_encoders", "file": "placeholder.gguf" },
             { "src": "assets/placeholder.mp3",         "type": "input",       "file": "placeholder.mp3" },
             { "src": "assets/placeholder.mp4",         "type": "input",       "file": "placeholder.mp4" }
         ]
