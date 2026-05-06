@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from utils.logger import Logger
+from utils import cuda_host
 
 
 # Triton version matrix for Windows.
@@ -389,149 +390,6 @@ class SageInstaller:
                 continue
         return False
 
-    # ------------------------------------------------------------------ #
-    #  Host compiler / CUDA version compatibility                          #
-    # ------------------------------------------------------------------ #
-
-    # Maximum GCC major version supported by each CUDA major.minor.
-    # Sources: NVIDIA CUDA Installation Guide for Linux (current and archived).
-    # Lookup is "latest <= cuda" so newer minors that we don't list inherit
-    # from the closest known release.
-    _CUDA_MAX_GCC = {
-        (11, 0): 9,  (11, 1): 10, (11, 4): 11,
-        (12, 0): 12, (12, 4): 13, (12, 8): 14,
-        (13, 0): 15, (13, 1): 15, (13, 2): 15,
-    }
-
-    @classmethod
-    def _max_gcc_for_cuda(cls, cuda_mm):
-        """Return max supported GCC major for cuda_mm tuple (major, minor),
-        or None if CUDA version unknown (caller should not attempt overrides)."""
-        if not cuda_mm:
-            return None
-        # Find the largest entry <= cuda_mm
-        candidates = sorted(k for k in cls._CUDA_MAX_GCC if k <= cuda_mm)
-        if not candidates:
-            return None
-        return cls._CUDA_MAX_GCC[candidates[-1]]
-
-    @staticmethod
-    def _probe_nvcc_version():
-        """Return CUDA (major, minor) tuple from `nvcc --version`, or None."""
-        try:
-            res = subprocess.run(
-                ["nvcc", "--version"], capture_output=True, text=True,
-                check=True, timeout=10,
-            )
-        except (FileNotFoundError, subprocess.CalledProcessError,
-                subprocess.TimeoutExpired):
-            return None
-        m = re.search(r"release\s+(\d+)\.(\d+)", res.stdout)
-        if not m:
-            return None
-        return int(m.group(1)), int(m.group(2))
-
-    @staticmethod
-    def _probe_gcc_major(executable):
-        """Return GCC major version (int) for the given g++ executable, or None."""
-        try:
-            res = subprocess.run(
-                [executable, "-dumpfullversion", "-dumpversion"],
-                capture_output=True, text=True, check=True, timeout=10,
-            )
-        except (FileNotFoundError, subprocess.CalledProcessError,
-                subprocess.TimeoutExpired):
-            return None
-        # First non-empty line, take the leading number
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if line and line[0].isdigit():
-                try:
-                    return int(line.split(".")[0])
-                except ValueError:
-                    continue
-        return None
-
-    @classmethod
-    def _find_host_compiler_for_cuda(cls):
-        """Decide whether we need to override the host C/C++ compiler so that
-        nvcc accepts it.
-
-        Returns one of:
-          ("ok",        None,        None)     -- default toolchain is fine
-          ("override",  "/path/gcc", "/path/g++") -- use these via CC/CXX
-          ("incompatible", default_gcc_major, max_gcc_major) -- nothing usable found
-
-        The caller is responsible for surfacing a hint when status is
-        'incompatible'.
-        """
-        cuda_mm = cls._probe_nvcc_version()
-        if cuda_mm is None:
-            # Cannot probe nvcc -- let the build proceed and fail naturally.
-            return ("ok", None, None)
-
-        max_gcc = cls._max_gcc_for_cuda(cuda_mm)
-        if max_gcc is None:
-            return ("ok", None, None)
-
-        default_major = cls._probe_gcc_major("g++")
-        if default_major is None:
-            # g++ probe failed; defer to existing dep-check path.
-            return ("ok", None, None)
-
-        if default_major <= max_gcc:
-            return ("ok", None, None)
-
-        Logger.warn(
-            f"Default g++ is version {default_major}, but CUDA "
-            f"{cuda_mm[0]}.{cuda_mm[1]} supports up to GCC {max_gcc}. "
-            f"Searching for a compatible toolchain..."
-        )
-
-        # Try versioned binaries from highest acceptable downwards.
-        for major in range(max_gcc, 10, -1):
-            gcc_path  = shutil.which(f"gcc-{major}")
-            gxx_path  = shutil.which(f"g++-{major}")
-            if gcc_path and gxx_path:
-                if cls._probe_gcc_major(gxx_path) == major:
-                    Logger.log(
-                        f"Using gcc-{major} / g++-{major} as nvcc host compiler.",
-                        "ok",
-                    )
-                    return ("override", gcc_path, gxx_path)
-
-        return ("incompatible", default_major, max_gcc)
-
-    @staticmethod
-    def _print_host_compiler_hint(cuda_mm, default_major, max_gcc):
-        """Tell the user how to install a compatible toolchain."""
-        Logger.error(
-            f"No compatible host C++ compiler found. Default g++ is "
-            f"{default_major}; CUDA {cuda_mm[0]}.{cuda_mm[1]} supports "
-            f"up to GCC {max_gcc}."
-        )
-        Logger.log(
-            "Install an older GCC alongside your default and re-run:",
-            "info",
-        )
-        Logger.log(
-            f"  Arch / CachyOS:   yay -S gcc{max_gcc}    (or paru -S, AUR)",
-            "info",
-        )
-        Logger.log(
-            f"  Ubuntu / Debian:  sudo apt install gcc-{max_gcc} g++-{max_gcc}",
-            "info",
-        )
-        Logger.log(
-            f"  Fedora:           sudo dnf install gcc-toolset-{max_gcc}",
-            "info",
-        )
-        Logger.log(
-            f"  After install, the binaries 'gcc-{max_gcc}' and 'g++-{max_gcc}' "
-            f"must be on PATH.",
-            "info",
-        )
-
     @staticmethod
     def _install_system_dependencies(config_urls):
         has_nvcc = SageInstaller.check_nvcc()
@@ -604,17 +462,10 @@ class SageInstaller:
         # vs CUDA 13.x which supports up to GCC 15). PyTorch's cpp_extension
         # forwards $CC to nvcc as -ccbin, so setting CC/CXX is enough to
         # redirect both nvcc host compilation and the standalone c++ steps.
-        status, info_a, info_b = cls._find_host_compiler_for_cuda()
-        if status == "override":
-            # info_a = gcc path, info_b = g++ path
-            build_env["CC"]  = info_a
-            build_env["CXX"] = info_b
-            # Belt and braces: nvcc also reads NVCC_CCBIN.
-            build_env["NVCC_CCBIN"] = info_b
-        elif status == "incompatible":
-            # info_a = default g++ major, info_b = max supported gcc major
-            cls._print_host_compiler_hint(
-                cls._probe_nvcc_version(), info_a, info_b,
+        status, info_a, info_b = cuda_host.apply_host_compiler_to_env(build_env)
+        if status == "incompatible":
+            cuda_host.print_host_compiler_hint(
+                cuda_host.probe_nvcc_version(), info_a, info_b,
             )
             Logger.error(
                 "Aborting source build to avoid a guaranteed compile failure."

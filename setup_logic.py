@@ -21,6 +21,7 @@ from utils.task_nodes import task_custom_nodes
 from utils.downloader import Downloader
 from utils.comfyui_clone import sync_comfyui
 from utils.task_sageattention import SageInstaller
+from utils.task_radialattention import RadialInstaller
 from utils.task_ffmpeg import FFmpegInstaller
 
 IS_WIN = platform.system() == "Windows"
@@ -372,6 +373,27 @@ def preflight_wizard(config_data, current_dir, hw):
         if not Logger.ask_yes_no("Try anyway?", default=False):
             want_sage = False
 
+    # ----- 3b. RadialAttention -----
+    # Radial is built on SpargeAttention and recommends Sage as a fallback,
+    # so selecting Radial implicitly forces Sage on.
+    want_radial = Logger.ask_yes_no(
+        "Install RadialAttention? (sparse attention for long video; "
+        "requires SpargeAttention + ComfyUI-RadialAttn node)",
+        default=False,
+    )
+    if want_radial and hw["vendor"] != "NVIDIA":
+        Logger.warn(
+            f"RadialAttention requires NVIDIA; detected vendor: {hw['vendor']}."
+        )
+        if not Logger.ask_yes_no("Try anyway?", default=False):
+            want_radial = False
+    if want_radial and not want_sage:
+        Logger.log(
+            "RadialAttention recommends SageAttention as a fallback - "
+            "enabling Sage automatically.", "info",
+        )
+        want_sage = True
+
     # ----- 4. FFmpeg -----
     if FFmpegInstaller.is_installed() or state["ffmpeg_local"]:
         Logger.log("FFmpeg already present — will be reused.", "ok")
@@ -418,11 +440,26 @@ def preflight_wizard(config_data, current_dir, hw):
         if not missing:
             Logger.log("All optional components already present.", "ok")
         else:
-            options = [(item["name"], item.get("type")) for item in missing]
-            chosen = Logger.ask_multiselect(
-                "Which optional components to download?", options,
-            )
-            selected_downloads = [missing[i] for i in chosen]
+            for i, item in enumerate(missing, 1):
+                print(f"  {Logger.DIM}{i}.{Logger.END} {item['name']}")
+            print(f"\n  {Logger.DIM}Commands: numbers (e.g. 1,3), 'all', or "
+                  f"'none' (default) to skip{Logger.END}")
+            raw = Logger.ask("Which to download?", default="none")
+            raw_lower = raw.lower().strip()
+            if raw_lower in ("", "none", "skip", "n"):
+                selected_downloads = []
+            elif raw_lower == "all":
+                selected_downloads = missing
+            else:
+                try:
+                    indices = [int(x) - 1 for x
+                               in raw.replace(',', ' ').split()]
+                    selected_downloads = [
+                        missing[i] for i in indices
+                        if 0 <= i < len(missing)
+                    ]
+                except ValueError:
+                    Logger.warn("Unrecognised selection — skipping downloads.")
 
     # ----- 7. Review & confirm -----
     Logger.banner("Configuration Summary", "Review before starting")
@@ -436,6 +473,7 @@ def preflight_wizard(config_data, current_dir, hw):
         Logger.kv("Torch pin:",   f"{pinned_torch} (matches prebuilt Sage wheel)")
     Logger.kv("ComfyUI:",     target_version)
     Logger.kv("SageAttention:", "yes" if want_sage else "no")
+    Logger.kv("RadialAttention:", "yes" if want_radial else "no")
     Logger.kv("FFmpeg:",      "yes" if want_ffmpeg else "no")
     Logger.kv("Downloads:",   f"{len(selected_downloads)} item(s)")
     Logger.rule()
@@ -450,6 +488,7 @@ def preflight_wizard(config_data, current_dir, hw):
         "target_version":     target_version,
         "fallback_branch":    comfy_prefs.get("fallback_branch", "master"),
         "want_sage":          want_sage,
+        "want_radial":        want_radial,
         "want_ffmpeg":        want_ffmpeg,
         "cuda_target":        cuda_target,
         "cuda_downgraded":    downgraded,
@@ -648,6 +687,7 @@ def main():
     comfy_path = CURRENT_RUN_DIR / "ComfyUI"
     node_stats = None
     sage_installed = False
+    radial_installed = False
     ffmpeg_installed = FFmpegInstaller.is_installed() or plan["state"]["ffmpeg_local"]
 
     # Define a helper for phase-isolated error handling:
@@ -752,6 +792,16 @@ def main():
             python_exe = comfy_path / "venv" / bin_suffix
             sage_installed = SageInstaller.is_installed(python_exe)
 
+        # RadialAttention — non-critical, runs after Sage so the recommended
+        # fallback is in place before the Radial node is exercised.
+        if plan["want_radial"]:
+            _phase("RadialAttention install",
+                   RadialInstaller.install,
+                   venv_env, comfy_path, config_data.get("urls", {}))
+            bin_suffix = "Scripts/python.exe" if IS_WIN else "bin/python"
+            python_exe = comfy_path / "venv" / bin_suffix
+            radial_installed = RadialInstaller.is_installed(python_exe, comfy_path)
+
     except Exception as e:
         Logger.error(f"Installation aborted: {e}")
 
@@ -763,6 +813,7 @@ def main():
         hw, venv_env, start_time,
         node_stats=node_stats,
         sage_installed=sage_installed if plan["want_sage"] else None,
+        radial_installed=radial_installed if plan["want_radial"] else None,
         ffmpeg_installed=ffmpeg_installed if plan["want_ffmpeg"] else None,
     )
     try:

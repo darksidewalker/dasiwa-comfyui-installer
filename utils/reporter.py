@@ -9,7 +9,7 @@ from utils.logger import Logger
 class Reporter:
     @staticmethod
     def show_summary(hw, venv_env, start_time, node_stats=None, sage_installed=None,
-                     ffmpeg_installed=None):
+                     radial_installed=None, ffmpeg_installed=None):
         """Clean overview of the installation result."""
         elapsed = round(time.time() - start_time, 1)
         is_win = os.name == 'nt'
@@ -45,6 +45,10 @@ class Reporter:
         # SageAttention
         if sage_installed is not None:
             Logger.kv("SageAttention:", "installed ✓" if sage_installed else "skipped")
+
+        # RadialAttention
+        if radial_installed is not None:
+            Logger.kv("RadialAttention:", "installed ✓" if radial_installed else "skipped")
 
         # FFmpeg
         if ffmpeg_installed is not None:

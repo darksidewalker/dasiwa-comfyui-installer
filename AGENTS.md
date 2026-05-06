@@ -44,9 +44,11 @@ dasiwa-comfyui-installer/
     ├── hardware.py          # GPU detection and vendor classification
     ├── comfyui_clone.py     # ComfyUI git management
     ├── downloader.py        # File downloads and model migration
+    ├── cuda_host.py         # nvcc/host-compiler version arbitration (shared)
     ├── task_nodes.py        # Custom node cloning and dependency install
     ├── task_ffmpeg.py       # FFmpeg acquisition (portable Win / apt Linux)
     ├── task_sageattention.py# SageAttention install (wheel-first, source fallback)
+    ├── task_radialattention.py# RadialAttention install (SpargeAttn + node clone)
     └── reporter.py          # Final installation summary
 ```
 
@@ -75,12 +77,11 @@ The single source of truth for all terminal output and user prompts. No module m
 | `Logger.ask()` | `(question, default)` | Plain text prompt with optional default. |
 | `Logger.ask_yes_no()` | `(question, default)` | Boolean Y/N prompt. Returns `bool`. |
 | `Logger.ask_choice()` | `(question, options, default_index)` | Numbered menu. `options` = list of `str` or `(label, description)`. Returns chosen index `int`. |
-| `Logger.ask_multiselect()` | `(question, options, hint)` | Multi-select picker. `options` = list of `str` or `(label, description)`. Returns list of chosen indices. Interactive (up/down + Space + 'a'/'n' + Enter) on TTY+ANSI; falls back to comma/space-separated numbers (`'all'`, `'none'`) otherwise. |
 | `Logger.spinner()` | `(message)` | Context manager. Shows animated spinner while body runs; falls back to plain log when not a TTY. |
 
 **Agent rules:**
 - Always call `Logger.init()` before any output.
-- Use `Logger.ask_yes_no` / `Logger.ask_choice` / `Logger.ask_multiselect` for all prompts. Never raw `input()`.
+- Use `Logger.ask_yes_no` / `Logger.ask_choice` for all prompts. Never raw `input()`.
 - `Logger.spinner()` is for operations that produce no stdout (e.g. hashing, probing). Use
   `run_cmd(..., stream=True)` for long subprocesses where the user needs to see progress.
 
@@ -331,14 +332,82 @@ all the resulting environment variables, and merging them into the build env bef
 
 ---
 
-### 3.9 `utils/reporter.py` — **Analyst**
+### 3.9 `utils/cuda_host.py` — **Compiler Arbiter**
+
+Shared helper for resolving the host C/C++ compiler that nvcc uses when
+building CUDA extensions from source. Used by both `task_sageattention.py`
+and `task_radialattention.py`. There is **no class** — just module-level
+functions.
+
+| Function | Purpose |
+| :------- | :------ |
+| `max_gcc_for_cuda(cuda_mm)` | Looks up the maximum GCC major version supported by a `(major, minor)` CUDA tuple. Inherits from the closest known release for unlisted minors. |
+| `probe_nvcc_version()` | Parses `nvcc --version` for `release X.Y`. Returns `(major, minor)` or `None`. |
+| `probe_gcc_major(executable)` | Runs `<exe> -dumpfullversion -dumpversion` and returns the GCC major as an int, or `None`. |
+| `find_host_compiler_for_cuda()` | Returns one of `("ok", None, None)`, `("override", gcc_path, gxx_path)`, `("incompatible", default_major, max_gcc)`. Probes default `g++`, scans for versioned `g++-N` binaries when needed. |
+| `apply_host_compiler_to_env(build_env)` | Mutates `build_env` in place with `CC`/`CXX`/`NVCC_CCBIN`. Returns the same tuple shape as `find_host_compiler_for_cuda`. Caller must abort on `"incompatible"`. |
+| `print_host_compiler_hint(cuda_mm, default_major, max_gcc)` | Prints distro-aware install hints (Arch AUR, apt, dnf). |
+
+The `_CUDA_MAX_GCC` table is the single source of truth and must be updated
+when a new CUDA release ships. Do **not** duplicate the table in either
+task module.
+
+PyTorch's `torch.utils.cpp_extension` already forwards `$CC` to nvcc as
+`-ccbin`; setting `CC`/`CXX` is therefore sufficient to redirect both nvcc
+host compilation and the standalone `c++` link steps. `NVCC_CCBIN` is set
+as a belt-and-braces fallback for direct nvcc invocations that bypass
+torch's extension machinery.
+
+---
+
+### 3.10 `utils/task_radialattention.py` — **Sparse Attention Specialist**
+
+Installs RadialAttention. RadialAttention is a sparse-attention add-on that
+runs on top of SpargeAttention (pypi name `spas_sage_attn`) and is exposed
+to ComfyUI via the `woct0rdho/ComfyUI-RadialAttn` custom node.
+
+#### Public API
 
 | Method | Signature | Purpose |
 | :----- | :-------- | :------ |
-| `Reporter.show_summary(hw, venv_env, start_time, node_stats, sage_installed, ffmpeg_installed)` | static | Prints the final summary using `Logger.banner`, `Logger.kv`, `Logger.rule`. |
+| `RadialInstaller.install(venv_env, comfy_path, config_urls)` | classmethod | Main entry. Installs SpargeAttn (wheel on Windows, source build on Linux) then clones the node repo. |
+| `RadialInstaller.is_installed(python_exe, comfy_path)` | classmethod | True iff both the kernel is importable AND the node repo is cloned. |
+| `RadialInstaller.is_kernel_installed(python_exe)` | static | Imports `spas_sage_attn` in the venv. |
+| `RadialInstaller.is_node_installed(comfy_path)` | static | Checks `custom_nodes/ComfyUI-RadialAttn/__init__.py`. |
 
-`sage_installed` and `ffmpeg_installed` accept `None` (component was not requested),
-`True` (succeeded), or `False` (was requested but failed/skipped).
+#### Wheel naming pattern (Windows)
+
+`spas_sage_attn-0.1.0+{cu_tag}torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl`
+
+The `andhigher` token is non-PEP-427 and uv rejects it, so the install uses
+`UV_SKIP_WHEEL_FILENAME_CHECK=1` (same trick as Sage).
+
+#### Linux source build
+
+Uses the same `cuda_host.apply_host_compiler_to_env` helper as Sage, so
+GCC-too-new scenarios are handled identically. The Linux fork (woct0rdho's)
+is preferred over the upstream `thu-ml/SpargeAttn` because the fork tracks
+current PyTorch and adds ABI3 + `torch.compile` support.
+
+#### Wizard interaction
+
+The `want_radial = True` path forces `want_sage = True` because the upstream
+RadialAttention README recommends Sage as a fallback when Radial is not
+applicable. This auto-promotion happens in `preflight_wizard` and is
+visible to the user via an info-level log line before the configuration
+summary is shown.
+
+---
+
+### 3.11 `utils/reporter.py` — **Analyst**
+
+| Method | Signature | Purpose |
+| :----- | :-------- | :------ |
+| `Reporter.show_summary(hw, venv_env, start_time, node_stats, sage_installed, radial_installed, ffmpeg_installed)` | static | Prints the final summary using `Logger.banner`, `Logger.kv`, `Logger.rule`. |
+
+`sage_installed`, `radial_installed`, and `ffmpeg_installed` accept `None`
+(component was not requested), `True` (succeeded), or `False` (was requested
+but failed/skipped).
 
 ---
 
