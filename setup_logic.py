@@ -461,7 +461,21 @@ def preflight_wizard(config_data, current_dir, hw):
                 except ValueError:
                     Logger.warn("Unrecognised selection — skipping downloads.")
 
-    # ----- 7. Review & confirm -----
+    # ----- 7. Cleanup preference -----
+    Logger.section("Post-install cleanup")
+    Logger.log(
+        "After a successful install the installer scripts, utils/, config.json,\n"
+        "  README, and other setup files are no longer needed. Only ComfyUI/ (the\n"
+        "  product) will remain. Your config.local.json / custom_nodes.local.txt\n"
+        "  are always preserved.",
+        "info",
+    )
+    want_cleanup = Logger.ask_yes_no(
+        "Remove installer files after a successful install?",
+        default=True,
+    )
+
+    # ----- 8. Review & confirm -----
     Logger.banner("Configuration Summary", "Review before starting")
     Logger.kv("Mode:",        install_mode)
     Logger.kv("GPU:",         hw["name"])
@@ -476,6 +490,7 @@ def preflight_wizard(config_data, current_dir, hw):
     Logger.kv("RadialAttention:", "yes" if want_radial else "no")
     Logger.kv("FFmpeg:",      "yes" if want_ffmpeg else "no")
     Logger.kv("Downloads:",   f"{len(selected_downloads)} item(s)")
+    Logger.kv("Cleanup after:", "yes — installer files removed" if want_cleanup else "no — keep installer files")
     Logger.rule()
 
     if not Logger.ask_yes_no("Proceed with these settings?", default=True):
@@ -494,6 +509,7 @@ def preflight_wizard(config_data, current_dir, hw):
         "cuda_downgraded":    downgraded,
         "pinned_torch":       pinned_torch,
         "selected_downloads": selected_downloads,
+        "want_cleanup":       want_cleanup,
     }
 
 
@@ -652,6 +668,84 @@ def resolve_nodes_source(config_data, current_dir):
         "custom_nodes",
         "https://raw.githubusercontent.com/darksidewalker/"
         "dasiwa-comfyui-installer/main/custom_nodes.txt",
+    )
+
+
+# ============================================================================
+#  INSTALLER SELF-CLEANUP
+# ============================================================================
+
+# Files/dirs that belong to the installer and can be removed after a
+# successful install. Anything not in this list (e.g. ComfyUI/, config.local.json,
+# custom_nodes.local.txt) is intentionally preserved.
+_INSTALLER_ARTIFACTS = [
+    # Python source files
+    "setup_logic.py",
+    "install_comfyui.py",
+    "__init__.py",
+    # Config / node list (committed defaults — local overrides are kept)
+    "config.json",
+    "custom_nodes.txt",
+    # Bootstrappers — user already ran them; ComfyUI has its own launcher now
+    "install.ps1",
+    "install.sh",
+    # Example / documentation files
+    "config_local_json.example",
+    "AGENTS.md",
+    "README.md",
+    "LICENSE",
+    # Dirs
+    "utils",
+    # Sentinel hash files written by install_comfyui.py
+    ".version_hash",
+    ".install_comfyui.py.hash",
+    ".setup_logic.py.hash",
+]
+
+
+def cleanup_installer_files(current_dir, comfy_path):
+    """
+    Remove installer source files from `current_dir`, leaving only:
+      - ComfyUI/            (the product)
+      - config.local.json   (user overrides, if present)
+      - custom_nodes.local.txt (user node list, if present)
+
+    Called only after a successful install and only when the user opted in.
+    """
+    Logger.section("Installer Cleanup")
+    removed = []
+    errors = []
+
+    for name in _INSTALLER_ARTIFACTS:
+        target = current_dir / name
+        if not target.exists():
+            continue
+        try:
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+            removed.append(name)
+        except Exception as e:
+            errors.append(name)
+            Logger.warn(f"Could not remove {name}: {e}")
+
+    # uv pip cache — safe to clear; uv will rebuild it on demand
+    try:
+        subprocess.run(["uv", "cache", "clean"], capture_output=True, check=False)
+        Logger.debug("uv package cache cleared.")
+    except Exception:
+        pass
+
+    if removed:
+        Logger.log(f"Removed {len(removed)} installer artifact(s).", "ok")
+    if errors:
+        Logger.warn(f"{len(errors)} item(s) could not be removed — delete them manually.")
+
+    Logger.log(
+        f"Installer folder is clean. Only ComfyUI/ remains "
+        f"(plus any config.local.json / custom_nodes.local.txt you created).",
+        "ok",
     )
 
 
@@ -816,6 +910,18 @@ def main():
         radial_installed=radial_installed if plan["want_radial"] else None,
         ffmpeg_installed=ffmpeg_installed if plan["want_ffmpeg"] else None,
     )
+
+    # Cleanup — runs after the summary so the user can read the output,
+    # but only when the install completed successfully (ComfyUI/main.py present).
+    install_succeeded = comfy_path.exists() and (comfy_path / "main.py").exists()
+    if plan.get("want_cleanup") and install_succeeded:
+        cleanup_installer_files(CURRENT_RUN_DIR, comfy_path)
+    elif plan.get("want_cleanup") and not install_succeeded:
+        Logger.warn(
+            "Cleanup skipped — ComfyUI install appears incomplete. "
+            "Installer files are preserved so you can retry."
+        )
+
     try:
         input("\nPress Enter to exit...")
     except EOFError:
