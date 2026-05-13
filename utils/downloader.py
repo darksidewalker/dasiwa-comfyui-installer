@@ -1,6 +1,7 @@
 import urllib.request
 import urllib.error
 import os
+import re
 import shutil
 import time
 import json
@@ -8,6 +9,63 @@ import socket
 from pathlib import Path
 
 from utils.logger import Logger
+
+
+# Extensions we consider binary model/media artifacts. If a URL points at one
+# of these and the server hands us text/html (or the bytes start with an HTML
+# tag), we know the download is wrong even if Content-Length looked sane.
+_BINARY_EXTS = {
+    ".safetensors", ".ckpt", ".pt", ".pth", ".bin", ".gguf", ".onnx",
+    ".pkl", ".npz", ".tar", ".zip", ".7z", ".gz", ".xz", ".zst",
+    ".png", ".jpg", ".jpeg", ".webp", ".mp3", ".mp4", ".wav", ".flac",
+    ".mov", ".mkv", ".webm",
+}
+
+# Hugging Face HTML preview URL pattern. /blob/ returns an HTML page;
+# /resolve/ returns the raw file. The two paths are otherwise identical,
+# so rewriting is always safe.
+_HF_BLOB_RE = re.compile(
+    r"^(https?://(?:[^/]+\.)?huggingface\.co/[^/]+/[^/]+)/blob/",
+    re.IGNORECASE,
+)
+
+
+def _normalize_url(url):
+    """Rewrite known-bad URL shapes to their working equivalents.
+
+    Currently handles:
+      - huggingface.co/.../blob/...  ->  huggingface.co/.../resolve/...
+        (/blob/ is the HTML preview page, /resolve/ is the file)
+    """
+    if not url:
+        return url
+    new_url = _HF_BLOB_RE.sub(r"\1/resolve/", url)
+    if new_url != url:
+        Logger.warn(
+            "Rewrote Hugging Face /blob/ URL to /resolve/ "
+            "(/blob/ returns an HTML page, not the file)."
+        )
+    return new_url
+
+
+def _looks_binary_url(url, explicit_file=None):
+    """True if the URL or explicit filename ends in a known binary extension."""
+    name = (explicit_file or url.split("?")[0].split("/")[-1]).lower()
+    return any(name.endswith(ext) for ext in _BINARY_EXTS)
+
+
+def _is_html_payload(content_type, head_bytes):
+    """Detect HTML in either the Content-Type header or the first bytes.
+
+    Used only when the URL is supposed to point at a binary artifact; we never
+    flag legitimately textual downloads (workflow JSON, custom_nodes.txt, etc.).
+    """
+    if content_type and "text/html" in content_type.lower():
+        return True
+    if not head_bytes:
+        return False
+    sniff = head_bytes[:512].lstrip().lower()
+    return sniff.startswith(b"<!doctype html") or sniff.startswith(b"<html")
 
 
 class Downloader:
@@ -100,13 +158,22 @@ class Downloader:
         """
         Download with atomic write (.part -> rename) and content-length validation.
         Skips cleanly if the target already exists with a matching size.
+
+        For URLs that look like binary artifacts (.safetensors, .gguf, .ckpt, etc.)
+        the response is also checked against text/html — this catches Hugging
+        Face /blob/ pages, CDN error pages, and login redirects that would
+        otherwise be saved as junk files with a "valid" Content-Length.
         """
+        url = _normalize_url(url)
         filename = explicit_file if explicit_file else url.split('/')[-1].split('?')[0]
         dest = Path(dest_folder) / filename
         dest.parent.mkdir(parents=True, exist_ok=True)
 
+        expect_binary = _looks_binary_url(url, explicit_file)
+
         # Pre-fetch Content-Length to validate existing files
         expected_size = None
+        head_content_type = None
         try:
             head_req = urllib.request.Request(
                 url, method="HEAD", headers={'User-Agent': 'DaSiWa-Installer/1.0'}
@@ -114,8 +181,20 @@ class Downloader:
             with urllib.request.urlopen(head_req, timeout=10) as resp:
                 cl = resp.headers.get("Content-Length")
                 expected_size = int(cl) if cl else None
+                head_content_type = resp.headers.get("Content-Type")
         except Exception:
             pass  # Not every server supports HEAD — fall through
+
+        # Early reject: HEAD says HTML but we wanted a binary. Don't even start
+        # the body fetch — saves bandwidth and gives the user a clear error.
+        if expect_binary and head_content_type and "text/html" in head_content_type.lower():
+            Logger.error(
+                f"Refusing to download {display_name}: server returned "
+                f"Content-Type '{head_content_type}' for what should be a "
+                f"binary file. Check the URL — for Hugging Face, use "
+                f"/resolve/ instead of /blob/."
+            )
+            return
 
         if dest.exists():
             actual = dest.stat().st_size
@@ -136,12 +215,30 @@ class Downloader:
                     url, headers={'User-Agent': 'DaSiWa-Installer/1.0'}
                 )
                 with urllib.request.urlopen(req, timeout=25) as response, open(tmp, 'wb') as out:
+                    response_ct = response.headers.get("Content-Type")
                     shutil.copyfileobj(response, out)
 
                 if expected_size and tmp.stat().st_size != expected_size:
                     raise IOError(
                         f"size mismatch ({tmp.stat().st_size} vs {expected_size})"
                     )
+
+                # Defensive payload check for binary URLs: if the server gave
+                # us an HTML page (wrong endpoint, login redirect, CDN error
+                # page) the bytes will start with <!doctype or <html. Text
+                # downloads (JSON workflows, .txt lists) skip this entirely.
+                if expect_binary:
+                    try:
+                        with open(tmp, "rb") as fh:
+                            head_bytes = fh.read(512)
+                    except OSError:
+                        head_bytes = b""
+                    if _is_html_payload(response_ct, head_bytes):
+                        raise IOError(
+                            "server returned an HTML page instead of the "
+                            "expected binary file (check that the URL is the "
+                            "direct download endpoint, not a preview page)"
+                        )
 
                 tmp.replace(dest)
                 Logger.log(f" [DONE] {filename}", "ok")
