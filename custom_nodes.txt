@@ -1,6 +1,6 @@
 # --- System & Workflow Management ---
 https://github.com/rgthree/rgthree-comfy
-https://github.com/yolain/ComfyUI-Easy-Use
+https://github.com/BobRandomNumber/ComfyUI-Crystools-MonitorOnly
 
 # --- Essential Tools & GGUF Support ---
 https://github.com/kijai/ComfyUI-KJNodes
@@ -15,11 +15,11 @@ https://github.com/Comfy-Org/Nvidia_RTX_Nodes_ComfyUI
 
 # --- Audio & Special Media ---
 #https://github.com/phazei/ComfyUI-HunyuanVideo-Foley
-https://github.com/filliptm/ComfyUI_FL-CosyVoice3 | sub
+#https://github.com/filliptm/ComfyUI_FL-CosyVoice3 | sub
 #https://github.com/kijai/ComfyUI-MMAudio
 
 # Package nodes (Requires editable install)
 #https://... | pkg
 
 # Custom requirement file install
-https://github.com/Fannovel16/ComfyUI-Frame-Interpolation | req:requirements-no-cupy.txt
+#https://github.com/Fannovel16/ComfyUI-Frame-Interpolation | req:requirements-no-cupy.txt
