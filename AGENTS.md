@@ -159,9 +159,7 @@ compile failure against Torch 2.9+ (CUDA 13) due to a namespace collision in
 
 ```python
 PRIORITY_PACKAGES = [
-    "torch", "torchvision", "torchaudio",
-    "numpy>=2.1.0,<=2.3.0", "pillow>=11.0.0",
-    "pydantic>=2.12.5", "setuptools==81.0.0",
+    "",
 ]
 ```
 

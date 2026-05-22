@@ -132,6 +132,14 @@ class RadialInstaller:
             f"Detected: torch {torch_ver}, CUDA {torch_cuda}, Python {py_mm}", "info"
         )
 
+        if not torch_cuda:
+            Logger.error("Torch is installed but CUDA support is missing (CPU-only version detected).")
+            Logger.info(
+                "This usually happens if a dependency conflict 'upgraded' torch to a non-CUDA version. "
+                "Run the installer again and choose 'Refresh environment' to repair the venv."
+            )
+            return
+
         if torch_tuple < (2, 9):
             Logger.warn(
                 f"Torch {torch_ver} is older than 2.9. The prebuilt ABI3 "
@@ -159,6 +167,7 @@ class RadialInstaller:
             str(uv_exe) if uv_exe.exists() else "uv",
             "pip", "install",
             "--force-reinstall",
+            "--no-deps",
             "--no-cache",
             "--python", str(python_exe),
             sparge_url,
