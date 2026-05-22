@@ -33,6 +33,7 @@ PRIORITY_PACKAGES = [
     #"pillow>=11.0.0",
     #"pydantic>=2.12.5",
     #"setuptools==81.0.0",
+    "kornia==0.6.12"
 ]
 
 # Minimum disk space we want before starting (GB)
