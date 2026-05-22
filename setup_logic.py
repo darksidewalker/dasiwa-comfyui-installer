@@ -29,13 +29,10 @@ Logger.init()
 
 # --- CONSTANTS ---
 PRIORITY_PACKAGES = [
-    #"torch",
-    #"torchvision",
-    #"torchaudio",
-    "numpy>=2.1.0,<=2.3.0",
-    "pillow>=11.0.0",
-    "pydantic>=2.12.5",
-    "setuptools==81.0.0",
+    #"numpy>=2.1.0,<=2.3.0",
+    #"pillow>=11.0.0",
+    #"pydantic>=2.12.5",
+    #"setuptools==81.0.0",
 ]
 
 # Minimum disk space we want before starting (GB)
