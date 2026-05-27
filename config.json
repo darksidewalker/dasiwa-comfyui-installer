@@ -11,7 +11,7 @@
     },
     "cuda": {
         "global": "13.0",
-        "min_cuda_for_50xx": "12.8"
+        "min_cuda_for_50xx": "13.0"
     },
     "repository": {
         "owner": "darksidewalker",

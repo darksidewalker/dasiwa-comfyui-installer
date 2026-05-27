@@ -150,16 +150,18 @@ deletes the ComfyUI folder.
 - `want_sage` is `True`
 - `config_data["cuda"]["global"]` major version ≥ 13
 
-When it fires, it offers the user a Y/N prompt to downgrade to `"12.8"` **in memory only**.
-`config.json` is not touched. This is because upstream SageAttention 2.x has a known MSVC
-compile failure against Torch 2.9+ (CUDA 13) due to a namespace collision in
-`torch/csrc/dynamo/compiled_autograd.h`.
+When it fires, it offers the user a Y/N prompt to target `"13.0"` using the `2.12.0` nightly.
+This resolves the known MSVC namespace collision in `torch/csrc/dynamo/compiled_autograd.h`
+that affected earlier Torch 2.9+ versions on CUDA 13.
+
 
 #### 3.2.4 `PRIORITY_PACKAGES`
 
 ```python
 PRIORITY_PACKAGES = [
-    "",
+    "setuptools==81.0.0",
+    "torch==2.12.0+cu130",
+    "triton==3.7.0",
 ]
 ```
 
@@ -453,7 +455,7 @@ target portable Python version, hand off to `setup_logic.py`.
 | `python.display_name` | `"3.12"` | Broad Python version passed to `uv python install`. |
 | `python.full_version` | `"3.12.10"` | Exact micro-version for pinning if needed. |
 | `cuda.global` | `"13.0"` | Default CUDA wheel target for NVIDIA Torch installs. |
-| `cuda.min_cuda_for_50xx` | `"12.8"` | Minimum CUDA for Blackwell (RTX 50-series) + `--pre` flag. |
+| `cuda.min_cuda_for_50xx` | `"13.0"` | Minimum CUDA for Blackwell (RTX 50-series) + `--pre` flag. |
 | `comfyui.version` | `"latest"` | `"latest"` maps to `master` branch; any other value is a git tag. |
 | `comfyui.fallback_branch` | `"master"` | Used if the targeted tag checkout fails. |
 | `urls.custom_nodes` | URL | Remote `custom_nodes.txt` source. Point to a Gist to share setups. |

@@ -30,6 +30,9 @@ Logger.init()
 # --- CONSTANTS ---
 PRIORITY_PACKAGES = [
     "kornia==0.8.2",
+    "setuptools==81.0.0",
+    "torch==2.12.0+cu130",
+    "triton==3.7.0",
 ]
 
 # Minimum disk space we want before starting (GB)

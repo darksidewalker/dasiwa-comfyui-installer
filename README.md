@@ -86,7 +86,7 @@ GPU detection is automatic. If detection fails, you get a manual selection menu 
 | Vendor | Series | PyTorch Build |
 | :----- | :----- | :------------ |
 | **NVIDIA** | RTX 20 / 30 / 40 | CUDA 13.0 (configurable) |
-| **NVIDIA** | RTX 50 (Blackwell) | CUDA 12.8 + `--pre` nightly |
+| **NVIDIA** | RTX 50 (Blackwell) | CUDA 13.0 + `--pre` (2.12.0) |
 | **NVIDIA** | GTX 10 / Pascal | CUDA 12.1 + Torch 2.4.1 (locked) |
 | **AMD** | RX 7000 / GFX110x | ROCm nightly `gfx110X-all` |
 | **AMD** | RX 9000 / GFX120x | ROCm nightly `gfx120X-all` |
@@ -110,8 +110,8 @@ If no matching prebuilt wheel exists, falls back to a full CUDA source build wit
 **Linux**
 Source build via `uv pip install --no-build-isolation`, with a dependency check for `nvcc` and `g++`/`clang++` before starting.
 
-**CUDA 12.8 auto-downgrade (Windows only)**
-If your config targets CUDA 13.x and you request SageAttention, the wizard warns you that this combination has a known upstream build failure (a namespace collision in PyTorch's `compiled_autograd.h`) and offers to target CUDA 12.8 for this install only. Your `config.json` is never written.
+**CUDA 13.0 Blackwell Support (Windows only)**
+For RTX 50-series cards, the installer targets CUDA 13.0 and PyTorch 2.12.0 nightly. This combination resolves the namespace collisions found in earlier CUDA 13 toolchains and provides full Blackwell optimization.
 
 ---
 
