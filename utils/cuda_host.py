@@ -16,6 +16,8 @@ to a side-by-side older g++ via the CC/CXX/NVCC_CCBIN environment variables
 (PyTorch's torch.utils.cpp_extension forwards $CC to nvcc as -ccbin).
 """
 
+import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -154,6 +156,110 @@ def print_host_compiler_hint(cuda_mm, default_major, max_gcc):
         f"must be on PATH.",
         "info",
     )
+
+
+def check_nvcc(bin_dir=None):
+    """Return True if nvcc is on PATH or in standard Arch location."""
+    exe_name = "nvcc.exe" if os.name == "nt" else "nvcc"
+
+    # 1. Check local bin_dir (usually the venv bin)
+    if bin_dir:
+        nvcc_local = Path(bin_dir) / exe_name
+        if nvcc_local.exists():
+            return True
+
+    # 2. Check PATH first
+    if probe_nvcc_version() is not None:
+        return True
+
+    # 3. Check environment variables
+    for var in ("CUDA_HOME", "CUDA_PATH"):
+        val = os.environ.get(var)
+        if val:
+            p = Path(val) / "bin" / exe_name
+            if p.exists():
+                return True
+
+    # 4. Fallback for standard system locations
+    if os.name == "nt":
+        # Windows default: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\vX.Y\bin
+        base = Path("C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA")
+        if base.exists():
+            # Check for any vXX.X subfolders
+            for v_dir in base.glob("v*"):
+                if (v_dir / "bin" / "nvcc.exe").exists():
+                    return True
+    else:
+        # Common Linux fallbacks (/opt/cuda is Arch, /usr/local/cuda is Ubuntu/standard)
+        fallbacks = ["/opt/cuda/bin/nvcc", "/usr/local/cuda/bin/nvcc"]
+        for f in fallbacks:
+            if Path(f).exists():
+                return True
+
+    return False
+
+
+def check_cpp_compiler():
+    """Return True if g++ or clang++ is on PATH."""
+    for compiler in ("g++", "clang++"):
+        try:
+            subprocess.run(
+                [compiler, "--version"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                check=True
+            )
+            return True
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            continue
+    return False
+
+
+def install_system_dependencies(component_name, bin_dir=None):
+    """Detect distro and offer/install build dependencies.
+    Ensures 'cuda' (toolkit) is included for Arch Linux.
+    """
+    is_win = os.name == "nt"
+    has_nvcc = check_nvcc(bin_dir)
+    has_cpp  = check_cpp_compiler()
+    if has_nvcc and has_cpp:
+        return True
+
+    Logger.section(f"{component_name}: missing build dependencies")
+    if not has_nvcc: Logger.warn(f"nvcc (CUDA Toolkit) NOT found.{' Source builds require the full NVIDIA CUDA Toolkit on Windows.' if is_win else ''}")
+    if not has_cpp:  Logger.warn("g++ / clang++ NOT found.")
+
+    options = [
+        ("[Ubuntu/Debian] sudo apt install build-essential cmake nvidia-cuda-toolkit", "apt"),
+        ("[Arch/CachyOS] sudo pacman -S base-devel cmake cuda", "pacman"),
+        ("Skip check and try building anyway", "risky"),
+        (f"Cancel {component_name}", "cancel"),
+    ]
+    
+    if is_win:
+        options.insert(0, ("View NVIDIA CUDA Toolkit Download Page", "win_cuda"))
+        
+    idx = Logger.ask_choice("How do you want to resolve build dependencies?", options, default_index=len(options)-1)
+    choice_key = options[idx][1]
+
+    try:
+        if choice_key == "apt":
+            subprocess.run(["sudo", "apt", "update"], check=True)
+            subprocess.run(["sudo", "apt", "install", "-y", "build-essential", "cmake", "git", "nvidia-cuda-toolkit"], check=True)
+            return True
+        elif choice_key == "pacman":
+            subprocess.run(["sudo", "pacman", "-S", "--needed", "base-devel", "cmake", "git", "cuda"], check=True)
+            return True
+        elif choice_key == "win_cuda":
+            import webbrowser
+            webbrowser.open("https://developer.nvidia.com/cuda-downloads")
+            Logger.info("Please install the toolkit and restart the installer.")
+            return False
+        elif choice_key == "risky":
+            return True
+    except subprocess.CalledProcessError as e:
+        Logger.error(f"Package install failed: {e}")
+
+    return False
 
 
 def apply_host_compiler_to_env(build_env):

@@ -146,9 +146,10 @@ class SageInstaller:
         if is_win:
             cls._install_windows(python_exe, uv_exe, venv_env)
         else:
-            if not cls._install_system_dependencies(config_urls, python_exe.parent):
+            if not cuda_host.install_system_dependencies("SageAttention", python_exe.parent):
                 Logger.log("Build dependencies missing. Skipping SageAttention.", "warn")
                 return
+            Logger.log("Build dependencies (nvcc + g++) detected.", "ok")
             cls._source_build(venv_env, comfy_path, config_urls, python_exe)
 
     # ------------------------------------------------------------------ #
@@ -384,74 +385,6 @@ class SageInstaller:
     # ------------------------------------------------------------------ #
     #  Linux source build (unchanged)                                      #
     # ------------------------------------------------------------------ #
-
-    @staticmethod
-    def check_nvcc(bin_dir=None):
-        if bin_dir:
-            nvcc_local = Path(bin_dir) / "nvcc"
-            if nvcc_local.exists():
-                return True
-        try:
-            subprocess.run(["nvcc", "--version"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           check=True)
-            return True
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            return False
-
-    @staticmethod
-    def check_cpp_compiler():
-        for compiler in ("g++", "clang++"):
-            try:
-                subprocess.run([compiler, "--version"],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                               check=True)
-                return True
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                continue
-        return False
-
-    @staticmethod
-    def _install_system_dependencies(config_urls, bin_dir=None):
-        has_nvcc = SageInstaller.check_nvcc(bin_dir)
-        has_cpp  = SageInstaller.check_cpp_compiler()
-        if has_nvcc and has_cpp:
-            Logger.log("Build dependencies (nvcc + g++) detected.", "ok")
-            return True
-
-        Logger.section("SageAttention: missing build dependencies")
-        if not has_nvcc: Logger.warn("nvcc (CUDA Toolkit) NOT found.")
-        if not has_cpp:  Logger.warn("g++ / clang++ NOT found.")
-
-        options = [
-            ("[Ubuntu/Debian] sudo apt install build-essential cmake nvidia-cuda-toolkit", None),
-            ("[Arch/CachyOS] sudo pacman -S base-devel cmake cuda", None),
-            ("Skip check and try building anyway", "risky"),
-            ("Cancel SageAttention", None),
-        ]
-        idx = Logger.ask_choice(
-            "How do you want to resolve build dependencies?",
-            options, default_index=len(options) - 1,
-        )
-        try:
-            if idx == 0:
-                subprocess.run(["sudo", "apt", "update"], check=True)
-                subprocess.run(
-                    ["sudo", "apt", "install", "-y", "build-essential", "cmake", "git", "nvidia-cuda-toolkit"],
-                    check=True,
-                )
-                return True
-            if idx == 1:
-                subprocess.run(
-                    ["sudo", "pacman", "-S", "--needed", "base-devel", "cmake", "git", "cuda"],
-                    check=True,
-                )
-                return True
-            if idx == 2:
-                return True   # skip check
-        except subprocess.CalledProcessError as e:
-            Logger.error(f"Package install failed: {e}")
-        return False
 
     @classmethod
     def _source_build(cls, venv_env, comfy_path, config_urls, python_exe):
