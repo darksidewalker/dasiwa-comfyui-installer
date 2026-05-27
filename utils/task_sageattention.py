@@ -18,6 +18,8 @@ from utils import cuda_host
 # Triton is on PyPI as 'triton-windows' so no GitHub URL needed.
 # Source: https://github.com/triton-lang/triton-windows/releases
 _TRITON_TORCH_MATRIX = [
+    ((2, 12), "triton-windows>=3.7,<3.8"),
+    ((2, 11), "triton-windows>=3.6,<3.7"),
     ((2, 10), "triton-windows>=3.6,<3.7"),
     ((2,  9), "triton-windows>=3.5,<3.6"),
     ((2,  8), "triton-windows>=3.4,<3.5"),
@@ -90,11 +92,11 @@ class SageInstaller:
         # We always pin to a concrete version so the environment is reproducible.
         # Fallback table: last known-good torch per (python, cuda).
         _FALLBACK = {
-            # For Blackwell (RTX 5090), CUDA 12.8 requires the 2.11.0 nightly.
-            ("3.12", "12.8"): "2.11.0",
-            ("3.12", "13.0"): "2.10.0",
-            ("3.13", "12.8"): "2.10.0",
-            ("3.13", "13.0"): "2.10.0",
+            # For Blackwell (RTX 5090), CUDA 12.8 and 13.0 target the 2.12.0 nightly.
+            ("3.12", "12.8"): "2.12.0",
+            ("3.12", "13.0"): "2.12.0",
+            ("3.13", "12.8"): "2.12.0",
+            ("3.13", "13.0"): "2.12.0",
             ("3.11", "12.8"): "2.9.1",
             ("3.10", "12.8"): "2.9.1",
         }
