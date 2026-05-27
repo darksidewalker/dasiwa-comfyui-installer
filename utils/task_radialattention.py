@@ -99,6 +99,20 @@ class RadialInstaller:
             Logger.error(f"Could not find venv Python at {python_exe}")
             return
 
+        # Blackwell (RTX 5090) Fix: Verify CUDA support in torch before attempting builds.
+        # If the 'Enforcer' phase stripped CUDA, we must stop here with a clear error
+        # instead of falling back to a source build that requires a system toolkit.
+        try:
+            res = subprocess.run(
+                [str(python_exe), "-c", "import torch; print(torch.version.cuda or '')"],
+                capture_output=True, text=True, check=True, timeout=15
+            )
+            if not res.stdout.strip():
+                Logger.error("Torch is installed but CUDA support is missing (CPU-only version detected).")
+                Logger.info("This is likely a conflict with the Blackwell nightly. Repair venv via 'Refresh environment'.")
+                return
+        except Exception: pass
+
         # 1. Kernel: SpargeAttention
         if cls.is_kernel_installed(python_exe):
             Logger.log("SpargeAttention already installed - skipping kernel.", "ok")
@@ -363,6 +377,7 @@ class RadialInstaller:
                     str(uv_exe) if uv_exe.exists() else "uv",
                     "pip", "install",
                     "--python", str(python_exe),
+                    "--no-deps",
                     "-r", str(req_file)
                 ]
                 # We rely on the venv already having the correct Blackwell torch; 

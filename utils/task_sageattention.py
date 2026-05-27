@@ -90,7 +90,8 @@ class SageInstaller:
         # We always pin to a concrete version so the environment is reproducible.
         # Fallback table: last known-good torch per (python, cuda).
         _FALLBACK = {
-            ("3.12", "12.8"): "2.10.0",
+            # For Blackwell (RTX 5090), CUDA 12.8 requires the 2.11.0 nightly.
+            ("3.12", "12.8"): "2.11.0",
             ("3.12", "13.0"): "2.10.0",
             ("3.13", "12.8"): "2.10.0",
             ("3.13", "13.0"): "2.10.0",
@@ -121,6 +122,20 @@ class SageInstaller:
         if not python_exe.exists():
             Logger.error(f"Could not find venv Python at {python_exe}")
             return
+
+        # Blackwell (RTX 5090) Fix: Verify CUDA support in torch before attempting builds.
+        # If the 'Enforcer' phase stripped CUDA, we must stop here with a clear error
+        # instead of falling back to a source build that requires a system toolkit.
+        try:
+            res = subprocess.run(
+                [str(python_exe), "-c", "import torch; print(torch.version.cuda or '')"],
+                capture_output=True, text=True, check=True, timeout=15
+            )
+            if not res.stdout.strip():
+                Logger.error("Torch is installed but CUDA support is missing (CPU-only version detected).")
+                Logger.info("This is likely a conflict with the Blackwell nightly. Repair venv via 'Refresh environment'.")
+                return
+        except Exception: pass
 
         if cls.is_installed(python_exe):
             Logger.log("SageAttention already installed — skipping.", "ok")

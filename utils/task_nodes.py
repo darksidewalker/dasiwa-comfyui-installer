@@ -119,14 +119,17 @@ def task_custom_nodes(env, nodes_source, nodes_list_file, run_cmd_func, comfy_pa
             req_file = node_path / custom_req_name
             if req_file.exists():
                 Logger.log(f"Installing deps via {custom_req_name}...", "info")
+                # We use --no-deps to prevent custom nodes from downgrading the 
+                # specialized Blackwell/NVIDIA Torch nightlies. The "Enforcer"
+                # in setup_logic.py handles core versioning.
                 if is_pkg:
                     run_cmd_func(
-                        ["uv", "pip", "install", "-e", ".", "-r", str(req_file)],
+                        ["uv", "pip", "install", "--no-deps", "-e", ".", "-r", str(req_file)],
                         env=env, cwd=str(node_path),
                     )
                 else:
                     run_cmd_func(
-                        ["uv", "pip", "install", "-r", str(req_file)], env=env,
+                        ["uv", "pip", "install", "--no-deps", "-r", str(req_file)], env=env,
                     )
             elif is_pkg:
                 run_cmd_func(
