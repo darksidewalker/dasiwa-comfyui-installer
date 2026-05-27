@@ -109,7 +109,7 @@ class RadialInstaller:
                 cls._install_sparge_linux(venv_env, comfy_path, config_urls, python_exe)
 
         # 2. Custom node: ComfyUI-RadialAttn
-        cls._install_radial_node(venv_env, comfy_path, config_urls)
+        cls._install_radial_node(venv_env, comfy_path, config_urls, python_exe, uv_exe)
 
     # ------------------------------------------------------------------ #
     #  Windows: prebuilt SpargeAttention wheel                             #
@@ -332,7 +332,7 @@ class RadialInstaller:
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def _install_radial_node(cls, venv_env, comfy_path, config_urls):
+    def _install_radial_node(cls, venv_env, comfy_path, config_urls, python_exe, uv_exe):
         repo_url = config_urls.get("radial_node_repo", _DEFAULT_RADIAL_NODE_REPO)
         nodes_dir = Path(comfy_path) / "custom_nodes"
         nodes_dir.mkdir(parents=True, exist_ok=True)
@@ -354,6 +354,21 @@ class RadialInstaller:
                     ["git", "-C", str(node_dir), "pull"],
                     env=git_env, check=False,
                 )
+
+            # Install requirements for the node itself
+            req_file = node_dir / "requirements.txt"
+            if req_file.exists():
+                Logger.log("Installing ComfyUI-RadialAttn requirements...", "info")
+                cmd = [
+                    str(uv_exe) if uv_exe.exists() else "uv",
+                    "pip", "install",
+                    "--python", str(python_exe),
+                    "-r", str(req_file)
+                ]
+                # We rely on the venv already having the correct Blackwell torch; 
+                # uv pip install -r will respect existing versions unless forced otherwise.
+                subprocess.run(cmd, env=venv_env, check=True)
+
             Logger.success("ComfyUI-RadialAttn ready.")
         except subprocess.CalledProcessError as e:
             Logger.error(f"ComfyUI-RadialAttn clone failed (exit {e.returncode}).")
