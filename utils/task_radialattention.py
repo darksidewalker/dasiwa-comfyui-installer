@@ -120,6 +120,9 @@ class RadialInstaller:
             if is_win:
                 cls._install_sparge_windows(python_exe, uv_exe, venv_env)
             else:
+                if not cls._install_system_dependencies(config_urls, python_exe.parent):
+                    Logger.log("Build dependencies missing. Skipping SpargeAttention.", "warn")
+                    return
                 cls._install_sparge_linux(venv_env, comfy_path, config_urls, python_exe)
 
         # 2. Custom node: ComfyUI-RadialAttn
@@ -414,6 +417,63 @@ class RadialInstaller:
         except Exception as e:
             Logger.warn(f"torch probe failed: {e}")
             return None, None, None
+
+    # ------------------------------------------------------------------ #
+    #  System dependency checks (Linux source build)                      #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def check_nvcc(bin_dir=None):
+        if bin_dir:
+            nvcc_local = Path(bin_dir) / "nvcc"
+            if nvcc_local.exists():
+                return True
+        try:
+            subprocess.run(["nvcc", "--version"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           check=True)
+            return True
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return False
+
+    @staticmethod
+    def check_cpp_compiler():
+        for compiler in ("g++", "clang++"):
+            try:
+                subprocess.run([compiler, "--version"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               check=True)
+                return True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                continue
+        return False
+
+    @classmethod
+    def _install_system_dependencies(cls, config_urls, bin_dir=None):
+        has_nvcc = cls.check_nvcc(bin_dir)
+        has_cpp  = cls.check_cpp_compiler()
+        if has_nvcc and has_cpp:
+            return True
+
+        Logger.section("SpargeAttention: missing build dependencies")
+        if not has_nvcc: Logger.warn("nvcc (CUDA Toolkit) NOT found.")
+        if not has_cpp:  Logger.warn("g++ / clang++ NOT found.")
+
+        options = [
+            ("[Ubuntu/Debian] sudo apt install build-essential cmake nvidia-cuda-toolkit", None),
+            ("[Arch/CachyOS] sudo pacman -S base-devel cmake cuda", None),
+            ("Skip check and try building anyway", "risky"),
+            ("Cancel SpargeAttention", None),
+        ]
+        idx = Logger.ask_choice("How do you want to resolve build dependencies?", options, default_index=len(options) - 1)
+        if idx == 0:
+            subprocess.run(["sudo", "apt", "update"], check=True)
+            subprocess.run(["sudo", "apt", "install", "-y", "build-essential", "cmake", "git", "nvidia-cuda-toolkit"], check=True)
+            return True
+        if idx == 1:
+            subprocess.run(["sudo", "pacman", "-S", "--needed", "base-devel", "cmake", "git", "cuda"], check=True)
+            return True
+        return idx == 2
 
     @staticmethod
     def _parse_ver(v):

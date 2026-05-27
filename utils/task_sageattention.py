@@ -144,7 +144,7 @@ class SageInstaller:
         if is_win:
             cls._install_windows(python_exe, uv_exe, venv_env)
         else:
-            if not cls._install_system_dependencies(config_urls):
+            if not cls._install_system_dependencies(config_urls, python_exe.parent):
                 Logger.log("Build dependencies missing. Skipping SageAttention.", "warn")
                 return
             cls._source_build(venv_env, comfy_path, config_urls, python_exe)
@@ -384,7 +384,11 @@ class SageInstaller:
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def check_nvcc():
+    def check_nvcc(bin_dir=None):
+        if bin_dir:
+            nvcc_local = Path(bin_dir) / "nvcc"
+            if nvcc_local.exists():
+                return True
         try:
             subprocess.run(["nvcc", "--version"],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -406,8 +410,8 @@ class SageInstaller:
         return False
 
     @staticmethod
-    def _install_system_dependencies(config_urls):
-        has_nvcc = SageInstaller.check_nvcc()
+    def _install_system_dependencies(config_urls, bin_dir=None):
+        has_nvcc = SageInstaller.check_nvcc(bin_dir)
         has_cpp  = SageInstaller.check_cpp_compiler()
         if has_nvcc and has_cpp:
             Logger.log("Build dependencies (nvcc + g++) detected.", "ok")
@@ -418,8 +422,8 @@ class SageInstaller:
         if not has_cpp:  Logger.warn("g++ / clang++ NOT found.")
 
         options = [
-            ("[Ubuntu/Debian] sudo apt install build-essential cmake", None),
-            ("[Arch] sudo pacman -Sy base-devel cmake", None),
+            ("[Ubuntu/Debian] sudo apt install build-essential cmake nvidia-cuda-toolkit", None),
+            ("[Arch/CachyOS] sudo pacman -S base-devel cmake cuda", None),
             ("Skip check and try building anyway", "risky"),
             ("Cancel SageAttention", None),
         ]
@@ -431,13 +435,13 @@ class SageInstaller:
             if idx == 0:
                 subprocess.run(["sudo", "apt", "update"], check=True)
                 subprocess.run(
-                    ["sudo", "apt", "install", "-y", "build-essential", "cmake", "git"],
+                    ["sudo", "apt", "install", "-y", "build-essential", "cmake", "git", "nvidia-cuda-toolkit"],
                     check=True,
                 )
                 return True
             if idx == 1:
                 subprocess.run(
-                    ["sudo", "pacman", "-Sy", "--needed", "base-devel", "cmake", "git"],
+                    ["sudo", "pacman", "-S", "--needed", "base-devel", "cmake", "git", "cuda"],
                     check=True,
                 )
                 return True
