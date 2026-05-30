@@ -92,13 +92,15 @@ class SageInstaller:
         # We always pin to a concrete version so the environment is reproducible.
         # Fallback table: last known-good torch per (python, cuda).
         _FALLBACK = {
-            # For Blackwell (RTX 5090), CUDA 12.8 and 13.0 target the 2.12.0 nightly with explicit tags.
-            ("3.12", "12.8"): "2.12.0+cu128",
+            # PyTorch 2.12 publishes CUDA 13.0 wheels, but CUDA 12.8 tops out at
+            # older stable releases. Pin public versions and let the CUDA index
+            # provide the local +cuXXX wheel build.
+            ("3.12", "12.8"): "2.10.0",
             ("3.12", "13.0"): "2.12.0+cu130",
-            ("3.13", "12.8"): "2.12.0+cu128",
+            ("3.13", "12.8"): "2.10.0",
             ("3.13", "13.0"): "2.12.0+cu130",
-            ("3.11", "12.8"): "2.9.1+cu128",
-            ("3.10", "12.8"): "2.9.1+cu128",
+            ("3.11", "12.8"): "2.10.0",
+            ("3.10", "12.8"): "2.10.0",
         }
         py_mm = ".".join(str(python_display).split(".")[:2])
         pin = _FALLBACK.get((py_mm, cu_mm), "2.9.1")

@@ -31,7 +31,6 @@ Logger.init()
 PRIORITY_PACKAGES = [
     "kornia==0.8.2",
     "setuptools==81.0.0",
-    "torch==2.12.0+cu130",
     "triton==3.7.0",
 ]
 
@@ -270,11 +269,25 @@ def _detect_existing_state(current_dir):
     return state
 
 
-def _resolve_cuda_target(config_data, want_sage):
+def _is_rtx_50_series(hw):
+    name = str(hw.get("name", "")).upper()
+    return hw.get("vendor") == "NVIDIA" and "RTX 50" in name
+
+
+def _is_gtx_10_series(hw):
+    name = str(hw.get("name", "")).upper()
+    return (
+        hw.get("vendor") == "NVIDIA"
+        and ("GTX 10" in name or "PASCAL" in name or "LEGACY" in name)
+    )
+
+
+def _resolve_cuda_target(config_data, want_sage, hw=None):
     """
     Apply the Windows downgrade rule: if SageAttention is requested and
     config says cuda 13.x, offer to downgrade *in-memory* to 12.8 for this
-    install. config.json is not touched.
+    install. RTX 50-series GPUs are excluded because they need the Blackwell
+    CUDA target. config.json is not touched.
     """
     global_cuda = config_data["cuda"].get("global", "13.0")
     if not (IS_WIN and want_sage):
@@ -286,6 +299,13 @@ def _resolve_cuda_target(config_data, want_sage):
         return global_cuda, False
 
     if major < 13:
+        return global_cuda, False
+
+    if hw and _is_rtx_50_series(hw):
+        Logger.log(
+            f"RTX 50-series GPU detected; keeping CUDA {global_cuda} for Blackwell support.",
+            "info",
+        )
         return global_cuda, False
 
     Logger.warn(f"Windows + SageAttention + CUDA {global_cuda} is a known-flaky "
@@ -360,11 +380,15 @@ def preflight_wizard(config_data, current_dir, hw):
 
     # ----- 3. SageAttention -----
     Logger.section("Optional components")
-    default_sage = hw["vendor"] == "NVIDIA"
+    is_gtx_10 = _is_gtx_10_series(hw)
+    default_sage = hw["vendor"] == "NVIDIA" and not is_gtx_10
     want_sage = Logger.ask_yes_no(
         "Install SageAttention? (faster attention kernels for NVIDIA GPUs)",
         default=default_sage,
     )
+    if want_sage and is_gtx_10:
+        Logger.warn("SageAttention is not supported on GTX 10-series / Pascal GPUs; skipping.")
+        want_sage = False
     if want_sage and hw["vendor"] != "NVIDIA":
         Logger.warn(f"SageAttention requires NVIDIA; detected vendor: {hw['vendor']}.")
         if not Logger.ask_yes_no("Try anyway?", default=False):
@@ -378,6 +402,9 @@ def preflight_wizard(config_data, current_dir, hw):
         "requires SpargeAttention + ComfyUI-RadialAttn node)",
         default=False,
     )
+    if want_radial and is_gtx_10:
+        Logger.warn("RadialAttention/SpargeAttention is not supported on GTX 10-series / Pascal GPUs; skipping.")
+        want_radial = False
     if want_radial and hw["vendor"] != "NVIDIA":
         Logger.warn(
             f"RadialAttention requires NVIDIA; detected vendor: {hw['vendor']}."
@@ -402,7 +429,7 @@ def preflight_wizard(config_data, current_dir, hw):
         )
 
     # ----- 5. CUDA target (with conditional Windows downgrade) -----
-    cuda_target, downgraded = _resolve_cuda_target(config_data, want_sage)
+    cuda_target, downgraded = _resolve_cuda_target(config_data, want_sage, hw)
 
     # ----- 5b. Windows + Sage: pick a torch version that has prebuilt Sage wheels -----
     pinned_torch = None
@@ -533,11 +560,10 @@ def install_torch(env, hw, cuda_target, config, pin_torch=None):
         target_cu = cuda_target
 
         # Legacy overrides
-        if "GTX 10" in gpu_name or any(x in gpu_name for x in ("PASCAL", "LEGACY")):
+        if _is_gtx_10_series(hw):
             target_cu = "12.1"
         elif "RTX 50" in gpu_name:
             target_cu = min_50xx_cu
-            is_nightly = True
 
         if is_nightly:
             cmd += ["--pre"]
@@ -552,7 +578,7 @@ def install_torch(env, hw, cuda_target, config, pin_torch=None):
         else:
             cmd += ["torch", "torchvision", "torchaudio"]
 
-        cmd += ["--extra-index-url", f"{whl_url}cu{target_cu.replace('.', '')}"]
+        cmd += ["--index-url", f"{whl_url}cu{target_cu.replace('.', '')}"]
 
     elif vendor == "AMD":
         if any(x in gpu_name for x in ("GFX110", "RX 7000")):
@@ -574,6 +600,20 @@ def install_torch(env, hw, cuda_target, config, pin_torch=None):
 
     Logger.log(f"Installing Torch for {vendor} ({gpu_name})...", "info")
     run_cmd(cmd, env=env, stream=True)
+
+
+def priority_install_command(plan, hw):
+    """Return packages to re-enforce after nodes have had a chance to mutate deps."""
+    packages = list(PRIORITY_PACKAGES)
+    if plan.get("pinned_torch"):
+        packages.append(f"torch=={plan['pinned_torch']}")
+
+    cmd = ["uv", "pip", "install", "--upgrade"] + packages
+    if plan.get("pinned_torch") and hw.get("vendor") == "NVIDIA":
+        target_cu = str(plan.get("cuda_target", "")).replace(".", "")
+        if target_cu:
+            cmd += ["--extra-index-url", f"https://download.pytorch.org/whl/cu{target_cu}"]
+    return cmd
 
 
 # ============================================================================
@@ -871,7 +911,7 @@ def main():
 
         # Priority package enforcement — non-critical (torch is already installed)
         _phase("priority package enforcement", run_cmd,
-               ["uv", "pip", "install", "--upgrade"] + PRIORITY_PACKAGES,
+               priority_install_command(plan, hw),
                env=venv_env, stream=True)
 
         # SageAttention — non-critical, runs LAST (after torch is locked in)
