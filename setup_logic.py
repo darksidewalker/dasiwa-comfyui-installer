@@ -31,7 +31,6 @@ Logger.init()
 PRIORITY_PACKAGES = [
     "kornia==0.8.2",
     "setuptools==81.0.0",
-    "triton==3.7.0",
 ]
 
 # Minimum disk space we want before starting (GB)
@@ -605,6 +604,11 @@ def install_torch(env, hw, cuda_target, config, pin_torch=None):
 def priority_install_command(plan, hw):
     """Return packages to re-enforce after nodes have had a chance to mutate deps."""
     packages = list(PRIORITY_PACKAGES)
+    if plan.get("want_sage"):
+        if IS_WIN:
+            packages.append("triton-windows")
+        else:
+            packages.append("triton==3.7.0")
     if plan.get("pinned_torch"):
         packages.append(f"torch=={plan['pinned_torch']}")
 
