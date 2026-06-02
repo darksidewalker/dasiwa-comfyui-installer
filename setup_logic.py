@@ -612,7 +612,18 @@ def priority_install_command(plan, hw):
     if plan.get("pinned_torch") and hw.get("vendor") == "NVIDIA":
         target_cu = str(plan.get("cuda_target", "")).replace(".", "")
         if target_cu:
-            cmd += ["--extra-index-url", f"https://download.pytorch.org/whl/cu{target_cu}"]
+            # Allow pip to consider matching package versions across multiple
+            # indexes (PyPI + the pytorch wheel index). By default pip only
+            # considers the first-found index for a package which can cause
+            # failures when a package (e.g. setuptools) exists on the torch
+            # index but not at the requested version. `unsafe-best-match`
+            # considers versions from all configured indexes.
+            cmd += [
+                "--extra-index-url",
+                f"https://download.pytorch.org/whl/cu{target_cu}",
+                "--index-strategy",
+                "unsafe-best-match",
+            ]
     return cmd
 
 
