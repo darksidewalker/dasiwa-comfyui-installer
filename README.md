@@ -12,6 +12,26 @@ A professional-grade installer for [ComfyUI](https://github.com/comfyanonymous/C
 
 </div>
 
+![DaSiWa ComfyUI Installer](assets/DaSiWa-ComfyUI-Installer.webp)
+
+---
+
+## Unified One-Page Installer
+
+The installer now presents the full setup on a single local page. Folder
+selection, install mode, GPU and CUDA target, SageAttention, FFmpeg, optional
+downloads, and the final install plan are all visible at once, with no separate
+pages or script chain to follow.
+
+That unified layout is deliberate:
+
+- Choose the ComfyUI folder once.
+- Pick the install mode once.
+- Review hardware and version overrides in the same view.
+- Toggle SageAttention, FFmpeg, and optional downloads without leaving the page.
+- Inspect the live JSON plan before starting the install.
+- Use **Extra Settings** for in-memory overrides without mutating the embedded defaults.
+
 ---
 
 ## What it does
@@ -34,11 +54,27 @@ The release binaries are the simplest path for most users. Download the file for
 your OS, put it in the folder where you want the installer state to live, and run
 it directly:
 
+- Linux: `./dasiwa-installer-linux-amd64`
+- Windows: `dasiwa-installer-windows-amd64.exe`
+
 ```bash
 ./dasiwa-installer-linux-amd64
 ```
 
 On Windows, double-click `dasiwa-installer-windows-amd64.exe`.
+
+If you want a direct download from the latest GitHub release:
+
+```bash
+curl -L -o dasiwa-installer-linux-amd64 \
+  https://github.com/darksidewalker/dasiwa-comfyui-installer/releases/latest/download/dasiwa-installer-linux-amd64
+```
+
+```powershell
+Invoke-WebRequest `
+  -OutFile dasiwa-installer-windows-amd64.exe `
+  https://github.com/darksidewalker/dasiwa-comfyui-installer/releases/latest/download/dasiwa-installer-windows-amd64.exe
+```
 
 The app opens a local browser page and runs the native Go install engine. The
 UI, default config, placeholder assets, README, and license are embedded in the
@@ -79,24 +115,23 @@ extra file.
 
 ---
 
-## The Setup Wizard
+## The Web Installer
 
-When you run the installer, it opens a guided wizard that collects all your decisions **before** anything is downloaded or changed. You review a summary and confirm once. After that, you can walk away.
+When you run the binary, it opens a local web page in your browser and collects
+the full install plan there before anything is downloaded or changed. You review
+the selected folder, hardware, CUDA target, components, and optional downloads
+on one page, then start the install once.
 
-```
-╔══════════════════════════════════════════════════════════════╗
-║                    DaSiWa Setup Wizard                       ║
-║           Configure once, confirm once, walk away            ║
-╚══════════════════════════════════════════════════════════════╝
-```
+**The page includes:**
 
-**The wizard asks:**
+1. **Install mode** — Update in place, Refresh the environment, Full reinstall, or Cancel. Nothing destructive happens without explicit confirmation.
+2. **Hardware and versions** — GPU vendor, GPU name, Python version, ComfyUI ref, and CUDA target.
+3. **SageAttention** — yes or no. Modern NVIDIA installs target the official CUDA 13.2 PyTorch wheel bundle where possible. Embedded defaults and local overrides are never mutated.
+4. **FFmpeg** — yes or no. Skipped automatically if already present.
+5. **Optional downloads** — shows only what is not already on disk.
+6. **Live plan** — a JSON preview of the exact install request that will be submitted to the native installer engine.
 
-1. **What to do with an existing install** — Update in place, Refresh the environment, Full reinstall, or Cancel. Nothing destructive happens without your explicit confirmation.
-2. **SageAttention** — yes or no. Modern NVIDIA installs target the official CUDA 13.2 PyTorch wheel bundle where possible. Embedded defaults and local overrides are never mutated.
-3. **FFmpeg** — yes or no. Skipped automatically if already present.
-4. **Optional models and workflows** — shows only what isn't already on disk. Pick by number, type `all`, or press Enter to skip.
-5. **Summary + single confirmation** — review everything, then proceed or cancel.
+The page is single-shot by design: once you click start, the native Go installer runs unattended until completion.
 
 ---
 
@@ -262,7 +297,7 @@ Only include the keys you want to change. Everything else inherits from `config.
 | `urls.sparge_repo` | woct0rdho/SpargeAttn | SpargeAttention source for RadialAttention |
 | `urls.radial_node_repo` | woct0rdho/ComfyUI-RadialAttn | RadialAttention custom node repo |
 | `urls.msvc_build_tools` | VS download page | Opened in-browser when MSVC is missing |
-| `optional_downloads` | — | Models and workflows offered in the wizard |
+| `optional_downloads` | — | Models and workflows offered in the web installer |
 
 ### Adding models and workflows
 
@@ -282,7 +317,7 @@ For GitHub-hosted assets with a `"latest"` version, include `repo_path` and `fol
 
 ## Run Modes
 
-When an existing install is detected, the wizard offers four choices:
+When an existing install is detected, the web installer offers four choices:
 
 | Mode | What happens |
 | :--- | :----------- |
