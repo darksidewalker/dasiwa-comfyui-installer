@@ -1,4 +1,4 @@
-# Python
+# Python artifacts from managed ComfyUI environments
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,10 +6,9 @@ venv/
 .venv/
 
 # Installer Temps
-temp_setup_logic.py
-custom_nodes.txt
-setup_logic.py
-config.local.json
+dist/
+.dasiwa/
+.dasiwa-app-plan.json
 
 # ComfyUI (if installed inside the repo folder)
 ComfyUI/
@@ -21,6 +20,4 @@ Thumbs.db
 # Installer Version Tracking
 *.hash
 .version_hash
-.setup_logic.py.hash
-.install_comfyui.py.hash
 install.zip

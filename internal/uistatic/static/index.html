@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>DaSiWa ComfyUI Installer</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <main class="app-shell">
+            <header class="topbar panel">
+                <div>
+                    <h1>DSIWA ComfyUI Installer</h1>
+                    <p class="subtle">
+                        Choose folder, mode, GPU, components, downloads, and
+                        version overrides.
+                    </p>
+                </div>
+                <div class="top-actions">
+                    <button class="doc-btn" id="readmeBtn" type="button">
+                        README
+                    </button>
+                    <button class="doc-btn" id="licenseBtn" type="button">
+                        License
+                    </button>
+                    <button class="doc-btn" id="extraSettingsBtn" type="button">
+                        Extra Settings
+                    </button>
+                    <button class="doc-btn quit-btn" id="quitBtn" type="button">
+                        Quit
+                    </button>
+                    <div class="status-pill" id="status">Loading…</div>
+                    <button id="startBtn" form="planForm" type="submit">
+                        Start install
+                    </button>
+                </div>
+            </header>
+
+            <section class="status-grid" aria-label="Detected state">
+                <div class="stat panel">
+                    <span>ComfyUI</span><strong id="stateComfy">…</strong>
+                </div>
+                <div class="stat panel">
+                    <span>Venv</span><strong id="stateVenv">…</strong>
+                </div>
+                <div class="stat panel">
+                    <span>FFmpeg</span><strong id="stateFFmpeg">…</strong>
+                </div>
+                <div class="stat panel">
+                    <span>GPU</span><strong id="stateGPU">…</strong>
+                </div>
+            </section>
+
+            <form id="planForm" class="layout">
+                <section class="left-stack">
+                    <section class="panel card compact folder-card">
+                        <div class="section-head">
+                            <div>
+                                <h2>1. ComfyUI folder</h2>
+                                <p class="hint">
+                                    Pick an existing ComfyUI folder or the
+                                    folder where a new clone should be created.
+                                </p>
+                            </div>
+                        </div>
+                        <label
+                            >Install folder
+                            <span class="path-picker-row">
+                                <input
+                                    id="comfy_path"
+                                    placeholder="ComfyUI or /path/to/ComfyUI"
+                                />
+                                <button id="pickComfyPath" type="button">
+                                    Browse…
+                                </button>
+                            </span>
+                        </label>
+                    </section>
+
+                    <section class="panel card compact">
+                        <div class="section-head">
+                            <div>
+                                <h2>2. Install mode</h2>
+                                <p class="hint" id="wipeHint">
+                                    Only wipe deletes the selected folder and
+                                    its models.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="choice-grid modes">
+                            <label
+                                ><input
+                                    type="radio"
+                                    name="install_mode"
+                                    value="fresh"
+                                /><span
+                                    ><b>Fresh</b
+                                    ><small>sync clone + new venv</small></span
+                                ></label
+                            >
+                            <label
+                                ><input
+                                    type="radio"
+                                    name="install_mode"
+                                    value="update"
+                                    checked
+                                /><span
+                                    ><b>Update</b
+                                    ><small
+                                        >sync clone, reuse venv if
+                                        present</small
+                                    ></span
+                                ></label
+                            >
+                            <label
+                                ><input
+                                    type="radio"
+                                    name="install_mode"
+                                    value="refresh"
+                                /><span
+                                    ><b>Refresh</b
+                                    ><small>rebuild venv</small></span
+                                ></label
+                            >
+                            <label class="danger-choice"
+                                ><input
+                                    type="radio"
+                                    name="install_mode"
+                                    value="wipe"
+                                /><span
+                                    ><b>Wipe</b><small>delete all</small></span
+                                ></label
+                            >
+                        </div>
+                        <label id="wipeConfirm" class="confirm hidden"
+                            ><input type="checkbox" id="confirm_wipe" /> I
+                            understand this deletes the selected folder and its
+                            models.</label
+                        >
+                    </section>
+
+                    <section class="panel card compact">
+                        <div class="section-head">
+                            <div>
+                                <h2>3. Hardware + versions</h2>
+                                <p class="hint" id="gpuHint">
+                                    Auto-detected when possible. Edit if wrong.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="field-grid two">
+                            <label
+                                >Vendor<select id="vendor">
+                                    <option value="NVIDIA">NVIDIA</option>
+                                    <option value="AMD">AMD</option>
+                                    <option value="INTEL">Intel</option>
+                                </select></label
+                            >
+                            <label
+                                >GPU name<input
+                                    id="gpuName"
+                                    value="Manual: NVIDIA Modern"
+                                    placeholder="e.g. NVIDIA RTX 4090"
+                            /></label>
+                            <label
+                                >Python<input
+                                    id="python_display"
+                                    placeholder="3.12"
+                            /></label>
+                            <label
+                                >CUDA target<input
+                                    id="cuda_target"
+                                    placeholder="13.2"
+                            /></label>
+                            <label
+                                >ComfyUI ref<input
+                                    id="target_version"
+                                    placeholder="latest / master / tag"
+                            /></label>
+                            <label class="wide-field"
+                                >Remote node list URL<input
+                                    id="custom_nodes_url"
+                                    placeholder="optional remote node list URL"
+                            /></label>
+                        </div>
+                    </section>
+
+                    <section class="panel card compact">
+                        <div class="section-head">
+                            <div>
+                                <h2>4. Components</h2>
+                                <p class="hint">
+                                    Sage/Radial require NVIDIA. FFmpeg skips if
+                                    already present.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="choice-grid components">
+                            <label
+                                ><input
+                                    type="checkbox"
+                                    id="want_sage"
+                                    checked
+                                /><span
+                                    ><b>SageAttention</b
+                                    ><small
+                                        >faster NVIDIA attention kernels</small
+                                    ></span
+                                ></label
+                            >
+                            <label
+                                ><input type="checkbox" id="want_radial" /><span
+                                    ><b>RadialAttention</b
+                                    ><small
+                                        >sparse long-video attention</small
+                                    ></span
+                                ></label
+                            >
+                            <label
+                                ><input
+                                    type="checkbox"
+                                    id="want_ffmpeg"
+                                    checked
+                                /><span
+                                    ><b>FFmpeg</b
+                                    ><small
+                                        >video/audio node support</small
+                                    ></span
+                                ></label
+                            >
+                        </div>
+                    </section>
+
+                </section>
+
+                <section class="panel card downloads-card">
+                    <div class="section-head row">
+                        <div>
+                            <h2>Optional downloads</h2>
+                            <p class="hint">
+                                Workflows, model helpers, placeholders.
+                                Existing files are skipped by installer.
+                            </p>
+                        </div>
+                        <div class="mini-actions">
+                            <button id="selectAllDownloads" type="button">
+                                All
+                            </button>
+                            <button id="selectNoDownloads" type="button">
+                                None
+                            </button>
+                        </div>
+                    </div>
+                    <div id="downloadsList" class="downloads-list">
+                        <p class="hint">Loading optional downloads…</p>
+                    </div>
+                </section>
+
+                <aside class="right-rail">
+                    <section class="panel card sticky">
+                        <div class="section-head row">
+                            <div>
+                                <h2>Plan</h2>
+                                <p class="hint">
+                                    Live JSON sent to the selected install
+                                    engine.
+                                </p>
+                            </div>
+                            <span id="planBadge" class="badge">ready</span>
+                        </div>
+                        <div id="phasePreview" class="phase-preview"></div>
+                        <pre id="review"></pre>
+                    </section>
+
+                    <section class="panel card log-card sticky-log">
+                        <div class="section-head row">
+                            <div>
+                                <h2>Live log</h2>
+                                <p class="hint">Streaming installer output.</p>
+                            </div>
+                            <button id="clearLog" type="button">Clear</button>
+                        </div>
+                        <pre id="log"></pre>
+                    </section>
+                </aside>
+            </form>
+
+            <dialog id="pathDialog" class="path-dialog">
+                <div class="path-dialog-head">
+                    <div>
+                        <h2>Select folder</h2>
+                        <p class="hint">
+                            Browse folders without leaving the installer.
+                        </p>
+                    </div>
+                    <button id="pathClose" type="button" aria-label="Close">
+                        ×
+                    </button>
+                </div>
+                <div class="path-toolbar">
+                    <button id="pathUp" type="button">Up</button>
+                    <input id="pathCurrent" placeholder="/path/to/folder" />
+                    <button id="pathGo" type="button">Go</button>
+                </div>
+                <div id="pathRoots" class="path-roots"></div>
+                <div id="pathEntries" class="path-entries"></div>
+                <div class="path-actions">
+                    <button id="pathCancel" type="button">Cancel</button>
+                    <button id="pathChoose" type="button">Choose folder</button>
+                </div>
+            </dialog>
+
+            <dialog id="docDialog" class="doc-dialog">
+                <form method="dialog">
+                    <button aria-label="Close">×</button>
+                </form>
+                <h2 id="docTitle">Document</h2>
+                <pre id="docBody"></pre>
+            </dialog>
+
+            <dialog id="settingsDialog" class="settings-dialog">
+                <div class="settings-dialog-head">
+                    <div>
+                        <h2>Extra Settings</h2>
+                        <p class="hint">
+                            Edit embedded config overrides for this install.
+                        </p>
+                    </div>
+                    <button id="settingsClose" type="button" aria-label="Close">
+                        ×
+                    </button>
+                </div>
+                <textarea
+                    id="settingsEditor"
+                    spellcheck="false"
+                    aria-label="JSON config overrides"
+                ></textarea>
+                <p id="settingsError" class="settings-error"></p>
+                <div class="settings-actions">
+                    <button id="settingsReset" type="button">Reset</button>
+                    <button id="settingsApply" type="button">Apply</button>
+                </div>
+            </dialog>
+        </main>
+        <script src="app.js"></script>
+    </body>
+</html>

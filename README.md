@@ -2,7 +2,7 @@
 
 # DaSiWa ComfyUI Installer
 
-**One command. Walk away. Come back to a working ComfyUI.**
+**One binary. Walk away. Come back to a working ComfyUI.**
 
 A professional-grade installer for [ComfyUI](https://github.com/comfyanonymous/ComfyUI) built on a zero-conflict, fully isolated architecture. No Python knowledge required. No admin rights needed. No system files touched.
 
@@ -16,7 +16,8 @@ A professional-grade installer for [ComfyUI](https://github.com/comfyanonymous/C
 
 ## What it does
 
-You run one command in a terminal. The installer asks you a handful of questions — all upfront, before touching a single file — then handles everything else unattended:
+You run the standalone installer binary. It opens a local web UI, asks you a
+handful of questions upfront, then handles everything else unattended:
 
 - Downloads and configures a **fully portable Python 3.12 environment** isolated inside your ComfyUI folder
 - Clones ComfyUI at the latest stable release tag or a specific version you choose
@@ -29,21 +30,41 @@ You run one command in a terminal. The installer asks you a handful of questions
 
 ## Quick Install
 
-Open a terminal **in the folder where you want ComfyUI to live**, then run:
-
-### Windows (PowerShell)
-
-```powershell
-powershell -ExecutionPolicy Bypass -Command "curl.exe -L -o install.ps1 https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.ps1; .\install.ps1"
-```
-
-### Linux (Bash)
+The release binaries are the simplest path for most users. Download the file for
+your OS, put it in the folder where you want the installer state to live, and run
+it directly:
 
 ```bash
-curl -OC - https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/install.sh && chmod +x install.sh && ./install.sh
+./dasiwa-installer-linux-amd64
 ```
 
-That's it. The bootstrapper fetches the rest automatically.
+On Windows, double-click `dasiwa-installer-windows-amd64.exe`.
+
+The app opens a local browser page and runs the native Go install engine. The
+UI, default config, placeholder assets, README, and license are embedded in the
+binary, so users do not need Python scripts, shell scripts, PowerShell scripts,
+`config.json`, a node-list text file, or a cloned copy of this repository next
+to the executable. On first run it creates a local `.dasiwa/` bootstrap directory
+for `uv`, the managed Python runtime, and cache files, then keeps all ComfyUI
+packages inside `ComfyUI/venv/`.
+
+To build standalone app binaries:
+
+```bash
+go run ./cmd/build-release --version 2.0.0
+```
+
+This creates:
+
+```text
+dist/dasiwa-installer-windows-amd64.exe
+dist/dasiwa-installer-linux-amd64
+```
+
+Those binaries can be copied into an empty install folder and launched directly.
+The embedded `config.json` is the source of defaults. Use **Extra Settings** in
+the app to edit JSON overrides for the current install without creating any
+extra file.
 
 ---
 
@@ -72,7 +93,7 @@ When you run the installer, it opens a guided wizard that collects all your deci
 **The wizard asks:**
 
 1. **What to do with an existing install** — Update in place, Refresh the environment, Full reinstall, or Cancel. Nothing destructive happens without your explicit confirmation.
-2. **SageAttention** — yes or no. On Windows with CUDA 13.x selected, it warns you about the upstream compatibility issue and offers to downgrade the CUDA target to 12.8 for this install only (your `config.json` is never modified).
+2. **SageAttention** — yes or no. Modern NVIDIA installs target the official CUDA 13.2 PyTorch wheel bundle where possible. Embedded defaults and local overrides are never mutated.
 3. **FFmpeg** — yes or no. Skipped automatically if already present.
 4. **Optional models and workflows** — shows only what isn't already on disk. Pick by number, type `all`, or press Enter to skip.
 5. **Summary + single confirmation** — review everything, then proceed or cancel.
@@ -85,8 +106,8 @@ GPU detection is automatic. If detection fails, you get a manual selection menu 
 
 | Vendor | Series | PyTorch Build |
 | :----- | :----- | :------------ |
-| **NVIDIA** | RTX 20 / 30 / 40 | CUDA 13.0 (configurable) |
-| **NVIDIA** | RTX 50 (Blackwell) | CUDA 13.0 + `--pre` (2.12.0) |
+| **NVIDIA** | RTX 20 / 30 / 40 | CUDA 13.2 + Torch 2.12.0 (configurable) |
+| **NVIDIA** | RTX 50 (Blackwell) | CUDA 13.2 + Torch 2.12.0 |
 | **NVIDIA** | GTX 10 / Pascal | CUDA 12.1 + Torch 2.4.1 (locked) |
 | **AMD** | RX 7000 / GFX110x | ROCm nightly `gfx110X-all` |
 | **AMD** | RX 9000 / GFX120x | ROCm nightly `gfx120X-all` |
@@ -108,16 +129,17 @@ Queries the [wildminder.github.io](https://wildminder.github.io/AI-windows-whl/)
 If no matching prebuilt wheel exists, falls back to a full CUDA source build with proper MSVC environment loading (`vcvars64.bat` is sourced and verified, `CUDA_HOME` is auto-detected, `DISTUTILS_USE_SDK=1` is set). Build parallelism is tuned to your available RAM to avoid out-of-memory linker failures.
 
 **Linux**
-Source build via `uv pip install --no-build-isolation`, with a dependency check for `nvcc` and `g++`/`clang++` before starting.
+Tries the precompiled SageAttention wheel path first. If no compatible wheel exists, the installer attempts a source build only when `nvcc` and a compatible `g++`/`clang++` host compiler are available. Missing or incompatible compilers skip SageAttention instead of failing the whole ComfyUI install.
 
-**CUDA 13.0 Blackwell Support (Windows only)**
-For RTX 50-series cards, the installer targets CUDA 13.0 and PyTorch 2.12.0 nightly. This combination resolves the namespace collisions found in earlier CUDA 13 toolchains and provides full Blackwell optimization.
+**CUDA 13.2 Support**
+For modern NVIDIA cards, the installer targets the official `https://download.pytorch.org/whl/cu132` wheel index and Torch 2.12.0. GTX 10 / Pascal remains locked to CUDA 12.1 and Torch 2.4.1.
 
 ---
 
 ## Custom Nodes
 
-Nodes are managed from a plain text list. Each line is a GitHub repo URL with optional flags:
+Default nodes are configured in `config.json` under the `custom_nodes` array.
+Each entry is a GitHub repo URL with optional pipe flags:
 
 ```
 # Standard clone
@@ -136,9 +158,19 @@ https://github.com/user/node | req:requirements-no-cupy.txt
 https://github.com/user/node | sub | req:requirements-custom.txt
 ```
 
-Lines starting with `#` are comments and are preserved on every update. After all nodes are installed, the **Enforcer** runs — a final `uv pip install --upgrade` pass over a set of priority packages to ensure no node has silently downgraded a critical dependency.
+After all nodes are installed, the **Enforcer** runs — a final `uv pip install --upgrade` pass over priority packages to ensure no node has silently downgraded a critical dependency.
 
-**To use your own node list:** create `custom_nodes.local.txt` in the installer root. It takes full precedence over the default list and over the remote URL in `config.json`. It is gitignored and will never be overwritten by an update.
+**To use your own node list:** open **Extra Settings** and replace the
+`custom_nodes` array, or paste a remote node-list URL in the GUI:
+
+```json
+{
+    "custom_nodes": [
+        "https://github.com/user/node",
+        "https://github.com/user/other-node | req:requirements-no-cupy.txt"
+    ]
+}
+```
 
 ---
 
@@ -193,23 +225,22 @@ To manually add a package:
 
 ---
 
-## Self-Updating Logic
-
-The launcher (`install_comfyui.py`) checks its own commit hash against the repository on every run. If a newer version of the installer logic exists upstream, it downloads the update atomically and restarts. This ensures you always get bug fixes and new GPU support without re-running the bootstrapper.
-
-To develop or test local changes without being overwritten, set `DASIWA_NO_UPDATE=1` in your environment before running.
-
----
-
 ## Configuration
 
-The installer is fully data-driven. All defaults live in `config.json`. To override any setting, create `config.local.json` — it is deep-merged over the defaults at runtime and will never be overwritten by an update.
+The installer is data-driven. Build-time defaults live in the embedded
+`config.json`. To override runtime settings without rebuilding, open
+**Extra Settings** in the app and edit the JSON there. Supported object sections
+are merged over the defaults, while arrays such as `custom_nodes` and
+`optional_downloads` replace the default arrays.
 
 ```json
 {
     "python": { "display_name": "3.13" },
     "comfyui": { "version": "v0.3.9" },
-    "cuda": { "global": "12.8" }
+    "cuda": { "global": "13.2" },
+    "custom_nodes": [
+        "https://github.com/user/node"
+    ]
 }
 ```
 
@@ -220,14 +251,16 @@ Only include the keys you want to change. Everything else inherits from `config.
 | Key | Default | Purpose |
 | :-- | :------ | :------ |
 | `python.display_name` | `"3.12"` | Python version passed to `uv python install` |
-| `python.full_version` | `"3.12.10"` | Exact micro-version for strict pinning |
 | `comfyui.version` | `"latest"` | `"latest"` = newest git tag; any other value = specific tag |
 | `comfyui.fallback_branch` | `"master"` | Used if the targeted tag checkout fails |
-| `cuda.global` | `"13.0"` | CUDA wheel target for NVIDIA (all non-legacy cards) |
-| `cuda.min_cuda_for_50xx` | `"12.8"` | Minimum CUDA for Blackwell / RTX 50-series |
-| `urls.custom_nodes` | GitHub raw URL | Remote node list source — point to your own Gist to sync across machines |
+| `cuda.global` | `"13.2"` | CUDA wheel target for NVIDIA (all non-legacy cards) |
+| `cuda.min_cuda_for_50xx` | `"13.2"` | Minimum CUDA for Blackwell / RTX 50-series |
+| `custom_nodes` | array | Default custom node repos and optional pipe flags |
+| `urls.custom_nodes` | unset | Optional remote node-list URL; when set, it overrides `custom_nodes` |
 | `urls.ffmpeg_windows` | BtbN release URL | Portable FFmpeg zip for Windows |
 | `urls.sage_repo` | thu-ml/SageAttention | SageAttention source for the fallback build |
+| `urls.sparge_repo` | woct0rdho/SpargeAttn | SpargeAttention source for RadialAttention |
+| `urls.radial_node_repo` | woct0rdho/ComfyUI-RadialAttn | RadialAttention custom node repo |
 | `urls.msvc_build_tools` | VS download page | Opened in-browser when MSVC is missing |
 | `optional_downloads` | — | Models and workflows offered in the wizard |
 

@@ -1,8 +1,6 @@
 {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "python": {
-        "full_version": "3.12.10",
-        "short_version": "312",
         "display_name": "3.12"
     },
     "comfyui": {
@@ -10,23 +8,27 @@
         "fallback_branch": "master"
     },
     "cuda": {
-        "global": "13.0",
-        "min_cuda_for_50xx": "13.0"
-    },
-    "repository": {
-        "owner": "darksidewalker",
-        "name": "dasiwa-comfyui-installer",
-        "branch": "main",
-        "zip_url": "https://github.com/darksidewalker/dasiwa-comfyui-installer/archive/refs/heads/main.zip"
+        "global": "13.2",
+        "min_cuda_for_50xx": "13.2"
     },
     "urls": {
-        "custom_nodes": "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/custom_nodes.txt",
         "sage_repo": "https://github.com/thu-ml/SageAttention.git",
         "sparge_repo": "https://github.com/woct0rdho/SpargeAttn.git",
         "radial_node_repo": "https://github.com/woct0rdho/ComfyUI-RadialAttn.git",
         "msvc_build_tools": "https://visualstudio.microsoft.com/visual-cpp-build-tools/",
         "ffmpeg_windows": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
     },
+    "custom_nodes": [
+        "https://github.com/rgthree/rgthree-comfy",
+        "https://github.com/BobRandomNumber/ComfyUI-Crystools-MonitorOnly",
+        "https://github.com/kijai/ComfyUI-KJNodes",
+        "https://github.com/city96/ComfyUI-GGUF",
+        "https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes",
+        "https://github.com/Lightricks/ComfyUI-LTXVideo",
+        "https://github.com/WhatDreamsCost/WhatDreamsCost-ComfyUI",
+        "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
+        "https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit"
+    ],
     "optional_downloads": [
     {
         "name": "DaSiWa WAN2.2 C-AiO Workflow",
