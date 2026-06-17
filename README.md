@@ -71,9 +71,8 @@ curl -L -o dasiwa-installer-linux-amd64 \
 ```
 
 ```powershell
-Invoke-WebRequest `
-  -OutFile dasiwa-installer-windows-amd64.exe `
-  https://github.com/darksidewalker/dasiwa-comfyui-installer/releases/latest/download/dasiwa-installer-windows-amd64.exe
+$url = "https://github.com/darksidewalker/dasiwa-comfyui-installer/releases/latest/download/dasiwa-installer-windows-amd64.exe"
+curl.exe -L --fail --retry 5 --retry-delay 2 -o dasiwa-installer-windows-amd64.exe $url
 ```
 
 The app opens a local browser page and runs the native Go install engine. The
