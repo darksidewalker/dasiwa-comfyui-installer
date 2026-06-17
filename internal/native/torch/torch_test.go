@@ -103,16 +103,19 @@ func TestPriorityInstallDoesNotResolveTorchDependencies(t *testing.T) {
 	}
 }
 
-func TestPinnedPriorityInstallUsesCUDAIndexWithoutDeps(t *testing.T) {
-	args := PriorityInstallArgs(true, true, "2.14.0.dev20260612+cu132", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 5090"}, "13.2")
+func TestPinnedPriorityInstallUsesEffectiveCUDAIndexWithoutDeps(t *testing.T) {
+	args := PriorityInstallArgs(true, true, "2.9.1", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 5090"}, "13.2")
 	if !contains(args, "--no-deps") {
 		t.Fatalf("pinned priority install args = %v, want --no-deps", args)
 	}
-	if !contains(args, "torch==2.14.0.dev20260612+cu132") {
+	if !contains(args, "torch==2.9.1") {
 		t.Fatalf("pinned priority install args = %v, want exact pinned Torch", args)
 	}
-	if !contains(args, "https://download.pytorch.org/whl/cu132") {
-		t.Fatalf("pinned priority install args = %v, want CUDA wheel index", args)
+	if !contains(args, "triton-windows>=3.5,<3.6") {
+		t.Fatalf("pinned priority install args = %v, want Sage-compatible triton-windows", args)
+	}
+	if !contains(args, "https://download.pytorch.org/whl/cu128") {
+		t.Fatalf("pinned priority install args = %v, want effective CUDA wheel index", args)
 	}
 }
 

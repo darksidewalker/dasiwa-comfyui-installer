@@ -1,16 +1,16 @@
 # Graph Report - dasiwa-comfyui-installer  (2026-06-17)
 
 ## Corpus Check
-- 32 files · ~26,830 words
+- 32 files · ~27,267 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 417 nodes · 902 edges · 23 communities
-- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 105 edges (avg confidence: 0.8)
+- 424 nodes · 924 edges · 23 communities
+- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 108 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bc711916`
+- Built from commit: `ba767834`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -38,11 +38,11 @@
 - [[_COMMUNITY_Community 20|Community 20]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `Command()` - 24 edges
+1. `Command()` - 26 edges
 2. `server` - 22 edges
 3. `Run()` - 19 edges
-4. `DaSiWa ComfyUI Installer` - 16 edges
-5. `PlanInstall()` - 15 edges
+4. `PlanInstall()` - 16 edges
+5. `DaSiWa ComfyUI Installer` - 16 edges
 6. `contains()` - 15 edges
 7. `ResolveWithEnv()` - 12 edges
 8. `installWindows()` - 12 edges
@@ -71,24 +71,24 @@ Cohesion: 0.10
 Nodes (28): Context, PythonRunner, HandlerFunc, apiConfigResponse, appConfig, appState, broker, hardwareReport (+20 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.11
-Nodes (26): LoadMergedJSON(), LoadMergedJSONWithFallback(), MergeJSONBytes(), TestLoadMergedJSONUsesEmbeddedDefaultsOnly(), TestMergeJSONBytesAppliesSupportedOverrideSections(), write(), Choices, Config (+18 more)
+Cohesion: 0.12
+Nodes (25): LoadMergedJSON(), LoadMergedJSONWithFallback(), MergeJSONBytes(), TestLoadMergedJSONUsesEmbeddedDefaultsOnly(), TestMergeJSONBytesAppliesSupportedOverrideSections(), write(), Choices, Config (+17 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.17
-Nodes (33): Context, LogFunc, T, CUDAConfig, Hardware, installedProbe, InstallPlan, CurrentInstallSatisfies() (+25 more)
+Cohesion: 0.16
+Nodes (35): Context, LogFunc, T, CUDAConfig, Hardware, installedProbe, InstallPlan, CurrentInstallSatisfies() (+27 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.19
-Nodes (26): torchPinForSage(), Context, LogFunc, Venv, T, checkHFCompatibility(), compareVersion(), cudaMajor() (+18 more)
+Cohesion: 0.20
+Nodes (25): Context, LogFunc, Venv, T, checkHFCompatibility(), compareVersion(), cudaMajor(), envDefault() (+17 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.07
 Nodes (24): chooseCurrentPath(), closePathPicker(), docBody, docDialog, docTitle, downloadsList, extraSettingsBtn, form (+16 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.20
-Nodes (23): ApplyToEnv(), CheckNVCC(), exe(), Hint(), inferCC(), lessEq(), log(), MaxGCCForCUDA() (+15 more)
+Cohesion: 0.19
+Nodes (24): ApplyToEnv(), CheckCPP(), CheckNVCC(), exe(), Hint(), inferCC(), lessEq(), log() (+16 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.17
@@ -108,7 +108,7 @@ Nodes (18): Adding models and workflows, Architecture: Zero Conflict, Configurat
 
 ### Community 10 - "Community 10"
 Cohesion: 0.13
-Nodes (32): CheckCPP(), Context, LogFunc, Venv, Context, Reader, T, cmpVersion() (+24 more)
+Nodes (29): Context, LogFunc, Context, Reader, T, FetchList(), log(), ParseLine() (+21 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.33
@@ -119,16 +119,16 @@ Cohesion: 0.19
 Nodes (14): apiConfig(), apiPathState(), applyConfigPreview(), applyDetectedHardware(), applyExtraSettings(), isPlainObject(), loadConfig(), refreshPathState() (+6 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.44
-Nodes (9): Context, LogFunc, log(), ParseLine(), repoName(), Sync(), syncOne(), nodeSpec (+1 more)
-
-### Community 14 - "Community 14"
-Cohesion: 0.36
-Nodes (8): cudaMigrationCase, build(), checkCUDAMigration(), dashIfEmpty(), fatal(), main(), target, Hardware
-
-### Community 15 - "Community 15"
 Cohesion: 0.58
 Nodes (8): checkoutBranch(), dirty(), git(), gitEnv(), log(), Sync(), Context, LogFunc
+
+### Community 14 - "Community 14"
+Cohesion: 0.29
+Nodes (11): cudaMigrationCase, build(), checkCUDAMigration(), copyFile(), dashIfEmpty(), fatal(), main(), repoRoot() (+3 more)
+
+### Community 15 - "Community 15"
+Cohesion: 0.35
+Nodes (15): Context, LogFunc, Venv, cmpVersion(), getJSON(), Install(), installRadialNode(), installSpargeLinux() (+7 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.22
@@ -158,11 +158,11 @@ Nodes (6): apiPathList(), escapeHTML(), loadPath(), openPathPicker(), renderPath
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Command()` connect `Community 10` to `Community 0`, `Community 1`, `Community 2`, `Community 3`, `Community 7`, `Community 11`, `Community 13`, `Community 14`, `Community 15`?**
-  _High betweenness centrality (0.210) - this node is a cross-community bridge._
-- **Why does `Run()` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`, `Community 6`, `Community 10`?**
-  _High betweenness centrality (0.146) - this node is a cross-community bridge._
-- **Are the 19 inferred relationships involving `Command()` (e.g. with `outputLogged()` and `runLogged()`) actually correct?**
-  _`Command()` has 19 INFERRED edges - model-reasoned connections that need verification._
+  _High betweenness centrality (0.218) - this node is a cross-community bridge._
+- **Why does `Run()` connect `Community 1` to `Community 0`, `Community 10`, `Community 2`, `Community 6`?**
+  _High betweenness centrality (0.148) - this node is a cross-community bridge._
+- **Are the 21 inferred relationships involving `Command()` (e.g. with `outputLogged()` and `runLogged()`) actually correct?**
+  _`Command()` has 21 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 7 inferred relationships involving `Run()` (e.g. with `InstallSelectedWithFS()` and `Create()`) actually correct?**
   _`Run()` has 7 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 7 inferred relationships involving `PlanInstall()` (e.g. with `checkCUDAMigration()` and `contains()`) actually correct?**

@@ -111,8 +111,9 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 	}
 	pinTorch := ""
 	if choices.WantSage && strings.EqualFold(choices.HW.Vendor, "NVIDIA") {
-		pinTorch = torchPinForSage(cfg.Python.DisplayName, cudaTarget)
-		log(logf, "Using Torch "+pinTorch+" with CUDA "+cudaTarget+" for the SageAttention install plan.")
+		var cuTag string
+		pinTorch, cuTag = torchPlanForSage(cfg.Python.DisplayName, cudaTarget)
+		log(logf, "Using Torch "+pinTorch+" with "+cuTag+" for the SageAttention install plan.")
 	}
 	if err := torch.Install(ctx, venv.Env, choices.HW, cudaTarget, torch.CUDAConfig{Global: cfg.CUDA.Global, MinCUDAFor50x: cfg.CUDA.MinCUDAFor50x}, pinTorch, logf); err != nil {
 		return err
@@ -203,9 +204,8 @@ func resolveNodeLines(cfg Config) ([]string, error) {
 }
 
 func fileExists(path string) bool { _, err := os.Stat(path); return err == nil }
-func torchPinForSage(pythonDisplay, cudaTarget string) string {
-	pinTorch, _ := sage.PlanWindowsTorch(pythonDisplay, cudaTarget)
-	return pinTorch
+func torchPlanForSage(pythonDisplay, cudaTarget string) (string, string) {
+	return sage.PlanWindowsTorch(pythonDisplay, cudaTarget)
 }
 func log(logf runutil.LogFunc, line string) {
 	if logf != nil {

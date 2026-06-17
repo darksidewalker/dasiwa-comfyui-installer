@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "cmd/build-release/main.go": {
-    "mtime": 1781705970.8003776,
-    "ast_hash": "c480d542fb1d8ac60378a8c7b9aa4108",
+    "mtime": 1781706952.3659668,
+    "ast_hash": "709a5a3417d4ccde7f459fc53156e4ab",
     "semantic_hash": ""
   },
   "cmd/installer-app/main.go": {
@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "internal/native/install/install.go": {
-    "mtime": 1781626548.400216,
-    "ast_hash": "2548f116c6b056250a1cd85ea38584ef",
+    "mtime": 1781706773.0265594,
+    "ast_hash": "cd29e6cbccadaf1a6ffe5ee051017d2d",
     "semantic_hash": ""
   },
   "internal/native/launcher/launcher.go": {
@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "internal/native/nodes/nodes.go": {
-    "mtime": 1781552763.4977415,
-    "ast_hash": "a5900f01bbaccd116c59c1e4eb74d5d5",
+    "mtime": 1781706738.4966748,
+    "ast_hash": "27247e1ec63c4b2e362a38ff11acbf3a",
     "semantic_hash": ""
   },
   "internal/native/radial/radial.go": {
@@ -120,13 +120,13 @@
     "semantic_hash": ""
   },
   "internal/native/torch/torch.go": {
-    "mtime": 1781705648.7113783,
-    "ast_hash": "ac16cf6d410e67b436a4b03a89a27a9a",
+    "mtime": 1781706754.190622,
+    "ast_hash": "afe840281ea13a249b8dbd39acd5df1b",
     "semantic_hash": ""
   },
   "internal/native/torch/torch_test.go": {
-    "mtime": 1781705692.7252803,
-    "ast_hash": "adb02b74631aec39641f09b797bd88e5",
+    "mtime": 1781706764.6005874,
+    "ast_hash": "c43f9f7cb904c916065f7d27f057282a",
     "semantic_hash": ""
   },
   "internal/pathbrowser/pathbrowser.go": {
@@ -150,8 +150,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1781705719.0272167,
-    "ast_hash": "a2262a089f2c28380e5bdfefd9c49ef9",
+    "mtime": 1781706975.1231596,
+    "ast_hash": "1d9ed7ef4626ffebe94cae1224295e8b",
     "semantic_hash": ""
   },
   "internal/uistatic/static/index.html": {

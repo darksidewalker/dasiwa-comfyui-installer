@@ -141,9 +141,7 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 		} else if strings.Contains(gpuName, "RTX 50") && cfg.MinCUDAFor50x != "" {
 			targetCU = cfg.MinCUDAFor50x
 		}
-		if strings.HasPrefix(targetCU, "13.") {
-			targetCU = "12.8"
-		}
+		targetCU = effectiveNVIDIACUDA(targetCU)
 		plan.Backend = "cuda"
 		plan.EffectiveCUDA = targetCU
 		plan.IndexURL = whlURL + "cu" + strings.ReplaceAll(targetCU, ".", "")
@@ -190,7 +188,7 @@ func PriorityInstallArgs(wantSage bool, isWindows bool, pinTorch string, hw Hard
 	packages := append([]string{}, PriorityPackages...)
 	if wantSage {
 		if isWindows {
-			packages = append(packages, "triton-windows")
+			packages = append(packages, windowsTritonSpec(pinTorch))
 		} else {
 			packages = append(packages, "triton>=3.7,<3.8")
 		}
@@ -200,12 +198,33 @@ func PriorityInstallArgs(wantSage bool, isWindows bool, pinTorch string, hw Hard
 	}
 	args := append([]string{"pip", "install", "--upgrade", "--no-deps"}, packages...)
 	if pinTorch != "" && strings.ToUpper(hw.Vendor) == "NVIDIA" && cudaTarget != "" {
+		cudaTarget = effectiveNVIDIACUDA(cudaTarget)
 		args = append(args,
 			"--extra-index-url", "https://download.pytorch.org/whl/cu"+strings.ReplaceAll(cudaTarget, ".", ""),
 			"--index-strategy", "unsafe-best-match",
 		)
 	}
 	return args
+}
+
+func effectiveNVIDIACUDA(target string) string {
+	if strings.HasPrefix(target, "13.") {
+		return "12.8"
+	}
+	return target
+}
+
+func windowsTritonSpec(torchVersion string) string {
+	switch {
+	case strings.HasPrefix(torchVersion, "2.9."):
+		return "triton-windows>=3.5,<3.6"
+	case strings.HasPrefix(torchVersion, "2.10."), strings.HasPrefix(torchVersion, "2.11."):
+		return "triton-windows>=3.6,<3.7"
+	case strings.HasPrefix(torchVersion, "2.12."):
+		return "triton-windows>=3.7,<3.8"
+	default:
+		return "triton-windows"
+	}
 }
 
 func isGTX10(hw Hardware) bool {

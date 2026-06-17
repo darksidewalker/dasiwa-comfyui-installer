@@ -27,7 +27,7 @@
       "label": "target",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L16",
+      "source_location": "L17",
       "_origin": "ast",
       "id": "build_release_target",
       "community": 14,
@@ -37,7 +37,7 @@
       "label": "cudaMigrationCase",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L22",
+      "source_location": "L23",
       "_origin": "ast",
       "id": "build_release_cudamigrationcase",
       "community": 14,
@@ -47,7 +47,7 @@
       "label": "Hardware",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L24",
+      "source_location": "L25",
       "_origin": "ast",
       "id": "cmd_build_release_main_go_hardware",
       "community": 14,
@@ -57,7 +57,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L35",
+      "source_location": "L36",
       "_origin": "ast",
       "id": "build_release_main_main",
       "community": 14,
@@ -67,7 +67,7 @@
       "label": "checkCUDAMigration()",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L67",
+      "source_location": "L77",
       "_origin": "ast",
       "id": "build_release_main_checkcudamigration",
       "community": 14,
@@ -77,7 +77,7 @@
       "label": "dashIfEmpty()",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L111",
+      "source_location": "L121",
       "_origin": "ast",
       "id": "build_release_main_dashifempty",
       "community": 14,
@@ -87,17 +87,47 @@
       "label": "build()",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L118",
+      "source_location": "L128",
       "_origin": "ast",
       "id": "build_release_main_build",
       "community": 14,
       "norm_label": "build()"
     },
     {
+      "label": "repoRoot()",
+      "file_type": "code",
+      "source_file": "cmd/build-release/main.go",
+      "source_location": "L156",
+      "_origin": "ast",
+      "id": "build_release_main_reporoot",
+      "community": 14,
+      "norm_label": "reporoot()"
+    },
+    {
+      "label": "copyFile()",
+      "file_type": "code",
+      "source_file": "cmd/build-release/main.go",
+      "source_location": "L173",
+      "_origin": "ast",
+      "id": "build_release_main_copyfile",
+      "community": 14,
+      "norm_label": "copyfile()"
+    },
+    {
+      "label": "samePath()",
+      "file_type": "code",
+      "source_file": "cmd/build-release/main.go",
+      "source_location": "L194",
+      "_origin": "ast",
+      "id": "build_release_main_samepath",
+      "community": 14,
+      "norm_label": "samepath()"
+    },
+    {
       "label": "fatal()",
       "file_type": "code",
       "source_file": "cmd/build-release/main.go",
-      "source_location": "L137",
+      "source_location": "L203",
       "_origin": "ast",
       "id": "build_release_main_fatal",
       "community": 14,
@@ -1150,7 +1180,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "comfyui_comfyui",
-      "community": 15,
+      "community": 13,
       "norm_label": "comfyui.go"
     },
     {
@@ -1160,7 +1190,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "comfyui_comfyui_sync",
-      "community": 15,
+      "community": 13,
       "norm_label": "sync()"
     },
     {
@@ -1170,7 +1200,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "internal_native_comfyui_comfyui_go_context",
-      "community": 15,
+      "community": 13,
       "norm_label": "context"
     },
     {
@@ -1180,7 +1210,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "internal_native_comfyui_comfyui_go_logfunc",
-      "community": 15,
+      "community": 13,
       "norm_label": "logfunc"
     },
     {
@@ -1190,7 +1220,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "comfyui_comfyui_checkoutbranch",
-      "community": 15,
+      "community": 13,
       "norm_label": "checkoutbranch()"
     },
     {
@@ -1200,7 +1230,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "comfyui_comfyui_dirty",
-      "community": 15,
+      "community": 13,
       "norm_label": "dirty()"
     },
     {
@@ -1210,7 +1240,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "comfyui_comfyui_git",
-      "community": 15,
+      "community": 13,
       "norm_label": "git()"
     },
     {
@@ -1220,7 +1250,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "comfyui_comfyui_gitenv",
-      "community": 15,
+      "community": 13,
       "norm_label": "gitenv()"
     },
     {
@@ -1230,7 +1260,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "comfyui_comfyui_log",
-      "community": 15,
+      "community": 13,
       "norm_label": "log()"
     },
     {
@@ -1370,7 +1400,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "cudahost_cudahost_checkcpp",
-      "community": 10,
+      "community": 5,
       "norm_label": "checkcpp()"
     },
     {
@@ -1957,7 +1987,7 @@
       "label": "loadConfig()",
       "file_type": "code",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L157",
+      "source_location": "L158",
       "_origin": "ast",
       "id": "install_install_loadconfig",
       "community": 1,
@@ -1967,7 +1997,7 @@
       "label": "selectedDownloads()",
       "file_type": "code",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L176",
+      "source_location": "L177",
       "_origin": "ast",
       "id": "install_install_selecteddownloads",
       "community": 1,
@@ -1977,7 +2007,7 @@
       "label": "resolveComfyPath()",
       "file_type": "code",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L194",
+      "source_location": "L195",
       "_origin": "ast",
       "id": "install_install_resolvecomfypath",
       "community": 1,
@@ -1987,7 +2017,7 @@
       "label": "resolveNodeLines()",
       "file_type": "code",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L198",
+      "source_location": "L199",
       "_origin": "ast",
       "id": "install_install_resolvenodelines",
       "community": 1,
@@ -1997,21 +2027,21 @@
       "label": "fileExists()",
       "file_type": "code",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L205",
+      "source_location": "L206",
       "_origin": "ast",
       "id": "install_install_fileexists",
       "community": 1,
       "norm_label": "fileexists()"
     },
     {
-      "label": "torchPinForSage()",
+      "label": "torchPlanForSage()",
       "file_type": "code",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L206",
+      "source_location": "L207",
       "_origin": "ast",
-      "id": "install_install_torchpinforsage",
-      "community": 3,
-      "norm_label": "torchpinforsage()"
+      "id": "install_install_torchplanforsage",
+      "community": 1,
+      "norm_label": "torchplanforsage()"
     },
     {
       "label": "log()",
@@ -2060,7 +2090,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "nodes_nodes",
-      "community": 13,
+      "community": 10,
       "norm_label": "nodes.go"
     },
     {
@@ -2070,7 +2100,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "nodes_stats",
-      "community": 13,
+      "community": 10,
       "norm_label": "stats"
     },
     {
@@ -2080,7 +2110,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "nodes_nodespec",
-      "community": 13,
+      "community": 10,
       "norm_label": "nodespec"
     },
     {
@@ -2090,7 +2120,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "nodes_nodes_sync",
-      "community": 13,
+      "community": 10,
       "norm_label": "sync()"
     },
     {
@@ -2100,7 +2130,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "internal_native_nodes_nodes_go_context",
-      "community": 13,
+      "community": 10,
       "norm_label": "context"
     },
     {
@@ -2110,7 +2140,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "internal_native_nodes_nodes_go_logfunc",
-      "community": 13,
+      "community": 10,
       "norm_label": "logfunc"
     },
     {
@@ -2120,7 +2150,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "nodes_nodes_fetchlist",
-      "community": 1,
+      "community": 10,
       "norm_label": "fetchlist()"
     },
     {
@@ -2130,7 +2160,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "nodes_nodes_parseline",
-      "community": 13,
+      "community": 10,
       "norm_label": "parseline()"
     },
     {
@@ -2140,37 +2170,57 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "nodes_nodes_syncone",
-      "community": 13,
+      "community": 10,
       "norm_label": "syncone()"
+    },
+    {
+      "label": "resetToOrigin()",
+      "file_type": "code",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L162",
+      "_origin": "ast",
+      "id": "nodes_nodes_resettoorigin",
+      "community": 10,
+      "norm_label": "resettoorigin()"
+    },
+    {
+      "label": "remoteDefaultBranch()",
+      "file_type": "code",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L177",
+      "_origin": "ast",
+      "id": "nodes_nodes_remotedefaultbranch",
+      "community": 10,
+      "norm_label": "remotedefaultbranch()"
     },
     {
       "label": "readLines()",
       "file_type": "code",
       "source_file": "internal/native/nodes/nodes.go",
-      "source_location": "L162",
+      "source_location": "L193",
       "_origin": "ast",
       "id": "nodes_nodes_readlines",
-      "community": 1,
+      "community": 10,
       "norm_label": "readlines()"
     },
     {
       "label": "repoName()",
       "file_type": "code",
       "source_file": "internal/native/nodes/nodes.go",
-      "source_location": "L176",
+      "source_location": "L207",
       "_origin": "ast",
       "id": "nodes_nodes_reponame",
-      "community": 13,
+      "community": 10,
       "norm_label": "reponame()"
     },
     {
       "label": "log()",
       "file_type": "code",
       "source_file": "internal/native/nodes/nodes.go",
-      "source_location": "L185",
+      "source_location": "L216",
       "_origin": "ast",
       "id": "nodes_nodes_log",
-      "community": 13,
+      "community": 10,
       "norm_label": "log()"
     },
     {
@@ -2180,7 +2230,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "radial_radial",
-      "community": 10,
+      "community": 15,
       "norm_label": "radial.go"
     },
     {
@@ -2190,7 +2240,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "radial_radial_iskernelinstalled",
-      "community": 10,
+      "community": 15,
       "norm_label": "iskernelinstalled()"
     },
     {
@@ -2200,7 +2250,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "internal_native_radial_radial_go_context",
-      "community": 10,
+      "community": 15,
       "norm_label": "context"
     },
     {
@@ -2210,7 +2260,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "radial_radial_isnodeinstalled",
-      "community": 10,
+      "community": 15,
       "norm_label": "isnodeinstalled()"
     },
     {
@@ -2220,7 +2270,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "radial_radial_isinstalled",
-      "community": 10,
+      "community": 15,
       "norm_label": "isinstalled()"
     },
     {
@@ -2230,7 +2280,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "radial_radial_install",
-      "community": 10,
+      "community": 15,
       "norm_label": "install()"
     },
     {
@@ -2240,7 +2290,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "internal_native_radial_radial_go_logfunc",
-      "community": 10,
+      "community": 15,
       "norm_label": "logfunc"
     },
     {
@@ -2250,7 +2300,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "radial_radial_installspargewindows",
-      "community": 10,
+      "community": 15,
       "norm_label": "installspargewindows()"
     },
     {
@@ -2260,7 +2310,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "internal_native_radial_radial_go_venv",
-      "community": 10,
+      "community": 15,
       "norm_label": "venv"
     },
     {
@@ -2270,7 +2320,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "radial_radial_installspargelinux",
-      "community": 10,
+      "community": 15,
       "norm_label": "installspargelinux()"
     },
     {
@@ -2280,7 +2330,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "radial_radial_installradialnode",
-      "community": 10,
+      "community": 15,
       "norm_label": "installradialnode()"
     },
     {
@@ -2290,7 +2340,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "radial_radial_resolvespargewheelurl",
-      "community": 10,
+      "community": 15,
       "norm_label": "resolvespargewheelurl()"
     },
     {
@@ -2300,7 +2350,7 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "radial_radial_getjson",
-      "community": 10,
+      "community": 15,
       "norm_label": "getjson()"
     },
     {
@@ -2310,7 +2360,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "radial_radial_cmpversion",
-      "community": 10,
+      "community": 15,
       "norm_label": "cmpversion()"
     },
     {
@@ -2320,7 +2370,7 @@
       "source_location": "L192",
       "_origin": "ast",
       "id": "radial_radial_numprefix",
-      "community": 10,
+      "community": 15,
       "norm_label": "numprefix()"
     },
     {
@@ -2330,7 +2380,7 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "radial_radial_log",
-      "community": 10,
+      "community": 15,
       "norm_label": "log()"
     },
     {
@@ -2937,17 +2987,37 @@
       "label": "PriorityInstallArgs()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch.go",
-      "source_location": "L189",
+      "source_location": "L187",
       "_origin": "ast",
       "id": "torch_torch_priorityinstallargs",
       "community": 2,
       "norm_label": "priorityinstallargs()"
     },
     {
+      "label": "effectiveNVIDIACUDA()",
+      "file_type": "code",
+      "source_file": "internal/native/torch/torch.go",
+      "source_location": "L210",
+      "_origin": "ast",
+      "id": "torch_torch_effectivenvidiacuda",
+      "community": 2,
+      "norm_label": "effectivenvidiacuda()"
+    },
+    {
+      "label": "windowsTritonSpec()",
+      "file_type": "code",
+      "source_file": "internal/native/torch/torch.go",
+      "source_location": "L217",
+      "_origin": "ast",
+      "id": "torch_torch_windowstritonspec",
+      "community": 2,
+      "norm_label": "windowstritonspec()"
+    },
+    {
       "label": "isGTX10()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch.go",
-      "source_location": "L211",
+      "source_location": "L230",
       "_origin": "ast",
       "id": "torch_torch_isgtx10",
       "community": 2,
@@ -2957,7 +3027,7 @@
       "label": "isRTX50()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch.go",
-      "source_location": "L216",
+      "source_location": "L235",
       "_origin": "ast",
       "id": "torch_torch_isrtx50",
       "community": 2,
@@ -2967,7 +3037,7 @@
       "label": "sameMajorMinor()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch.go",
-      "source_location": "L221",
+      "source_location": "L240",
       "_origin": "ast",
       "id": "torch_torch_samemajorminor",
       "community": 2,
@@ -2977,7 +3047,7 @@
       "label": "pinnedVersionMatches()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch.go",
-      "source_location": "L227",
+      "source_location": "L246",
       "_origin": "ast",
       "id": "torch_torch_pinnedversionmatches",
       "community": 2,
@@ -2987,7 +3057,7 @@
       "label": "log()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch.go",
-      "source_location": "L237",
+      "source_location": "L256",
       "_origin": "ast",
       "id": "torch_torch_log",
       "community": 2,
@@ -3074,20 +3144,20 @@
       "norm_label": "testpriorityinstalldoesnotresolvetorchdependencies()"
     },
     {
-      "label": "TestPinnedPriorityInstallUsesCUDAIndexWithoutDeps()",
+      "label": "TestPinnedPriorityInstallUsesEffectiveCUDAIndexWithoutDeps()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch_test.go",
       "source_location": "L106",
       "_origin": "ast",
-      "id": "torch_torch_test_testpinnedpriorityinstallusescudaindexwithoutdeps",
+      "id": "torch_torch_test_testpinnedpriorityinstalluseseffectivecudaindexwithoutdeps",
       "community": 2,
-      "norm_label": "testpinnedpriorityinstallusescudaindexwithoutdeps()"
+      "norm_label": "testpinnedpriorityinstalluseseffectivecudaindexwithoutdeps()"
     },
     {
       "label": "contains()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch_test.go",
-      "source_location": "L119",
+      "source_location": "L122",
       "_origin": "ast",
       "id": "torch_torch_test_contains",
       "community": 2,
@@ -3097,7 +3167,7 @@
       "label": "TestInstalledSatisfiesCUDAPlan()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch_test.go",
-      "source_location": "L128",
+      "source_location": "L131",
       "_origin": "ast",
       "id": "torch_torch_test_testinstalledsatisfiescudaplan",
       "community": 2,
@@ -3107,7 +3177,7 @@
       "label": "TestParseInstalledProbeAllowsEmptyHIP()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch_test.go",
-      "source_location": "L141",
+      "source_location": "L144",
       "_origin": "ast",
       "id": "torch_torch_test_testparseinstalledprobeallowsemptyhip",
       "community": 2,
@@ -3117,7 +3187,7 @@
       "label": "TestSameMajorMinor()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch_test.go",
-      "source_location": "L151",
+      "source_location": "L154",
       "_origin": "ast",
       "id": "torch_torch_test_testsamemajorminor",
       "community": 2,
@@ -3127,7 +3197,7 @@
       "label": "TestPinnedVersionMatchesCUDAWheelLocalSuffix()",
       "file_type": "code",
       "source_file": "internal/native/torch/torch_test.go",
-      "source_location": "L160",
+      "source_location": "L163",
       "_origin": "ast",
       "id": "torch_torch_test_testpinnedversionmatchescudawheellocalsuffix",
       "community": 2,
@@ -4037,7 +4107,7 @@
       "label": "Prerequisites",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L107",
+      "source_location": "L109",
       "_origin": "ast",
       "id": "readme_prerequisites",
       "community": 9,
@@ -4047,7 +4117,7 @@
       "label": "The Web Installer",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L118",
+      "source_location": "L120",
       "_origin": "ast",
       "id": "readme_the_web_installer",
       "community": 9,
@@ -4057,7 +4127,7 @@
       "label": "Hardware Support",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L138",
+      "source_location": "L140",
       "_origin": "ast",
       "id": "readme_hardware_support",
       "community": 9,
@@ -4067,7 +4137,7 @@
       "label": "SageAttention",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L156",
+      "source_location": "L158",
       "_origin": "ast",
       "id": "readme_sageattention",
       "community": 9,
@@ -4077,7 +4147,7 @@
       "label": "Custom Nodes",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L174",
+      "source_location": "L176",
       "_origin": "ast",
       "id": "readme_custom_nodes",
       "community": 9,
@@ -4087,7 +4157,7 @@
       "label": "Idempotent by Design",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L212",
+      "source_location": "L214",
       "_origin": "ast",
       "id": "readme_idempotent_by_design",
       "community": 9,
@@ -4097,7 +4167,7 @@
       "label": "FFmpeg",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L224",
+      "source_location": "L226",
       "_origin": "ast",
       "id": "readme_ffmpeg",
       "community": 9,
@@ -4107,7 +4177,7 @@
       "label": "Architecture: Zero Conflict",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L234",
+      "source_location": "L236",
       "_origin": "ast",
       "id": "readme_architecture_zero_conflict",
       "community": 9,
@@ -4117,7 +4187,7 @@
       "label": "Configuration",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L263",
+      "source_location": "L265",
       "_origin": "ast",
       "id": "readme_configuration",
       "community": 9,
@@ -4127,7 +4197,7 @@
       "label": "Full `config.json` reference",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L284",
+      "source_location": "L286",
       "_origin": "ast",
       "id": "readme_full_config_json_reference",
       "community": 9,
@@ -4137,7 +4207,7 @@
       "label": "Adding models and workflows",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L302",
+      "source_location": "L304",
       "_origin": "ast",
       "id": "readme_adding_models_and_workflows",
       "community": 9,
@@ -4147,7 +4217,7 @@
       "label": "Run Modes",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L318",
+      "source_location": "L320",
       "_origin": "ast",
       "id": "readme_run_modes",
       "community": 9,
@@ -4157,7 +4227,7 @@
       "label": "Tuning SageAttention Builds",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L331",
+      "source_location": "L333",
       "_origin": "ast",
       "id": "readme_tuning_sageattention_builds",
       "community": 9,
@@ -4167,7 +4237,7 @@
       "label": "Disclaimer",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L345",
+      "source_location": "L347",
       "_origin": "ast",
       "id": "readme_disclaimer",
       "community": 9,
@@ -4209,6 +4279,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "cmd/build-release/main.go",
+      "source_location": "L173",
+      "weight": 1.0,
+      "source": "build_release_main",
+      "target": "build_release_main_copyfile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "cmd/build-release/main.go",
       "source_location": "L107",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -4234,6 +4314,26 @@
       "confidence_score": 1.0,
       "source": "build_release_main",
       "target": "build_release_main_main"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "cmd/build-release/main.go",
+      "source_location": "L156",
+      "weight": 1.0,
+      "source": "build_release_main",
+      "target": "build_release_main_reporoot",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "cmd/build-release/main.go",
+      "source_location": "L194",
+      "weight": 1.0,
+      "source": "build_release_main",
+      "target": "build_release_main_samepath",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -4305,6 +4405,17 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "cmd/build-release/main.go",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "build_release_main_main",
+      "target": "build_release_main_reporoot",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "cmd/build-release/main.go",
       "source_location": "L99",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -4332,6 +4443,28 @@
       "weight": 1.0,
       "source": "build_release_main_checkcudamigration",
       "target": "torch_torch_test_contains"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "cmd/build-release/main.go",
+      "source_location": "L153",
+      "weight": 1.0,
+      "source": "build_release_main_build",
+      "target": "build_release_main_copyfile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "cmd/build-release/main.go",
+      "source_location": "L149",
+      "weight": 1.0,
+      "source": "build_release_main_build",
+      "target": "build_release_main_samepath",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -8831,11 +8964,11 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L206",
+      "source_location": "L207",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "install_install",
-      "target": "install_install_torchpinforsage"
+      "target": "install_install_torchplanforsage"
     },
     {
       "relation": "references",
@@ -8996,11 +9129,11 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/native/install/install.go",
-      "source_location": "L114",
+      "source_location": "L115",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "install_install_run",
-      "target": "install_install_torchpinforsage"
+      "target": "install_install_torchplanforsage"
     },
     {
       "relation": "references",
@@ -9118,9 +9251,9 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/native/install/install.go",
-      "source_location": "L207",
+      "source_location": "L208",
       "weight": 1.0,
-      "source": "install_install_torchpinforsage",
+      "source": "install_install_torchplanforsage",
       "target": "sage_sage_planwindowstorch"
     },
     {
@@ -9198,11 +9331,31 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L177",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "nodes_nodes",
+      "target": "nodes_nodes_remotedefaultbranch"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
       "source_location": "L176",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "nodes_nodes",
       "target": "nodes_nodes_reponame"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L162",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "nodes_nodes",
+      "target": "nodes_nodes_resettoorigin"
     },
     {
       "relation": "contains",
@@ -9369,6 +9522,28 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L177",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "confidence_score": 1.0,
+      "source": "nodes_nodes_remotedefaultbranch",
+      "target": "internal_native_nodes_nodes_go_context"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L162",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "confidence_score": 1.0,
+      "source": "nodes_nodes_resettoorigin",
+      "target": "internal_native_nodes_nodes_go_context"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
       "source_location": "L124",
       "weight": 1.0,
       "context": "parameter_type",
@@ -9385,6 +9560,17 @@
       "context": "parameter_type",
       "confidence_score": 1.0,
       "source": "nodes_nodes_log",
+      "target": "internal_native_nodes_nodes_go_logfunc"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L162",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "confidence_score": 1.0,
+      "source": "nodes_nodes_resettoorigin",
       "target": "internal_native_nodes_nodes_go_logfunc"
     },
     {
@@ -9423,6 +9609,17 @@
     {
       "relation": "calls",
       "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L132",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "nodes_nodes_syncone",
+      "target": "nodes_nodes_resettoorigin"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/native/nodes/nodes.go",
@@ -9430,6 +9627,61 @@
       "weight": 1.0,
       "source": "nodes_nodes_syncone",
       "target": "runutil_runutil_command"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L170",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "nodes_nodes_resettoorigin",
+      "target": "nodes_nodes_log"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L169",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "nodes_nodes_resettoorigin",
+      "target": "nodes_nodes_remotedefaultbranch"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L163",
+      "weight": 1.0,
+      "source": "nodes_nodes_resettoorigin",
+      "target": "runutil_runutil_command"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L186",
+      "weight": 1.0,
+      "source": "nodes_nodes_remotedefaultbranch",
+      "target": "runutil_runutil_command"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/native/nodes/nodes.go",
+      "source_location": "L178",
+      "weight": 1.0,
+      "source": "nodes_nodes_remotedefaultbranch",
+      "target": "runutil_runutil_output"
     },
     {
       "relation": "contains",
@@ -11189,6 +11441,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/native/torch/torch.go",
+      "source_location": "L210",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "torch_torch",
+      "target": "torch_torch_effectivenvidiacuda"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/torch/torch.go",
       "source_location": "L42",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -11314,6 +11576,16 @@
       "confidence_score": 1.0,
       "source": "torch_torch",
       "target": "torch_torch_samemajorminor"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/torch/torch.go",
+      "source_location": "L217",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "torch_torch",
+      "target": "torch_torch_windowstritonspec"
     },
     {
       "relation": "references",
@@ -11760,6 +12032,17 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/native/torch/torch.go",
+      "source_location": "L144",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "torch_torch_planinstall",
+      "target": "torch_torch_effectivenvidiacuda"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/torch/torch.go",
       "source_location": "L137",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -11846,12 +12129,34 @@
     {
       "relation": "calls",
       "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/torch/torch.go",
+      "source_location": "L201",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "torch_torch_priorityinstallargs",
+      "target": "torch_torch_effectivenvidiacuda"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/native/torch/torch.go",
+      "source_location": "L191",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "torch_torch_priorityinstallargs",
+      "target": "torch_torch_windowstritonspec"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/native/torch/torch_test.go",
       "source_location": "L107",
       "weight": 1.0,
-      "source": "torch_torch_test_testpinnedpriorityinstallusescudaindexwithoutdeps",
+      "source": "torch_torch_test_testpinnedpriorityinstalluseseffectivecudaindexwithoutdeps",
       "target": "torch_torch_priorityinstallargs"
     },
     {
@@ -11998,7 +12303,7 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "torch_torch_test",
-      "target": "torch_torch_test_testpinnedpriorityinstallusescudaindexwithoutdeps"
+      "target": "torch_torch_test_testpinnedpriorityinstalluseseffectivecudaindexwithoutdeps"
     },
     {
       "relation": "contains",
@@ -12114,7 +12419,7 @@
       "weight": 1.0,
       "context": "parameter_type",
       "confidence_score": 1.0,
-      "source": "torch_torch_test_testpinnedpriorityinstallusescudaindexwithoutdeps",
+      "source": "torch_torch_test_testpinnedpriorityinstalluseseffectivecudaindexwithoutdeps",
       "target": "internal_native_torch_torch_test_go_t"
     },
     {
@@ -12191,7 +12496,7 @@
       "source_location": "L108",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "torch_torch_test_testpinnedpriorityinstallusescudaindexwithoutdeps",
+      "source": "torch_torch_test_testpinnedpriorityinstalluseseffectivecudaindexwithoutdeps",
       "target": "torch_torch_test_contains"
     },
     {
@@ -13758,5 +14063,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "bc7119167b60014e6bfc84c0ab142a8b06ab5b62"
+  "built_at_commit": "ba7678342cbed1cf009e172a9bf2727a14511693"
 }

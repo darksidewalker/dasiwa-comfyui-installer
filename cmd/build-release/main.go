@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,6 +40,15 @@ func main() {
 	checkCUDA := flag.String("check-cuda-migration", "13.2", "candidate CUDA target to verify before release; empty disables the check")
 	flag.Parse()
 
+	rootDir, err := repoRoot()
+	if err != nil {
+		fatal(err)
+	}
+	outputDir := *outDir
+	if !filepath.IsAbs(outputDir) {
+		outputDir = filepath.Join(rootDir, outputDir)
+	}
+
 	if *checkCUDA != "" {
 		if err := checkCUDAMigration(*checkCUDA); err != nil {
 			fatal(err)
@@ -54,11 +64,11 @@ func main() {
 		targets = []target{{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Name: name}}
 	}
 
-	if err := os.MkdirAll(*outDir, 0o755); err != nil {
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		fatal(err)
 	}
 	for _, target := range targets {
-		if err := build(target, *version, *outDir); err != nil {
+		if err := build(target, *version, rootDir, outputDir); err != nil {
 			fatal(err)
 		}
 	}
@@ -115,7 +125,7 @@ func dashIfEmpty(value string) string {
 	return value
 }
 
-func build(target target, version, outDir string) error {
+func build(target target, version, rootDir, outDir string) error {
 	outPath := filepath.Join(outDir, target.Name)
 	args := []string{
 		"build",
@@ -127,11 +137,67 @@ func build(target target, version, outDir string) error {
 		"./cmd/installer-app",
 	}
 	cmd := exec.Command("go", args...)
+	cmd.Dir = rootDir
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+target.GOOS, "GOARCH="+target.GOARCH)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	fmt.Printf("Building %s/%s -> %s\n", target.GOOS, target.GOARCH, outPath)
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	rootOut := filepath.Join(rootDir, target.Name)
+	if samePath(outPath, rootOut) {
+		return nil
+	}
+	fmt.Printf("Copying %s -> %s\n", outPath, rootOut)
+	return copyFile(outPath, rootOut)
+}
+
+func repoRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", errors.New("could not find repository root with go.mod")
+		}
+		dir = parent
+	}
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+func samePath(a, b string) bool {
+	aa, errA := filepath.Abs(a)
+	bb, errB := filepath.Abs(b)
+	if errA == nil && errB == nil {
+		return aa == bb
+	}
+	return a == b
 }
 
 func fatal(err error) {

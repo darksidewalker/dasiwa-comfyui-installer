@@ -129,7 +129,7 @@ func syncOne(ctx context.Context, env, gitEnv []string, venvPython, nodePath str
 		}
 	} else {
 		log(logf, "Updating "+name+"...")
-		if err := runutil.Command(ctx, logf, nodePath, gitEnv, "git", "pull"); err != nil {
+		if err := resetToOrigin(ctx, gitEnv, nodePath, spec.URL, logf); err != nil {
 			return err
 		}
 	}
@@ -157,6 +157,37 @@ func syncOne(ctx context.Context, env, gitEnv []string, venvPython, nodePath str
 		}
 	}
 	return nil
+}
+
+func resetToOrigin(ctx context.Context, gitEnv []string, nodePath, remoteURL string, logf runutil.LogFunc) error {
+	if err := runutil.Command(ctx, logf, nodePath, gitEnv, "git", "remote", "set-url", "origin", remoteURL); err != nil {
+		return err
+	}
+	if err := runutil.Command(ctx, logf, nodePath, gitEnv, "git", "fetch", "--prune", "origin"); err != nil {
+		return err
+	}
+	branch := remoteDefaultBranch(ctx, gitEnv, nodePath)
+	log(logf, "Resetting managed node to "+branch+"...")
+	if err := runutil.Command(ctx, logf, nodePath, gitEnv, "git", "reset", "--hard", branch); err != nil {
+		return err
+	}
+	return runutil.Command(ctx, logf, nodePath, gitEnv, "git", "submodule", "update", "--init", "--recursive")
+}
+
+func remoteDefaultBranch(ctx context.Context, gitEnv []string, nodePath string) string {
+	out, err := runutil.Output(ctx, nodePath, gitEnv, "git", "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+	if err == nil {
+		branch := strings.TrimSpace(out)
+		if branch != "" {
+			return branch
+		}
+	}
+	for _, branch := range []string{"origin/master", "origin/main"} {
+		if err := runutil.Command(ctx, nil, nodePath, gitEnv, "git", "rev-parse", "--verify", branch); err == nil {
+			return branch
+		}
+	}
+	return "origin/master"
 }
 
 func readLines(path string) ([]string, error) {

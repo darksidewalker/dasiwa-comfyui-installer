@@ -90,11 +90,13 @@ To build standalone app binaries:
 go run ./cmd/build-release --version 2.0.0
 ```
 
-This creates:
+This creates binaries in `dist/` and mirrors them to the repository root:
 
 ```text
 dist/dasiwa-installer-windows-amd64.exe
 dist/dasiwa-installer-linux-amd64
+dasiwa-installer-windows-amd64.exe
+dasiwa-installer-linux-amd64
 ```
 
 Those binaries can be copied into an empty install folder and launched directly.
