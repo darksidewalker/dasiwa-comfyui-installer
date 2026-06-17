@@ -40,17 +40,18 @@ func PlanWindowsTorch(pythonDisplay, cudaTarget string) (string, string) {
 	if len(parts) >= 2 {
 		cuMM = parts[0] + "." + parts[1]
 	}
+	if strings.HasPrefix(cuMM, "13.") {
+		cuMM = "12.8"
+	}
 	cuTag := "cu" + strings.ReplaceAll(cuMM, ".", "")
 	pyMM := strings.Join(firstN(strings.Split(pythonDisplay, "."), 2), ".")
 	fallback := map[string]string{
-		"3.12|13.2": "2.12.0", "3.13|13.2": "2.12.0",
-		"3.12|13.0": "2.12.0+cu130", "3.13|13.0": "2.12.0+cu130",
-		"3.12|12.8": "2.10.0", "3.13|12.8": "2.10.0",
-		"3.11|12.8": "2.10.0", "3.10|12.8": "2.10.0",
+		"3.12|12.8": "2.9.1", "3.13|12.8": "2.9.1",
+		"3.11|12.8": "2.9.1", "3.10|12.8": "2.9.1",
 	}
 	pin := fallback[pyMM+"|"+cuMM]
 	if pin == "" {
-		pin = "2.12.0"
+		pin = "2.9.1"
 	}
 	return pin, cuTag
 }

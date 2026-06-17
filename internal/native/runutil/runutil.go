@@ -55,6 +55,15 @@ func SetEnv(env []string, key, value string) []string {
 			return out
 		}
 	}
+	if runtime.GOOS == "windows" {
+		lowerPrefix := strings.ToLower(prefix)
+		for i, item := range out {
+			if strings.HasPrefix(strings.ToLower(item), lowerPrefix) {
+				out[i] = prefix + value
+				return out
+			}
+		}
+	}
 	return append(out, prefix+value)
 }
 
@@ -65,11 +74,23 @@ func GetEnv(env []string, key string) string {
 			return strings.TrimPrefix(item, prefix)
 		}
 	}
+	if runtime.GOOS == "windows" {
+		lowerPrefix := strings.ToLower(prefix)
+		for _, item := range env {
+			if strings.HasPrefix(strings.ToLower(item), lowerPrefix) {
+				return item[len(prefix):]
+			}
+		}
+	}
 	return os.Getenv(key)
 }
 
 func Command(ctx context.Context, logf LogFunc, dir string, env []string, name string, args ...string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
+	command, err := resolveCommand(name, env)
+	if err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = dir
 	cmd.Env = env
 	stdout, err := cmd.StdoutPipe()
@@ -95,11 +116,59 @@ func Command(ctx context.Context, logf LogFunc, dir string, env []string, name s
 }
 
 func Output(ctx context.Context, dir string, env []string, name string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	command, err := resolveCommand(name, env)
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = dir
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+func resolveCommand(name string, env []string) (string, error) {
+	if filepath.IsAbs(name) || strings.ContainsRune(name, os.PathSeparator) {
+		return name, nil
+	}
+	if path, ok := lookPathEnv(name, env); ok {
+		return path, nil
+	}
+	return name, nil
+}
+
+func lookPathEnv(name string, env []string) (string, bool) {
+	pathEnv := GetEnv(env, "PATH")
+	if pathEnv == "" {
+		return "", false
+	}
+	exts := []string{""}
+	if runtime.GOOS == "windows" && filepath.Ext(name) == "" {
+		pathext := GetEnv(env, "PATHEXT")
+		if pathext == "" {
+			pathext = ".COM;.EXE;.BAT;.CMD"
+		}
+		exts = nil
+		for _, ext := range strings.Split(pathext, ";") {
+			ext = strings.TrimSpace(ext)
+			if ext != "" {
+				exts = append(exts, ext)
+			}
+		}
+	}
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			dir = "."
+		}
+		for _, ext := range exts {
+			candidate := filepath.Join(dir, name+ext)
+			info, err := os.Stat(candidate)
+			if err == nil && !info.IsDir() {
+				return candidate, true
+			}
+		}
+	}
+	return "", false
 }
 
 func stream(wg *sync.WaitGroup, logf LogFunc, r io.Reader) {

@@ -39,6 +39,8 @@ var PriorityPackages = []string{
 	"setuptools==81.0.0",
 }
 
+var cuda128Packages = []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
+
 func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string, logf runutil.LogFunc) error {
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)
 	log(logf, fmt.Sprintf("Installing Torch for %s (%s)...", hw.Vendor, strings.ToUpper(hw.Name)))
@@ -139,15 +141,16 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 		} else if strings.Contains(gpuName, "RTX 50") && cfg.MinCUDAFor50x != "" {
 			targetCU = cfg.MinCUDAFor50x
 		}
+		if strings.HasPrefix(targetCU, "13.") {
+			targetCU = "12.8"
+		}
 		plan.Backend = "cuda"
 		plan.EffectiveCUDA = targetCU
 		plan.IndexURL = whlURL + "cu" + strings.ReplaceAll(targetCU, ".", "")
 		if targetCU == "12.1" {
 			plan.Packages = []string{"torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"}
-		} else if targetCU == "13.2" {
-			plan.Packages = []string{"torch==2.12.0", "torchvision", "torchaudio"}
-		} else if isRTX50(hw) && strings.HasPrefix(targetCU, "13.") {
-			plan.Packages = []string{"torch==2.12.0", "torchvision", "torchaudio"}
+		} else if targetCU == "12.8" {
+			plan.Packages = append([]string(nil), cuda128Packages...)
 		} else if pinTorch != "" {
 			plan.Packages = []string{"torch==" + pinTorch, "torchvision", "torchaudio"}
 		} else {

@@ -126,7 +126,7 @@ on one page, then start the install once.
 
 1. **Install mode** — Update in place, Refresh the environment, Full reinstall, or Cancel. Nothing destructive happens without explicit confirmation.
 2. **Hardware and versions** — GPU vendor, GPU name, Python version, ComfyUI ref, and CUDA target.
-3. **SageAttention** — yes or no. Modern NVIDIA installs target the official CUDA 13.2 PyTorch wheel bundle where possible. Embedded defaults and local overrides are never mutated.
+3. **SageAttention** — yes or no. Modern NVIDIA installs use the complete CUDA 12.8 PyTorch wheel bundle when a requested CUDA 13.x target is not installable with `torchaudio` on Windows. Embedded defaults and local overrides are never mutated.
 4. **FFmpeg** — yes or no. Skipped automatically if already present.
 5. **Optional downloads** — shows only what is not already on disk.
 6. **Live plan** — a JSON preview of the exact install request that will be submitted to the native installer engine.
@@ -141,8 +141,8 @@ GPU detection is automatic. If detection fails, you get a manual selection menu 
 
 | Vendor | Series | PyTorch Build |
 | :----- | :----- | :------------ |
-| **NVIDIA** | RTX 20 / 30 / 40 | CUDA 13.2 + Torch 2.12.0 (configurable) |
-| **NVIDIA** | RTX 50 (Blackwell) | CUDA 13.2 + Torch 2.12.0 |
+| **NVIDIA** | RTX 20 / 30 / 40 | CUDA 12.8 + Torch 2.9.1 + torchaudio 2.9.1 (configurable) |
+| **NVIDIA** | RTX 50 (Blackwell) | CUDA 12.8 + Torch 2.9.1 + torchaudio 2.9.1 |
 | **NVIDIA** | GTX 10 / Pascal | CUDA 12.1 + Torch 2.4.1 (locked) |
 | **AMD** | RX 7000 / GFX110x | ROCm nightly `gfx110X-all` |
 | **AMD** | RX 9000 / GFX120x | ROCm nightly `gfx120X-all` |
@@ -166,8 +166,8 @@ If no matching prebuilt wheel exists, falls back to a full CUDA source build wit
 **Linux**
 Tries the precompiled SageAttention wheel path first. If no compatible wheel exists, the installer attempts a source build only when `nvcc` and a compatible `g++`/`clang++` host compiler are available. Missing or incompatible compilers skip SageAttention instead of failing the whole ComfyUI install.
 
-**CUDA 13.2 Support**
-For modern NVIDIA cards, the installer targets the official `https://download.pytorch.org/whl/cu132` wheel index and Torch 2.12.0. GTX 10 / Pascal remains locked to CUDA 12.1 and Torch 2.4.1.
+**CUDA Wheel Selection**
+For modern NVIDIA cards, requested CUDA 13.x targets are normalized to the official `https://download.pytorch.org/whl/cu128` wheel index with Torch 2.9.1, torchvision 0.24.1, and torchaudio 2.9.1. PyTorch publishes `cu132` Torch and torchvision wheels, but not a matching Windows Python 3.12 `torchaudio` wheel. GTX 10 / Pascal remains locked to CUDA 12.1 and Torch 2.4.1.
 
 ---
 
@@ -288,8 +288,8 @@ Only include the keys you want to change. Everything else inherits from `config.
 | `python.display_name` | `"3.12"` | Python version passed to `uv python install` |
 | `comfyui.version` | `"latest"` | `"latest"` = newest git tag; any other value = specific tag |
 | `comfyui.fallback_branch` | `"master"` | Used if the targeted tag checkout fails |
-| `cuda.global` | `"13.2"` | CUDA wheel target for NVIDIA (all non-legacy cards) |
-| `cuda.min_cuda_for_50xx` | `"13.2"` | Minimum CUDA for Blackwell / RTX 50-series |
+| `cuda.global` | `"13.2"` | Requested CUDA wheel target for NVIDIA; CUDA 13.x is normalized to CUDA 12.8 where torchaudio is required |
+| `cuda.min_cuda_for_50xx` | `"13.2"` | Requested CUDA target for Blackwell / RTX 50-series; CUDA 13.x is normalized to CUDA 12.8 where torchaudio is required |
 | `custom_nodes` | array | Default custom node repos and optional pipe flags |
 | `urls.custom_nodes` | unset | Optional remote node-list URL; when set, it overrides `custom_nodes` |
 | `urls.ffmpeg_windows` | BtbN release URL | Portable FFmpeg zip for Windows |

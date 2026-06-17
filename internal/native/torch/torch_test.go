@@ -31,10 +31,10 @@ func TestCU132MigrationSafetyMatrix(t *testing.T) {
 		{name: "amd gfx110 nightly", hw: Hardware{Vendor: "AMD", Name: "Radeon RX 7900 XTX GFX1100"}, backend: "rocm", indexContains: "gfx110X-all"},
 		{name: "intel xpu", hw: Hardware{Vendor: "INTEL", Name: "Intel Arc B580"}, backend: "xpu", indexContains: "/xpu"},
 		{name: "nvidia gtx 10 legacy", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce GTX 1080 Ti"}, backend: "cuda", effectiveCUDA: "12.1", indexContains: "cu121"},
-		{name: "nvidia rtx 20", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 2080 Ti"}, backend: "cuda", effectiveCUDA: "13.2", indexContains: "cu132"},
-		{name: "nvidia rtx 30", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 3090"}, backend: "cuda", effectiveCUDA: "13.2", indexContains: "cu132"},
-		{name: "nvidia rtx 40", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 4090"}, backend: "cuda", effectiveCUDA: "13.2", indexContains: "cu132"},
-		{name: "nvidia rtx 50", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 5090"}, backend: "cuda", effectiveCUDA: "13.2", indexContains: "cu132"},
+		{name: "nvidia rtx 20", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 2080 Ti"}, backend: "cuda", effectiveCUDA: "12.8", indexContains: "cu128"},
+		{name: "nvidia rtx 30", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 3090"}, backend: "cuda", effectiveCUDA: "12.8", indexContains: "cu128"},
+		{name: "nvidia rtx 40", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 4090"}, backend: "cuda", effectiveCUDA: "12.8", indexContains: "cu128"},
+		{name: "nvidia rtx 50", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 5090"}, backend: "cuda", effectiveCUDA: "12.8", indexContains: "cu128"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -60,31 +60,31 @@ func TestGTX10StaysOnLegacyTorch(t *testing.T) {
 	}
 }
 
-func TestRTX50UsesNightlyCUDA13Torch(t *testing.T) {
+func TestRTX50UsesInstallableCUDA128TorchWithTorchaudio(t *testing.T) {
 	hw := Hardware{Vendor: "NVIDIA", Name: "NVIDIA GeForce RTX 5090"}
 	cfg := CUDAConfig{Global: "13.2", MinCUDAFor50x: "13.2"}
 	plan := PlanInstall(hw, "", cfg, "")
-	if plan.IndexURL != "https://download.pytorch.org/whl/cu132" {
-		t.Fatalf("RTX 50 index URL = %q, want official cu132", plan.IndexURL)
+	if plan.IndexURL != "https://download.pytorch.org/whl/cu128" {
+		t.Fatalf("RTX 50 index URL = %q, want official cu128", plan.IndexURL)
 	}
-	wantPackages := []string{"torch==2.12.0", "torchvision", "torchaudio"}
+	wantPackages := []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
 	if !reflect.DeepEqual(plan.Packages, wantPackages) {
 		t.Fatalf("RTX 50 packages = %v, want %v", plan.Packages, wantPackages)
 	}
-	wantArgs := []string{"pip", "install", "torch==2.12.0", "torchvision", "torchaudio", "--index-url", plan.IndexURL}
+	wantArgs := []string{"pip", "install", "torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1", "--index-url", plan.IndexURL}
 	if got := InstallArgs(hw, "", cfg, ""); !reflect.DeepEqual(got, wantArgs) {
 		t.Fatalf("RTX 50 install args = %v, want %v", got, wantArgs)
 	}
 }
 
-func TestModernNVIDIAUsesTorch212CUDA132(t *testing.T) {
+func TestModernNVIDIAUsesTorch291CUDA128WithTorchaudio(t *testing.T) {
 	hw := Hardware{Vendor: "NVIDIA", Name: "NVIDIA GeForce RTX 4090"}
 	cfg := CUDAConfig{Global: "13.2", MinCUDAFor50x: "13.2"}
 	plan := PlanInstall(hw, "", cfg, "")
-	if plan.IndexURL != "https://download.pytorch.org/whl/cu132" {
-		t.Fatalf("RTX 40 index URL = %q, want official cu132", plan.IndexURL)
+	if plan.IndexURL != "https://download.pytorch.org/whl/cu128" {
+		t.Fatalf("RTX 40 index URL = %q, want official cu128", plan.IndexURL)
 	}
-	wantPackages := []string{"torch==2.12.0", "torchvision", "torchaudio"}
+	wantPackages := []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
 	if !reflect.DeepEqual(plan.Packages, wantPackages) {
 		t.Fatalf("RTX 40 packages = %v, want %v", plan.Packages, wantPackages)
 	}
@@ -126,24 +126,24 @@ func contains(items []string, want string) bool {
 }
 
 func TestInstalledSatisfiesCUDAPlan(t *testing.T) {
-	plan := InstallPlan{Backend: "cuda", EffectiveCUDA: "13.2"}
-	if !installedSatisfiesPlan(installedProbe{TorchVersion: "2.14.0.dev20260612+cu132", CUDA: "13.2"}, plan) {
-		t.Fatal("installedSatisfiesPlan() rejected matching CUDA 13.2 torch")
+	plan := InstallPlan{Backend: "cuda", EffectiveCUDA: "12.8"}
+	if !installedSatisfiesPlan(installedProbe{TorchVersion: "2.9.1+cu128", CUDA: "12.8"}, plan) {
+		t.Fatal("installedSatisfiesPlan() rejected matching CUDA 12.8 torch")
 	}
 	if installedSatisfiesPlan(installedProbe{TorchVersion: "2.12.0"}, plan) {
 		t.Fatal("installedSatisfiesPlan() accepted CPU-only torch for CUDA plan")
 	}
-	if installedSatisfiesPlan(installedProbe{TorchVersion: "2.14.0", CUDA: "12.8"}, plan) {
-		t.Fatal("installedSatisfiesPlan() accepted CUDA 12.8 torch for CUDA 13.2 plan")
+	if installedSatisfiesPlan(installedProbe{TorchVersion: "2.14.0", CUDA: "13.2"}, plan) {
+		t.Fatal("installedSatisfiesPlan() accepted CUDA 13.2 torch for CUDA 12.8 plan")
 	}
 }
 
 func TestParseInstalledProbeAllowsEmptyHIP(t *testing.T) {
-	probe, err := parseInstalledProbe(`{"torch":"2.14.0.dev20260612+cu132","cuda":"13.2","hip":""}`)
+	probe, err := parseInstalledProbe(`{"torch":"2.9.1+cu128","cuda":"12.8","hip":""}`)
 	if err != nil {
 		t.Fatalf("parseInstalledProbe() = %v, want nil", err)
 	}
-	if probe.TorchVersion != "2.14.0.dev20260612+cu132" || probe.CUDA != "13.2" || probe.HIP != "" {
+	if probe.TorchVersion != "2.9.1+cu128" || probe.CUDA != "12.8" || probe.HIP != "" {
 		t.Fatalf("parseInstalledProbe() = %+v, want CUDA torch with empty HIP", probe)
 	}
 }
