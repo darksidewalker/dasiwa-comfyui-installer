@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +15,19 @@ import (
 	"strings"
 	"time"
 )
+
+// dlClient has connection-level timeouts but NO body read timeout, so
+// multi-GB model downloads (T5 Encoder ~6.7 GB) cannot be interrupted.
+var dlClient = &http.Client{
+	Timeout: 0, // no overall timeout — body reads can take hours
+	Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	},
+}
 
 type LogFunc func(string)
 
@@ -202,7 +216,7 @@ func fetch(rawURL, dest string) error {
 		return err
 	}
 	req.Header.Set("User-Agent", "DaSiWa-Installer-Go/1.0")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := dlClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -225,7 +239,7 @@ func headInfo(rawURL string) (int64, string) {
 		return 0, ""
 	}
 	req.Header.Set("User-Agent", "DaSiWa-Installer-Go/1.0")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := dlClient.Do(req)
 	if err != nil {
 		return 0, ""
 	}

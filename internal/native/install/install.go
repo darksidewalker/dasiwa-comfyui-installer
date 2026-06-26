@@ -103,7 +103,9 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 	venv = runutil.EnvWithVenv(comfyPath, runner.Env)
 	selected := selectedDownloads(cfg.OptionalDownloads, choices, comfyPath)
 	if len(selected) > 0 {
-		_ = downloader.InstallSelectedWithFS(selected, comfyPath, root, installer.Files, func(s string) { log(logf, s) })
+		if err := downloader.InstallSelectedWithFS(selected, comfyPath, root, installer.Files, func(s string) { log(logf, s) }); err != nil {
+		log(logf, "Download error: "+err.Error())
+	}
 	}
 	cudaTarget := choices.CUDATarget
 	if cudaTarget == "" {
@@ -122,7 +124,9 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 		return err
 	}
 	if choices.WantFFmpeg {
-		_ = ffmpeg.Install(ctx, comfyPath, cfg.URLs["ffmpeg_windows"], logf)
+		if err := ffmpeg.Install(ctx, comfyPath, cfg.URLs["ffmpeg_windows"], logf); err != nil {
+			log(logf, "FFmpeg install error: "+err.Error())
+		}
 	}
 	nodeLines, err := resolveNodeLines(cfg)
 	if err != nil {
