@@ -42,7 +42,7 @@ handful of questions upfront, then handles everything else unattended:
 - Downloads and configures a **fully portable Python 3.12 environment** isolated inside your ComfyUI folder
 - Clones ComfyUI at the latest stable release tag or a specific version you choose
 - Detects your GPU and installs the **exact right PyTorch build** for your hardware
-- Optionally installs **SageAttention**, **FFmpeg**, and a curated set of **custom nodes**
+- Optionally installs **SageAttention**, **RadialAttention**, **FlashAttention**, **FFmpeg**, and a curated set of **custom nodes**
 - Creates a ready-to-launch `run_comfyui` starter in your ComfyUI folder
 - On subsequent runs, detects what's already installed and asks whether to update, refresh, or leave it alone
 
@@ -171,6 +171,38 @@ For modern NVIDIA cards, requested CUDA 13.x targets are normalized to the offic
 
 ---
 
+## RadialAttention
+
+RadialAttention is a sparse long-video attention optimization. The installer clones the ComfyUI-RadialAttn custom node and its SpargeAttn dependency, then installs them into the venv.
+
+---
+
+## FlashAttention
+
+FlashAttention is the official attention kernel library from Dao-AILab. It can provide significant speedups for compatible models and is Linux-only (no Windows wheels are published).
+
+**Installation strategies (in order):**
+
+1. **Official release wheel** — checks the [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) GitHub releases page for a prebuilt wheel matching your Torch version, CUDA tag, Python tag, and platform.
+2. **Community prebuilt wheels** — queries [mjun0812/flash-attention-prebuild-wheels](https://github.com/mjun0812/flash-attention-prebuild-wheels) for a compatible wheel, scoring candidates by platform type (`manylinux` preferred) and version recency.
+3. **PyPI binary-only** — attempts `uv pip install --only-binary flash-attn` with the latest PyPI version (fetched from `pypi.org`).
+4. **Source build** — clones the flash-attention repo and builds from source. Only attempted when the system has at least 96 GiB of combined RAM + swap, and both `nvcc` and `g++`/`clang++` are available.
+
+**Environment variable overrides:**
+
+| Variable | Default | Effect |
+| :------- | :------ | :----- |
+| `DASIWA_FLASH_ATTN_VERSION` | latest from PyPI (fallback `2.8.3`) | Pin a specific version |
+| `DASIWA_FLASH_ATTN_WHEEL_URL` | unset | Skip all resolution and install a specific wheel URL directly |
+| `DASIWA_FLASH_MAX_JOBS` | `2` | Parallel build jobs for source compilation |
+
+**Notes:**
+- FlashAttention is non-fatal: installation errors are logged but do not abort the ComfyUI install.
+- On Windows, the installer skips FlashAttention entirely with a log message.
+- If `flash_attn` is already importable in the venv, installation is skipped.
+
+---
+
 ## Custom Nodes
 
 Default nodes are configured in `config.json` under the `custom_nodes` array.
@@ -296,6 +328,7 @@ Only include the keys you want to change. Everything else inherits from `config.
 | `urls.sage_repo` | thu-ml/SageAttention | SageAttention source for the fallback build |
 | `urls.sparge_repo` | woct0rdho/SpargeAttn | SpargeAttention source for RadialAttention |
 | `urls.radial_node_repo` | woct0rdho/ComfyUI-RadialAttn | RadialAttention custom node repo |
+| `urls.flash_attn_repo` | Dao-AILab/flash-attention | FlashAttention source for the fallback build |
 | `urls.msvc_build_tools` | VS download page | Opened in-browser when MSVC is missing |
 | `optional_downloads` | — | Models and workflows offered in the web installer |
 

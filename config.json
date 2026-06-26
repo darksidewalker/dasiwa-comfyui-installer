@@ -15,6 +15,7 @@
         "sage_repo": "https://github.com/thu-ml/SageAttention.git",
         "sparge_repo": "https://github.com/woct0rdho/SpargeAttn.git",
         "radial_node_repo": "https://github.com/woct0rdho/ComfyUI-RadialAttn.git",
+        "flash_attn_repo": "https://github.com/Dao-AILab/flash-attention.git",
         "msvc_build_tools": "https://visualstudio.microsoft.com/visual-cpp-build-tools/",
         "ffmpeg_windows": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
     },

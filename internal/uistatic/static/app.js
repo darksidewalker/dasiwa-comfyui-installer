@@ -139,12 +139,25 @@ function sendHeartbeat() {
   }).catch(() => {});
 }
 
+function sendBrowserCloseSignal() {
+  if (isDesktopShell()) return;
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/api/browser-close", "");
+    return;
+  }
+  fetch("/api/browser-close", {
+    method: "POST",
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function startHeartbeat() {
   sendHeartbeat();
   setInterval(sendHeartbeat, 2000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") sendHeartbeat();
   });
+  window.addEventListener("pagehide", sendBrowserCloseSignal);
 }
 
 async function apiText(path) {
@@ -238,6 +251,7 @@ function buildPlan() {
     },
     want_sage: document.querySelector("#want_sage").checked,
     want_radial: document.querySelector("#want_radial").checked,
+    want_flash: document.querySelector("#want_flash").checked,
     want_ffmpeg: document.querySelector("#want_ffmpeg").checked,
     comfy_path: comfyPath || undefined,
     target_version: targetVersion || undefined,
@@ -273,6 +287,7 @@ function renderPhases(plan) {
     ["priority packages", true],
     ["sage", plan.want_sage],
     ["radial", plan.want_radial],
+    ["flash", plan.want_flash],
   ];
   phasePreview.textContent = "";
   phases.forEach(([name, enabled]) => {

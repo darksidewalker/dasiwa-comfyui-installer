@@ -18,6 +18,7 @@ import (
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/ffmpeg"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/launcher"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/nodes"
+	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/flashattn"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/radial"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/runutil"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/sage"
@@ -47,6 +48,7 @@ type Choices struct {
 	HW              torch.Hardware `json:"hw"`
 	WantSage        bool           `json:"want_sage"`
 	WantRadial      bool           `json:"want_radial"`
+	WantFlash       bool           `json:"want_flash"`
 	WantFFmpeg      bool           `json:"want_ffmpeg"`
 	WantCleanup     bool           `json:"want_cleanup"`
 	ComfyPath       string         `json:"comfy_path"`
@@ -150,6 +152,11 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 	if choices.WantRadial {
 		if err := radial.Install(ctx, venv.Env, comfyPath, cfg.URLs, logf); err != nil {
 			return err
+		}
+	}
+	if choices.WantFlash {
+		if err := flashattn.Install(ctx, venv.Env, comfyPath, cfg.URLs, logf); err != nil {
+			log(logf, "FlashAttention install error: "+err.Error())
 		}
 	}
 	if err := launcher.Create(comfyPath); err != nil {

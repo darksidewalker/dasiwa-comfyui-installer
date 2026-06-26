@@ -29,6 +29,12 @@ import (
 
 var version = "dev"
 
+const (
+	heartbeatInterval = 2 * time.Second
+	heartbeatStale    = 7 * time.Second
+	browserCloseGrace = 5 * time.Second
+)
+
 type appState struct {
 	ComfyExists  bool   `json:"comfy_exists"`
 	VenvExists   bool   `json:"venv_exists"`
@@ -121,6 +127,8 @@ type server struct {
 	lastHeartbeat    time.Time
 	heartbeatSeen    bool
 	closeAfterRun    bool
+	closeSignalMu    sync.Mutex
+	closeSignalSeq   int
 }
 
 func main() {
@@ -149,6 +157,7 @@ func main() {
 	mux.HandleFunc("/api/start", app.handleStart)
 	mux.HandleFunc("/api/logs", app.handleLogs)
 	mux.HandleFunc("/api/heartbeat", app.handleHeartbeat)
+	mux.HandleFunc("/api/browser-close", app.handleBrowserClose)
 	mux.HandleFunc("/api/quit", app.handleQuit)
 	mux.HandleFunc("/api/readme", app.handleEmbeddedText("README.md"))
 	mux.HandleFunc("/api/license", app.handleEmbeddedText("LICENSE"))
@@ -340,6 +349,20 @@ func (s *server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "ok"})
 }
 
+func (s *server) handleBrowserClose(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	signaledAt := time.Now()
+	s.closeSignalMu.Lock()
+	s.closeSignalSeq++
+	seq := s.closeSignalSeq
+	s.closeSignalMu.Unlock()
+	writeJSON(w, map[string]string{"status": "closing"})
+	go s.closeAfterGrace(seq, signaledAt, browserCloseGrace)
+}
+
 func (s *server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -393,30 +416,50 @@ func (s *server) setNotRunning() {
 }
 
 func (s *server) watchBrowserHeartbeat() {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(heartbeatInterval)
 	defer ticker.Stop()
-	const staleAfter = 7 * time.Second
 	for range ticker.C {
 		s.heartbeatMu.Lock()
 		seen := s.heartbeatSeen
-		stale := seen && time.Since(s.lastHeartbeat) > staleAfter
+		stale := seen && time.Since(s.lastHeartbeat) > heartbeatStale
 		s.heartbeatMu.Unlock()
 		if !stale {
 			continue
 		}
-		s.installMu.Lock()
-		running := s.running
-		if running {
-			s.closeAfterRun = true
-		}
-		s.installMu.Unlock()
-		if running {
-			s.logs.send("Browser tab closed; installer will quit after the current run finishes.")
-			return
-		}
-		go s.requestShutdown("Browser tab closed; shutting down installer.", false)
+		s.shutdownForLostBrowser("Browser tab closed; shutting down installer.")
 		return
 	}
+}
+
+func (s *server) closeAfterGrace(seq int, signaledAt time.Time, grace time.Duration) {
+	time.Sleep(grace)
+	s.closeSignalMu.Lock()
+	currentSeq := s.closeSignalSeq
+	s.closeSignalMu.Unlock()
+	if seq != currentSeq {
+		return
+	}
+	s.heartbeatMu.Lock()
+	reconnected := s.heartbeatSeen && s.lastHeartbeat.After(signaledAt)
+	s.heartbeatMu.Unlock()
+	if reconnected {
+		return
+	}
+	s.shutdownForLostBrowser("Browser tab closed; shutting down installer.")
+}
+
+func (s *server) shutdownForLostBrowser(reason string) {
+	s.installMu.Lock()
+	running := s.running
+	if running {
+		s.closeAfterRun = true
+	}
+	s.installMu.Unlock()
+	if running {
+		s.logs.send("Browser tab closed; installer will quit after the current run finishes.")
+		return
+	}
+	go s.requestShutdown(reason, false)
 }
 
 func (s *server) requestShutdown(reason string, immediate bool) {
