@@ -169,8 +169,8 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 			plan.IndexURL = "https://rocm.nightlies.amd.com/v2/gfx120X-all/"
 			plan.Packages = []string{"--pre", "torch", "torchvision", "torchaudio"}
 		default:
-			plan.IndexURL = whlURL + "rocm7.1"
-			plan.Packages = []string{"torch", "torchvision", "torchaudio"}
+			plan.IndexURL = "https://rocm.nightlies.amd.com/v2/gfx110X-all/"
+			plan.Packages = []string{"--pre", "torch", "torchvision", "torchaudio"}
 		}
 		return plan
 	}

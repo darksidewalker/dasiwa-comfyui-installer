@@ -27,7 +27,7 @@ func TestCU132MigrationSafetyMatrix(t *testing.T) {
 		effectiveCUDA string
 		indexContains string
 	}{
-		{name: "amd stable rocm", hw: Hardware{Vendor: "AMD", Name: "Radeon RX 6800 XT"}, backend: "rocm", indexContains: "rocm7.1"},
+		{name: "amd stable rocm", hw: Hardware{Vendor: "AMD", Name: "Radeon RX 6800 XT"}, backend: "rocm", indexContains: "gfx110X-all"},
 		{name: "amd gfx110 nightly", hw: Hardware{Vendor: "AMD", Name: "Radeon RX 7900 XTX GFX1100"}, backend: "rocm", indexContains: "gfx110X-all"},
 		{name: "intel xpu", hw: Hardware{Vendor: "INTEL", Name: "Intel Arc B580"}, backend: "xpu", indexContains: "/xpu"},
 		{name: "nvidia gtx 10 legacy", hw: Hardware{Vendor: "NVIDIA", Name: "GeForce GTX 1080 Ti"}, backend: "cuda", effectiveCUDA: "12.1", indexContains: "cu121"},

@@ -25,6 +25,53 @@ import (
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/torch"
 )
 
+// validatePythonVersion checks Python version and platform compatibility before torch installation.
+// Returns an error if the combination is known to fail, otherwise warns.
+func validatePythonVersion(pythonPath string, hw torch.Hardware, logf runutil.LogFunc) error {
+	// Get Python version from executable
+	versionOutput, err := runutil.Output(context.Background(), "", nil, pythonPath, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+	if err != nil {
+		return fmt.Errorf("could not determine Python version: %w", err)
+	}
+	
+	versionStr := strings.TrimSpace(versionOutput)
+	parts := strings.Split(versionStr, ".")
+	if len(parts) < 2 {
+		return fmt.Errorf("could not parse Python version: %s", versionStr)
+	}
+	
+	major := parts[0]
+	minor := parts[1]
+	
+	// Convert to int for comparison
+	var majorInt, minorInt int
+	fmt.Sscanf(major, "%d", &majorInt)
+	fmt.Sscanf(minor, "%d", &minorInt)
+	
+	vendor := strings.ToUpper(hw.Vendor)
+	
+	// Windows + AMD ROCm: PyTorch ROCm wheels are Linux-only (manylinux)
+	// Even with --pre flag on nightly indexes, no functional Windows wheels exist
+	if runtime.GOOS == "windows" && vendor == "AMD" {
+		errMsg := fmt.Sprintf("Windows + AMD ROCm is not supported: PyTorch ROCm wheels are Linux-only (manylinux_2_28_x86_64).\n"+
+			"You cannot use AMD GPUs with ComfyUI on Windows via PyTorch.\n"+
+			"Options:\n"+
+			"  1. Install WSL2 (Ubuntu) and run ComfyUI inside WSL2\n"+
+			"  2. Switch to NVIDIA GPU (CUDA is fully supported on Windows)\n"+
+			"  3. Use Intel Arc GPU with XPU backend (experimental)")
+		return fmt.Errorf("%s", errMsg)
+	}
+	
+	// Python 3.12+ on AMD ROCm: Limited support in nightly wheels
+	if vendor == "AMD" && majorInt == 3 && minorInt >= 12 {
+		logf("Warning: Python 3.12 detected. AMD ROCm nightly wheels may have limited 3.12 support.")
+		logf("If installation fails, downgrade to Python 3.11 and retry.")
+		// Don't block - some nightly builds may work
+	}
+	
+	return nil
+}
+
 type Config struct {
 	Python struct {
 		DisplayName string `json:"display_name"`
@@ -118,6 +165,9 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 		var cuTag string
 		pinTorch, cuTag = torchPlanForSage(cfg.Python.DisplayName, cudaTarget)
 		log(logf, "Using Torch "+pinTorch+" with "+cuTag+" for the SageAttention install plan.")
+	}
+	if err := validatePythonVersion(venv.Python, choices.HW, logf); err != nil {
+		return err
 	}
 	if err := torch.Install(ctx, venv.Env, choices.HW, cudaTarget, torch.CUDAConfig{Global: cfg.CUDA.Global, MinCUDAFor50x: cfg.CUDA.MinCUDAFor50x}, pinTorch, logf); err != nil {
 		return err
