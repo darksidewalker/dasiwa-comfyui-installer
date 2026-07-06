@@ -22,6 +22,7 @@ import (
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/bootstrap"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/comfypath"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/folderpick"
+	gpuinfo "github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/gpuinfo"
 	nativeinstall "github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/install"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/pathbrowser"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/uistatic"
@@ -511,84 +512,33 @@ func executableName(name string) string {
 }
 
 func detectHardware() hardwareReport {
-	var names []string
+	var gpus []gpuinfo.GPU
 	if runtime.GOOS == "windows" {
-		names = windowsGPUNameCandidates()
+		gpus = gpuinfo.DetectWindows()
 	} else {
-		names = unixGPUNameCandidates()
+		gpus = gpuinfo.DetectUnix()
 	}
 	best := hardwareReport{Vendor: "NVIDIA", Name: "Manual: NVIDIA Modern"}
 	bestWeight := -1
-	for _, name := range names {
-		vendor, weight := classifyGPU(name)
+	for _, gpu := range gpus {
+		vendor := gpuinfo.ClassifyVendor(gpu.Name)
+		weight := classifyGPUWeight(vendor)
 		if weight > bestWeight {
-			best = hardwareReport{Vendor: vendor, Name: name}
+			best = hardwareReport{Vendor: vendor, Name: gpu.Name}
 			bestWeight = weight
 		}
 	}
 	return best
 }
 
-func windowsGPUNameCandidates() []string {
-	cmd := exec.Command("powershell", "-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name")
-	out, err := cmd.Output()
-	if err != nil {
-		return nil
-	}
-	return splitNonEmptyLines(string(out))
-}
-
-func unixGPUNameCandidates() []string {
-	var names []string
-	if path, err := exec.LookPath("nvidia-smi"); err == nil {
-		cmd := exec.Command(path, "--query-gpu=name", "--format=csv,noheader")
-		if out, err := cmd.Output(); err == nil {
-			names = append(names, splitNonEmptyLines(string(out))...)
-		}
-	}
-	if path, err := exec.LookPath("lspci"); err == nil {
-		cmd := exec.Command(path)
-		if out, err := cmd.Output(); err == nil {
-			for _, line := range splitNonEmptyLines(string(out)) {
-				up := strings.ToUpper(line)
-				if strings.Contains(up, "VGA") || strings.Contains(up, "3D") || strings.Contains(up, "DISPLAY") {
-					parts := strings.SplitN(line, ": ", 2)
-					if len(parts) == 2 {
-						names = append(names, strings.TrimSpace(parts[1]))
-					} else {
-						names = append(names, line)
-					}
-				}
-			}
-		}
-	}
-	return names
-}
-
-func splitNonEmptyLines(text string) []string {
-	var lines []string
-	for _, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			lines = append(lines, line)
-		}
-	}
-	return lines
-}
-
-func classifyGPU(name string) (string, int) {
-	up := strings.ToUpper(name)
-	switch {
-	case strings.Contains(up, "NVIDIA"):
-		return "NVIDIA", 3
-	case strings.Contains(up, "AMD") || strings.Contains(up, "RADEON"):
-		return "AMD", 2
-	case strings.Contains(up, "ARC"):
-		return "INTEL", 2
-	case strings.Contains(up, "INTEL"):
-		return "INTEL", 1
+func classifyGPUWeight(vendor string) int {
+	switch vendor {
+	case "NVIDIA":
+		return 3
+	case "AMD", "INTEL":
+		return 2
 	default:
-		return "NVIDIA", 0
+		return 0
 	}
 }
 
