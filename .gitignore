@@ -21,3 +21,10 @@ Thumbs.db
 *.hash
 .version_hash
 install.zip
+
+# AI coding tools
+.codex
+.codex/**
+
+# Compiled installers (rebuildable)
+dasiwa-installer-*
