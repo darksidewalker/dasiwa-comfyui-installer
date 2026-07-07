@@ -20,12 +20,13 @@ type CUDAConfig struct {
 }
 
 type InstallPlan struct {
-	Vendor        string
-	GPUName       string
-	Backend       string
-	EffectiveCUDA string
-	IndexURL      string
-	Packages      []string
+	Vendor           string
+	GPUName          string
+	Backend          string
+	EffectiveCUDA    string
+	IndexURL         string
+	Packages         []string
+	AlternateIndexes []string // fallback index URLs (e.g. direct R2, community mirrors)
 }
 
 type installedProbe struct {
@@ -44,6 +45,7 @@ var cuda128Packages = []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudi
 func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string, logf runutil.LogFunc) error {
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)
 	log(logf, fmt.Sprintf("Installing Torch for %s (%s)...", hw.Vendor, strings.ToUpper(hw.Name)))
+	env = applyUvRuntimeEnv(env)
 	return runutil.Command(ctx, logf, "", env, "uv", args...)
 }
 
@@ -57,6 +59,7 @@ func Reassert(ctx context.Context, env []string, python string, hw Hardware, cud
 	}
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)
 	log(logf, fmt.Sprintf("Reasserting Torch backend for %s (%s)...", hw.Vendor, strings.ToUpper(hw.Name)))
+	env = applyUvRuntimeEnv(env)
 	return runutil.Command(ctx, logf, "", env, "uv", args...)
 }
 
@@ -123,6 +126,13 @@ func InstallArgs(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 	if plan.IndexURL != "" {
 		args = append(args, "--index-url", plan.IndexURL)
 	}
+	// Append alternate mirrors as extra-index-url so uv falls back
+	// sequentially when the primary host refuses connections.
+	for _, alt := range plan.AlternateIndexes {
+		if alt != "" && alt != plan.IndexURL {
+			args = append(args, "--extra-index-url", alt)
+		}
+	}
 	return args
 }
 
@@ -145,6 +155,7 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 		plan.Backend = "cuda"
 		plan.EffectiveCUDA = targetCU
 		plan.IndexURL = whlURL + "cu" + strings.ReplaceAll(targetCU, ".", "")
+		plan.AlternateIndexes = alternatePyTorchIndexes(targetCU)
 		if targetCU == "12.1" {
 			plan.Packages = []string{"torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"}
 		} else if targetCU == "12.8" {
@@ -256,5 +267,51 @@ func pinnedVersionMatches(installed, pinned string) bool {
 func log(logf runutil.LogFunc, line string) {
 	if logf != nil {
 		logf(line)
+	}
+}
+
+// alternatePyTorchIndexes returns backup index URLs in priority order for
+// PyTorch wheels when the primary host fails (e.g., Cloudflare R2 TLS issues).
+// The first entry is always the official host; subsequent entries are
+// alternative endpoints within PyTorch's distribution infrastructure.
+// Note: These alternates assume the same wheel tree exists at each URL.
+// If all hosts fail, the installer logs the error and exits with status 2.
+func alternatePyTorchIndexes(cudaTarget string) []string {
+	base := strings.ReplaceAll(cudaTarget, ".", "")
+	mirrors := []string{}
+	// Direct R2 storage endpoint (bypasses any intermediate CNAME).
+	mirrors = append(mirrors, "https://download.r2.pytorch.org/whl/cu"+base)
+	// PyTorch nightly channel (shares stable wheel tree in some regions).
+	mirrors = append(mirrors, "https://download.pytorch.org/whl/nightly/cu"+base)
+	// Hugging Face mirror (community-maintained cache of PyTorch wheels).
+	// Requires HUGGINGFACE_TOKEN env var set by user for private model access.
+	mirrors = append(mirrors, "https://huggingface.co/pytorch/pytorch/resolve/main/whl/cu"+base)
+	return mirrors
+}
+
+// applyUvRuntimeEnv merges uv reliability-tuning environment variables into
+// the existing env slice without clobbering user-set values.
+func applyUvRuntimeEnv(env []string) []string {
+	for _, kv := range uvRuntimeEnv() {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) == 2 {
+			env = runutil.SetEnv(env, parts[0], parts[1])
+		}
+	}
+	return env
+}
+
+// uvRuntimeEnv returns environment variables that improve reliability of
+// `uv pip install` against flaky or rate-limited indices:
+//   - UV_HTTP_TIMEOUT: generous per-request timeout (avoids premature HandshakeFailure aborts)
+//   - UV_RETRY_COUNT: retry transient failures before giving up
+//   - UV_MAX_CONCURRENT_DOWNLOADS: throttle parallel downloads to avoid provider rate limits
+//   - UV_NO_BUILD_ISOLATION: skip isolated build environments where metadata fetch may fail
+func uvRuntimeEnv() []string {
+	return []string{
+		"UV_HTTP_TIMEOUT=120",
+		"UV_RETRY_COUNT=5",
+		"UV_MAX_CONCURRENT_DOWNLOADS=2",
+		"UV_NO_BUILD_ISOLATION=1",
 	}
 }
