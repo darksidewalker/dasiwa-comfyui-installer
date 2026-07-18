@@ -39,7 +39,7 @@ var PriorityPackages = []string{
 	"setuptools==81.0.0",
 }
 
-var cuda128Packages = []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
+var cuda130Packages = []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
 
 func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string, logf runutil.LogFunc) error {
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)
@@ -149,8 +149,8 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 		plan.IndexURL = whlURL + "cu" + strings.ReplaceAll(targetCU, ".", "")
 		if targetCU == "12.1" {
 			plan.Packages = []string{"torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"}
-		} else if targetCU == "12.8" {
-			plan.Packages = append([]string(nil), cuda128Packages...)
+		} else if targetCU == "13.0" {
+			plan.Packages = append([]string(nil), cuda130Packages...)
 		} else if pinTorch != "" {
 			plan.Packages = []string{"torch==" + pinTorch, "torchvision", "torchaudio"}
 		} else {
@@ -211,7 +211,11 @@ func PriorityInstallArgs(wantSage bool, isWindows bool, pinTorch string, hw Hard
 
 func effectiveNVIDIACUDA(target string) string {
 	if strings.HasPrefix(target, "13.") {
-		return "12.8"
+		// PyTorch publishes a complete Python 3.12 Linux/Windows package set
+		// (torch, torchvision, and torchaudio) for cu130. CUDA 13.2 lacks a
+		// matching torchaudio wheel, while the CUDA 13.x toolkits can compile
+		// extensions against the cu130 wheel family with a minor-version warning.
+		return "13.0"
 	}
 	return target
 }

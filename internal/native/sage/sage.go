@@ -41,13 +41,13 @@ func PlanWindowsTorch(pythonDisplay, cudaTarget string) (string, string) {
 		cuMM = parts[0] + "." + parts[1]
 	}
 	if strings.HasPrefix(cuMM, "13.") {
-		cuMM = "12.8"
+		cuMM = "13.0"
 	}
 	cuTag := "cu" + strings.ReplaceAll(cuMM, ".", "")
 	pyMM := strings.Join(firstN(strings.Split(pythonDisplay, "."), 2), ".")
 	fallback := map[string]string{
-		"3.12|12.8": "2.9.1", "3.13|12.8": "2.9.1",
-		"3.11|12.8": "2.9.1", "3.10|12.8": "2.9.1",
+		"3.12|13.0": "2.9.1", "3.13|13.0": "2.9.1",
+		"3.11|13.0": "2.9.1", "3.10|13.0": "2.9.1",
 	}
 	pin := fallback[pyMM+"|"+cuMM]
 	if pin == "" {
@@ -111,6 +111,14 @@ func installWindows(ctx context.Context, venv runutil.Venv, logf runutil.LogFunc
 }
 
 func sourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, urls map[string]string, logf runutil.LogFunc) error {
+	probe, err := ProbeTorch(ctx, venv.Python)
+	if err != nil {
+		return fmt.Errorf("failed to probe torch before SageAttention source build: %w", err)
+	}
+	if cuda, ok := cudahost.ProbeNVCC(ctx); ok && skipCUDA13MinorMismatch(probe.CUDA, cuda) {
+		log(logf, fmt.Sprintf("Skipping SageAttention source build: CUDA toolkit %d.%d cannot compile PyTorch CUDA %s headers with nvcc. A matching SageAttention wheel is required.", cuda.Major, cuda.Minor, probe.CUDA))
+		return nil
+	}
 	repoURL := urls["sage_repo"]
 	if repoURL == "" {
 		repoURL = "https://github.com/thu-ml/SageAttention.git"
@@ -131,7 +139,10 @@ func sourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, urls 
 	buildEnv = runutil.SetEnv(buildEnv, "MAX_JOBS", envDefault("DASIWA_SAGE_MAX_JOBS", "2"))
 	buildEnv = runutil.SetEnv(buildEnv, "EXT_PARALLEL", envDefault("DASIWA_SAGE_EXT_PARALLEL", "2"))
 	buildEnv = runutil.SetEnv(buildEnv, "NVCC_APPEND_FLAGS", envDefault("DASIWA_SAGE_NVCC_THREADS", "--threads 4"))
-	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--python", venv.Python, ".")
+	buildEnv = runutil.SetEnv(buildEnv, "TORCH_DONT_CHECK_COMPILER_ABI", "1")
+	// Preserve the selected Torch/Triton stack; do not resolve dependencies while
+	// installing this local source tree.
+	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--no-deps", "--python", venv.Python, ".")
 }
 
 func ProbeTorch(ctx context.Context, python string) (TorchProbe, error) {
@@ -312,6 +323,15 @@ func cudaMajor(version string) int {
 	}
 	major, _ := strconv.Atoi(parts[0])
 	return major
+}
+
+func skipCUDA13MinorMismatch(torchCUDA string, toolkit cudahost.CUDAVersion) bool {
+	parts := strings.Split(torchCUDA, ".")
+	if len(parts) < 2 || toolkit.Major != 13 || parts[0] != "13" {
+		return false
+	}
+	minor, err := strconv.Atoi(parts[1])
+	return err == nil && toolkit.Minor != minor
 }
 
 func ResolveHFWheel(ctx context.Context, pythonVersion, goos string) (string, error) {

@@ -106,6 +106,7 @@ func installSpargeLinux(ctx context.Context, venv runutil.Venv, comfyPath string
 	if res.Status == "incompatible" {
 		return errors.New(cudahost.Hint(res))
 	}
+	buildEnv = runutil.SetEnv(buildEnv, "TORCH_DONT_CHECK_COMPILER_ABI", "1")
 	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--python", venv.Python, ".")
 }
 

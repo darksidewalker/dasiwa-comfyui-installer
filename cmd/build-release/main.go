@@ -82,7 +82,7 @@ func checkCUDAMigration(candidate string) error {
 	cfg := torch.CUDAConfig{Global: candidate, MinCUDAFor50x: candidate}
 	nvidiaCUDA := candidate
 	if strings.HasPrefix(nvidiaCUDA, "13.") {
-		nvidiaCUDA = "12.8"
+		nvidiaCUDA = "13.0"
 	}
 	cuTag := "cu" + strings.ReplaceAll(nvidiaCUDA, ".", "")
 	cases := []cudaMigrationCase{
@@ -180,15 +180,24 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	out, err := os.CreateTemp(filepath.Dir(dst), "."+filepath.Base(dst)+".tmp-*")
 	if err != nil {
+		return err
+	}
+	tmpPath := out.Name()
+	defer os.Remove(tmpPath)
+	if err := out.Chmod(info.Mode()); err != nil {
+		_ = out.Close()
 		return err
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		_ = out.Close()
 		return err
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, dst)
 }
 
 func samePath(a, b string) bool {

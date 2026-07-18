@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	packageName            = "flash_attn"
-	pypiName               = "flash-attn"
-	defaultReleaseVersion  = "2.8.3"
-	prebuildReleasesAPI    = "https://api.github.com/repos/mjun0812/flash-attention-prebuild-wheels/releases?per_page=100"
-	minBuildMemoryBytes    = 96 * 1024 * 1024 * 1024 // 96 GiB
+	packageName           = "flash_attn"
+	pypiName              = "flash-attn"
+	defaultReleaseVersion = "2.8.3"
+	prebuildReleasesAPI   = "https://api.github.com/repos/mjun0812/flash-attention-prebuild-wheels/releases?per_page=100"
+	minBuildMemoryBytes   = 96 * 1024 * 1024 * 1024 // 96 GiB
 )
 
 type TorchInfo struct {
@@ -115,7 +115,7 @@ func installFromPyPI(ctx context.Context, venv runutil.Venv, logf runutil.LogFun
 	version := getFlashAttentionVersion(logf)
 	spec := pypiName + "==" + version
 	log(logf, "Installing "+spec+" from PyPI (binary only)...")
-	if err := runutil.Command(ctx, logf, "", venv.Env, "uv", "pip", "install", "--only-binary", spec, "--python", venv.Python); err != nil {
+	if err := runutil.Command(ctx, logf, "", venv.Env, "uv", pypiBinaryInstallArgs(version, venv.Python)...); err != nil {
 		return err
 	}
 	if IsInstalled(ctx, venv.Python) {
@@ -124,10 +124,14 @@ func installFromPyPI(ctx context.Context, venv runutil.Venv, logf runutil.LogFun
 	}
 	// Try without version pin
 	log(logf, "Versioned install failed; trying unpinned...")
-	if err := runutil.Command(ctx, logf, "", venv.Env, "uv", "pip", "install", "--only-binary", pypiName, "--python", venv.Python); err != nil {
+	if err := runutil.Command(ctx, logf, "", venv.Env, "uv", "pip", "install", "--only-binary", pypiName, "--python", venv.Python, pypiName); err != nil {
 		return err
 	}
 	return nil
+}
+
+func pypiBinaryInstallArgs(version, python string) []string {
+	return []string{"pip", "install", "--only-binary", pypiName, "--python", python, pypiName + "==" + version}
 }
 
 func tryOfficialWheel(ctx context.Context, venv runutil.Venv, info TorchInfo, logf runutil.LogFunc) error {
@@ -170,13 +174,20 @@ func trySourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, ur
 	if repoURL == "" {
 		repoURL = "https://github.com/Dao-AILab/flash-attention.git"
 	}
+	version := getFlashAttentionVersion(logf)
+	tag := "v" + version
 	dir := filepath.Join(comfyPath, "flash-attention")
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := runutil.Command(ctx, logf, "", os.Environ(), "git", "clone", "--depth", "1", repoURL, dir); err != nil {
+		if err := runutil.Command(ctx, logf, "", os.Environ(), "git", sourceCloneArgs(repoURL, tag, dir)...); err != nil {
 			return err
 		}
 	} else {
-		_ = runutil.Command(ctx, logf, dir, os.Environ(), "git", "pull", "--ff-only")
+		if err := runutil.Command(ctx, logf, dir, os.Environ(), "git", sourceFetchTagArgs(tag)...); err != nil {
+			return fmt.Errorf("fetch FlashAttention source tag %s: %w", tag, err)
+		}
+		if err := runutil.Command(ctx, logf, dir, os.Environ(), "git", "checkout", "--detach", tag); err != nil {
+			return fmt.Errorf("check out FlashAttention source tag %s: %w", tag, err)
+		}
 	}
 
 	buildEnv, res := cudahost.ApplyToEnv(ctx, venv.Env, logf)
@@ -185,12 +196,17 @@ func trySourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, ur
 		return nil
 	}
 
-	version := getFlashAttentionVersion(logf)
-	// Check out the specific version tag
-	_ = runutil.Command(ctx, logf, dir, os.Environ(), "git", "checkout", "v"+version)
-
 	buildEnv = runutil.SetEnv(buildEnv, "MAX_JOBS", envDefault("DASIWA_FLASH_MAX_JOBS", "2"))
+	buildEnv = runutil.SetEnv(buildEnv, "TORCH_DONT_CHECK_COMPILER_ABI", "1")
 	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--python", venv.Python, ".")
+}
+
+func sourceCloneArgs(repoURL, tag, dir string) []string {
+	return []string{"clone", "--depth", "1", "--branch", tag, repoURL, dir}
+}
+
+func sourceFetchTagArgs(tag string) []string {
+	return []string{"fetch", "--depth", "1", "origin", "tag", tag}
 }
 
 // --- Torch probing ---
@@ -269,8 +285,8 @@ func officialWheelURL(version string, info TorchInfo) (string, string) {
 }
 
 type wheelCandidate struct {
-	Name string
-	URL  string
+	Name   string
+	URL    string
 	Source string
 }
 
@@ -293,7 +309,7 @@ func findPrebuiltWheel(ctx context.Context, info TorchInfo) (wheelCandidate, err
 
 	var releases []struct {
 		TagName string `json:"tag_name"`
-		Assets []struct {
+		Assets  []struct {
 			Name               string `json:"name"`
 			BrowserDownloadURL string `json:"browser_download_url"`
 		} `json:"assets"`
