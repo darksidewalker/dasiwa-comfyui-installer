@@ -107,7 +107,11 @@ func installSpargeLinux(ctx context.Context, venv runutil.Venv, comfyPath string
 		return errors.New(cudahost.Hint(res))
 	}
 	buildEnv = runutil.SetEnv(buildEnv, "TORCH_DONT_CHECK_COMPILER_ABI", "1")
-	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--python", venv.Python, ".")
+	return runutil.Command(ctx, logf, dir, buildEnv, "uv", sourceInstallArgs(venv.Python)...)
+}
+
+func sourceInstallArgs(python string) []string {
+	return []string{"pip", "install", "--no-build-isolation", "--no-deps", "--python", python, "."}
 }
 
 func installRadialNode(ctx context.Context, env []string, comfyPath string, urls map[string]string, logf runutil.LogFunc) error {

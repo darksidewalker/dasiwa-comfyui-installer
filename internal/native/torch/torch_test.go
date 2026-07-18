@@ -64,32 +64,32 @@ func TestGTX10StaysOnLegacyTorch(t *testing.T) {
 	}
 }
 
-func TestRTX50UsesInstallableCUDA130TorchWithTorchaudio(t *testing.T) {
+func TestRTX50UsesLatestCompleteCUDA130TorchStack(t *testing.T) {
 	hw := Hardware{Vendor: "NVIDIA", Name: "NVIDIA GeForce RTX 5090"}
 	cfg := CUDAConfig{Global: "13.2", MinCUDAFor50x: "13.2"}
 	plan := PlanInstall(hw, "", cfg, "")
 	if plan.IndexURL != "https://download.pytorch.org/whl/cu130" {
 		t.Fatalf("RTX 50 index URL = %q, want official cu130", plan.IndexURL)
 	}
-	wantPackages := []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
+	wantPackages := []string{"torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"}
 	if !reflect.DeepEqual(plan.Packages, wantPackages) {
 		t.Fatalf("RTX 50 packages = %v, want %v", plan.Packages, wantPackages)
 	}
-	wantPrefix := []string{"pip", "install", "torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1", "--index-url", plan.IndexURL}
+	wantPrefix := []string{"pip", "install", "torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0", "--index-url", plan.IndexURL}
 	got := InstallArgs(hw, "", cfg, "")
 	if !reflect.DeepEqual(got, wantPrefix) {
 		t.Fatalf("RTX 50 install args = %v, want %v", got, wantPrefix)
 	}
 }
 
-func TestModernNVIDIAUsesTorch291CUDA130WithTorchaudio(t *testing.T) {
+func TestModernNVIDIAUsesLatestCompleteCUDA130TorchStack(t *testing.T) {
 	hw := Hardware{Vendor: "NVIDIA", Name: "NVIDIA GeForce RTX 4090"}
 	cfg := CUDAConfig{Global: "13.2", MinCUDAFor50x: "13.2"}
 	plan := PlanInstall(hw, "", cfg, "")
 	if plan.IndexURL != "https://download.pytorch.org/whl/cu130" {
 		t.Fatalf("RTX 40 index URL = %q, want official cu130", plan.IndexURL)
 	}
-	wantPackages := []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
+	wantPackages := []string{"torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"}
 	if !reflect.DeepEqual(plan.Packages, wantPackages) {
 		t.Fatalf("RTX 40 packages = %v, want %v", plan.Packages, wantPackages)
 	}
@@ -109,14 +109,14 @@ func TestPriorityInstallDoesNotResolveTorchDependencies(t *testing.T) {
 }
 
 func TestPinnedPriorityInstallUsesEffectiveCUDAIndexWithoutDeps(t *testing.T) {
-	args := PriorityInstallArgs(true, true, "2.9.1", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 5090"}, "13.2")
+	args := PriorityInstallArgs(true, true, "2.11.0", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 5090"}, "13.2")
 	if !contains(args, "--no-deps") {
 		t.Fatalf("pinned priority install args = %v, want --no-deps", args)
 	}
-	if !contains(args, "torch==2.9.1") {
+	if !contains(args, "torch==2.11.0") {
 		t.Fatalf("pinned priority install args = %v, want exact pinned Torch", args)
 	}
-	if !contains(args, "triton-windows>=3.5,<3.6") {
+	if !contains(args, "triton-windows>=3.6,<3.7") {
 		t.Fatalf("pinned priority install args = %v, want Sage-compatible triton-windows", args)
 	}
 	if !contains(args, "https://download.pytorch.org/whl/cu130") {

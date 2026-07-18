@@ -46,12 +46,12 @@ func PlanWindowsTorch(pythonDisplay, cudaTarget string) (string, string) {
 	cuTag := "cu" + strings.ReplaceAll(cuMM, ".", "")
 	pyMM := strings.Join(firstN(strings.Split(pythonDisplay, "."), 2), ".")
 	fallback := map[string]string{
-		"3.12|13.0": "2.9.1", "3.13|13.0": "2.9.1",
-		"3.11|13.0": "2.9.1", "3.10|13.0": "2.9.1",
+		"3.12|13.0": "2.11.0", "3.13|13.0": "2.11.0",
+		"3.11|13.0": "2.11.0", "3.10|13.0": "2.11.0",
 	}
 	pin := fallback[pyMM+"|"+cuMM]
 	if pin == "" {
-		pin = "2.9.1"
+		pin = "2.11.0"
 	}
 	return pin, cuTag
 }

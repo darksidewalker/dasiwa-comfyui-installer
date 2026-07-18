@@ -39,7 +39,11 @@ var PriorityPackages = []string{
 	"setuptools==81.0.0",
 }
 
-var cuda130Packages = []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
+// PyTorch 2.11 is the newest stable cu130 release with a matching torchaudio
+// wheel on both Python 3.12 and 3.13. Newer cu130/cu132 Torch releases do not
+// publish a matching torchaudio package, so selecting them produces a mixed,
+// unsupported stack for ComfyUI audio nodes.
+var cuda130Packages = []string{"torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"}
 
 func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string, logf runutil.LogFunc) error {
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)

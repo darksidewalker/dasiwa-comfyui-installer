@@ -11,8 +11,8 @@ func TestPlanSageTorchUsesCUDA130ForCUDA13Requests(t *testing.T) {
 	if cuTag != "cu130" {
 		t.Fatalf("PlanWindowsTorch() CUDA tag = %q, want cu130", cuTag)
 	}
-	if pin != "2.9.1" {
-		t.Fatalf("PlanWindowsTorch() pin = %q, want 2.9.1", pin)
+	if pin != "2.11.0" {
+		t.Fatalf("PlanWindowsTorch() pin = %q, want 2.11.0", pin)
 	}
 }
 
@@ -21,8 +21,8 @@ func TestPlanSageTorchNormalizesWindowsCUDA13Plan(t *testing.T) {
 	if cuTag != "cu130" {
 		t.Fatalf("PlanWindowsTorch() CUDA tag = %q, want cu130", cuTag)
 	}
-	if pin != "2.9.1" {
-		t.Fatalf("PlanWindowsTorch() pin = %q, want 2.9.1", pin)
+	if pin != "2.11.0" {
+		t.Fatalf("PlanWindowsTorch() pin = %q, want 2.11.0", pin)
 	}
 }
 

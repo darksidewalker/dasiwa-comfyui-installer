@@ -198,7 +198,11 @@ func trySourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, ur
 
 	buildEnv = runutil.SetEnv(buildEnv, "MAX_JOBS", envDefault("DASIWA_FLASH_MAX_JOBS", "2"))
 	buildEnv = runutil.SetEnv(buildEnv, "TORCH_DONT_CHECK_COMPILER_ABI", "1")
-	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--python", venv.Python, ".")
+	return runutil.Command(ctx, logf, dir, buildEnv, "uv", sourceInstallArgs(venv.Python)...)
+}
+
+func sourceInstallArgs(python string) []string {
+	return []string{"pip", "install", "--no-build-isolation", "--no-deps", "--python", python, "."}
 }
 
 func sourceCloneArgs(repoURL, tag, dir string) []string {
