@@ -32,6 +32,31 @@ func TestCloseAfterGraceKeepsServerAliveAfterReconnect(t *testing.T) {
 	}
 }
 
+func TestBrokerSubscribeReplaysLargeHistoryWithoutBlocking(t *testing.T) {
+	logs := newBroker()
+	for i := 0; i < 200; i++ {
+		logs.send("previous log line")
+	}
+
+	done := make(chan struct{})
+	var history []string
+	var ch chan string
+	go func() {
+		history, ch = logs.subscribe()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("subscribe blocked while replaying history")
+	}
+	defer logs.remove(ch)
+	if len(history) != 200 {
+		t.Fatalf("replayed history has %d lines, want 200", len(history))
+	}
+}
+
 func eventuallyLogContains(logs *broker, needle string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for {

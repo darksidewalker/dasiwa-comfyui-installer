@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -54,6 +55,7 @@ type LatestFile struct {
 }
 
 var hfBlobRE = regexp.MustCompile(`^(https?://(?:[^/]+\.)?huggingface\.co/[^/]+/[^/]+)/blob/`)
+var workflowRevisionRE = regexp.MustCompile(`-(\d+)\.json$`)
 
 var binaryExts = map[string]struct{}{
 	".safetensors": {}, ".ckpt": {}, ".pt": {}, ".pth": {}, ".bin": {}, ".gguf": {}, ".onnx": {},
@@ -167,30 +169,52 @@ func InstallSelectedWithFS(items []Item, comfyPath, root string, embedded fs.FS,
 
 func GetLatestGithubFile(repoPath, folder string) (*LatestFile, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
-	commitsURL := fmt.Sprintf("https://api.github.com/repos/%s/commits?path=%s&per_page=1", repoPath, url.PathEscape(folder))
-	var commits []struct {
-		SHA string `json:"sha"`
-	}
-	if err := getJSON(client, commitsURL, &commits); err != nil {
-		return nil, err
-	}
-	if len(commits) == 0 {
-		return nil, errors.New("no commits found for folder")
-	}
 	contentsURL := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", repoPath, folder)
-	var contents []struct {
-		Name        string `json:"name"`
-		DownloadURL string `json:"download_url"`
-	}
+	var contents []githubContentFile
 	if err := getJSON(client, contentsURL, &contents); err != nil {
 		return nil, err
 	}
-	for _, file := range contents {
-		if strings.HasSuffix(file.Name, ".json") {
-			return &LatestFile{Name: file.Name, DownloadURL: file.DownloadURL}, nil
+	file, err := selectLatestJSONFile(contents)
+	if err != nil {
+		return nil, err
+	}
+	return &LatestFile{Name: file.Name, DownloadURL: file.DownloadURL}, nil
+}
+
+type githubContentFile struct {
+	Name        string `json:"name"`
+	DownloadURL string `json:"download_url"`
+}
+
+func selectLatestJSONFile(files []githubContentFile) (githubContentFile, error) {
+	var latest githubContentFile
+	latestRevision := -1
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name, ".json") || file.DownloadURL == "" {
+			continue
+		}
+		revision := workflowRevision(file.Name)
+		if latest.Name == "" || revision > latestRevision || (revision == latestRevision && file.Name > latest.Name) {
+			latest = file
+			latestRevision = revision
 		}
 	}
-	return nil, errors.New("no json file found in latest folder")
+	if latest.Name == "" {
+		return githubContentFile{}, errors.New("no json file found in latest folder")
+	}
+	return latest, nil
+}
+
+func workflowRevision(name string) int {
+	matches := workflowRevisionRE.FindStringSubmatch(name)
+	if len(matches) != 2 {
+		return -1
+	}
+	revision, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return -1
+	}
+	return revision
 }
 
 func getJSON(client *http.Client, rawURL string, out any) error {

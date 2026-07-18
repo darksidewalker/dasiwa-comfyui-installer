@@ -83,15 +83,13 @@ func newBroker() *broker {
 	return &broker{clients: make(map[chan string]struct{})}
 }
 
-func (b *broker) add() chan string {
+func (b *broker) subscribe() ([]string, chan string) {
 	ch := make(chan string, 128)
 	b.mu.Lock()
-	for _, line := range b.history {
-		ch <- line
-	}
+	history := append([]string(nil), b.history...)
 	b.clients[ch] = struct{}{}
 	b.mu.Unlock()
-	return ch
+	return history, ch
 }
 
 func (b *broker) remove(ch chan string) {
@@ -324,8 +322,12 @@ func (s *server) handleLogs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
-	ch := s.logs.add()
+	history, ch := s.logs.subscribe()
 	defer s.logs.remove(ch)
+	for _, line := range history {
+		fmt.Fprintf(w, "data: %s\n\n", line)
+	}
+	flusher.Flush()
 
 	for {
 		select {

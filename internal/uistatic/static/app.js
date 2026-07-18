@@ -579,6 +579,12 @@ function handleLogLine(line) {
   } else if (line.startsWith("ERROR:") || line.includes("exited with error")) {
     statusEl.textContent = "Install failed";
     startBtn.disabled = false;
+  } else if (
+    line.includes("Starting installer...") ||
+    line.includes("Using native Go install engine...")
+  ) {
+    statusEl.textContent = "Installer running";
+    startBtn.disabled = true;
   }
 }
 
@@ -589,6 +595,11 @@ function attachLogs() {
   }
   const events = new EventSource("/api/logs");
   events.onmessage = (event) => handleLogLine(event.data);
+  events.onopen = () => {
+    if (statusEl.textContent === "Log stream disconnected") {
+      statusEl.textContent = "Log stream reconnected";
+    }
+  };
   events.onerror = () => {
     statusEl.textContent = "Log stream disconnected";
   };
