@@ -116,8 +116,7 @@ func sourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, urls 
 		return fmt.Errorf("failed to probe torch before SageAttention source build: %w", err)
 	}
 	if cuda, ok := cudahost.ProbeNVCC(ctx); ok && skipCUDA13MinorMismatch(probe.CUDA, cuda) {
-		log(logf, fmt.Sprintf("Skipping SageAttention source build: CUDA toolkit %d.%d cannot compile PyTorch CUDA %s headers with nvcc. A matching SageAttention wheel is required.", cuda.Major, cuda.Minor, probe.CUDA))
-		return nil
+		log(logf, fmt.Sprintf("CUDA toolkit %d.%d differs from PyTorch CUDA %s; attempting the SageAttention source build with a compatible host compiler.", cuda.Major, cuda.Minor, probe.CUDA))
 	}
 	repoURL := urls["sage_repo"]
 	if repoURL == "" {

@@ -33,3 +33,14 @@ func TestSelectLatestJSONFileUsesNameWhenNoRevisionExists(t *testing.T) {
 		t.Fatalf("selectLatestJSONFile() = %q, want lexically latest fallback", got.Name)
 	}
 }
+
+func TestRawGitHubURLUsesHeadAndEscapesWorkflowPath(t *testing.T) {
+	got, err := rawGitHubURL("darksidewalker/dasiwa-comfyui-workflows", "C-AiO", "DaSiWa Workflow 85.json")
+	if err != nil {
+		t.Fatalf("rawGitHubURL() error = %v", err)
+	}
+	want := "https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-workflows/HEAD/C-AiO/DaSiWa%20Workflow%2085.json"
+	if got != want {
+		t.Fatalf("rawGitHubURL() = %q, want %q", got, want)
+	}
+}

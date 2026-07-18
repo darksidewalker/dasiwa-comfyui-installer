@@ -102,6 +102,7 @@ type Choices struct {
 	TargetVersion   string         `json:"target_version"`
 	CUDATarget      string         `json:"cuda_target"`
 	Downloads       string         `json:"downloads"`
+	DownloadIndices []int          `json:"download_indices"`
 	DownloadNames   []string       `json:"download_names"`
 	ConfigOverrides map[string]any `json:"config_overrides"`
 }
@@ -236,21 +237,28 @@ func loadConfig(root string, choices Choices) (Config, error) {
 }
 
 func selectedDownloads(items []downloader.Item, choices Choices, comfyPath string) []downloader.Item {
-	missing := downloader.FilterMissing(items, comfyPath)
 	if strings.EqualFold(choices.Downloads, "all") {
-		return missing
+		return downloader.FilterMissing(items, comfyPath)
+	}
+	var requested []downloader.Item
+	for _, index := range choices.DownloadIndices {
+		if index >= 0 && index < len(items) {
+			requested = append(requested, items[index])
+		}
+	}
+	if len(requested) > 0 {
+		return downloader.FilterMissing(requested, comfyPath)
 	}
 	wanted := map[string]struct{}{}
 	for _, name := range choices.DownloadNames {
 		wanted[name] = struct{}{}
 	}
-	var selected []downloader.Item
-	for _, item := range missing {
+	for _, item := range items {
 		if _, ok := wanted[item.Name]; ok {
-			selected = append(selected, item)
+			requested = append(requested, item)
 		}
 	}
-	return selected
+	return downloader.FilterMissing(requested, comfyPath)
 }
 
 func resolveComfyPath(root, selected string) string {

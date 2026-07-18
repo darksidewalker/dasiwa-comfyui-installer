@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -171,14 +173,83 @@ func GetLatestGithubFile(repoPath, folder string) (*LatestFile, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	contentsURL := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", repoPath, folder)
 	var contents []githubContentFile
-	if err := getJSON(client, contentsURL, &contents); err != nil {
+	if err := getJSON(client, contentsURL, &contents); err == nil {
+		file, err := selectLatestJSONFile(contents)
+		if err != nil {
+			return nil, err
+		}
+		return &LatestFile{Name: file.Name, DownloadURL: file.DownloadURL}, nil
+	} else if fallback, fallbackErr := getLatestGithubFileViaGit(repoPath, folder); fallbackErr == nil {
+		return fallback, nil
+	} else {
+		return nil, fmt.Errorf("GitHub API lookup failed (%v); git fallback failed: %w", err, fallbackErr)
+	}
+}
+
+func getLatestGithubFileViaGit(repoPath, folder string) (*LatestFile, error) {
+	if !safeRepositoryPath(repoPath) || !safeRelativePath(folder) {
+		return nil, errors.New("invalid GitHub repository or workflow folder")
+	}
+	dir, err := os.MkdirTemp("", "dasiwa-workflow-")
+	if err != nil {
 		return nil, err
 	}
-	file, err := selectLatestJSONFile(contents)
+	defer os.RemoveAll(dir)
+	if err := runGit(dir, "clone", "--depth", "1", "--filter=blob:none", "--sparse", "https://github.com/"+repoPath+".git", dir); err != nil {
+		return nil, err
+	}
+	if err := runGit(dir, "-C", dir, "sparse-checkout", "set", "--no-cone", folder); err != nil {
+		return nil, err
+	}
+	if err := runGit(dir, "-C", dir, "checkout"); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, filepath.FromSlash(folder)))
+	if err != nil {
+		return nil, err
+	}
+	files := make([]githubContentFile, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		rawURL, err := rawGitHubURL(repoPath, folder, entry.Name())
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, githubContentFile{Name: entry.Name(), DownloadURL: rawURL})
+	}
+	file, err := selectLatestJSONFile(files)
 	if err != nil {
 		return nil, err
 	}
 	return &LatestFile{Name: file.Name, DownloadURL: file.DownloadURL}, nil
+}
+
+func runGit(dir string, args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func rawGitHubURL(repoPath, folder, filename string) (string, error) {
+	if !safeRepositoryPath(repoPath) || !safeRelativePath(folder) || filename == "" || strings.Contains(filename, "/") || strings.Contains(filename, `\\`) {
+		return "", errors.New("invalid GitHub workflow path")
+	}
+	return (&url.URL{Scheme: "https", Host: "raw.githubusercontent.com", Path: path.Join(repoPath, "HEAD", folder, filename)}).String(), nil
+}
+
+func safeRepositoryPath(value string) bool {
+	parts := strings.Split(value, "/")
+	return len(parts) == 2 && parts[0] != "" && parts[1] != "" && !strings.ContainsAny(value, `\\ `)
+}
+
+func safeRelativePath(value string) bool {
+	return value != "" && !strings.HasPrefix(value, "/") && !strings.Contains(value, `\\`) && !strings.Contains(value, "..")
 }
 
 type githubContentFile struct {
