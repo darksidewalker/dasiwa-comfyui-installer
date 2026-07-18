@@ -17,18 +17,8 @@ func TestInstallArgsMatchInstallPlan(t *testing.T) {
 	if !reflect.DeepEqual(got[:len(want)], want) {
 		t.Fatalf("InstallArgs() initial segment drifted from PlanInstall():\n got %v\nwant %v", got, want)
 	}
-	// Verify alternate indexes are appended as --extra-index-url.
-	for i := 0; i < len(plan.AlternateIndexes); i++ {
-		idx := len(want) + i*2
-		if idx+1 >= len(got) {
-			t.Fatalf("not enough extra-index-url slots: got %d args, expected at least %d", len(got), idx+2)
-		}
-		if got[idx] != "--extra-index-url" {
-			t.Fatalf("expected '--extra-index-url' at position %d, got %q", idx, got[idx])
-		}
-		if got[idx+1] != plan.AlternateIndexes[i] {
-			t.Fatalf("alternate index mismatch at position %d: got %q, want %q", idx+1, got[idx+1], plan.AlternateIndexes[i])
-		}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("InstallArgs() drifted from PlanInstall():\n got %v\nwant %v", got, want)
 	}
 }
 
@@ -81,25 +71,14 @@ func TestRTX50UsesInstallableCUDA128TorchWithTorchaudio(t *testing.T) {
 	if plan.IndexURL != "https://download.pytorch.org/whl/cu128" {
 		t.Fatalf("RTX 50 index URL = %q, want official cu128", plan.IndexURL)
 	}
-	if len(plan.AlternateIndexes) == 0 {
-		t.Fatal("RTX 50 should have alternate indexes configured")
-	}
 	wantPackages := []string{"torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1"}
 	if !reflect.DeepEqual(plan.Packages, wantPackages) {
 		t.Fatalf("RTX 50 packages = %v, want %v", plan.Packages, wantPackages)
 	}
-	// Initial segment must match the basic install command.
 	wantPrefix := []string{"pip", "install", "torch==2.9.1", "torchvision==0.24.1", "torchaudio==2.9.1", "--index-url", plan.IndexURL}
 	got := InstallArgs(hw, "", cfg, "")
-	if !reflect.DeepEqual(got[:len(wantPrefix)], wantPrefix) {
-		t.Fatalf("RTX 50 install prefix args = %v, want %v", got[:len(wantPrefix)], wantPrefix)
-	}
-	// Verify alternate indexes are appended.
-	for i := 0; i < len(plan.AlternateIndexes); i++ {
-		idx := len(wantPrefix) + i*2
-		if got[idx] != "--extra-index-url" || got[idx+1] != plan.AlternateIndexes[i] {
-			t.Fatalf("alternate index mismatch at position %d: got [%q %q], want [--extra-index-url %q]", idx, got[idx], got[idx+1], plan.AlternateIndexes[i])
-		}
+	if !reflect.DeepEqual(got, wantPrefix) {
+		t.Fatalf("RTX 50 install args = %v, want %v", got, wantPrefix)
 	}
 }
 

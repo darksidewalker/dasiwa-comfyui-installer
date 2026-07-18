@@ -20,13 +20,12 @@ type CUDAConfig struct {
 }
 
 type InstallPlan struct {
-	Vendor           string
-	GPUName          string
-	Backend          string
-	EffectiveCUDA    string
-	IndexURL         string
-	Packages         []string
-	AlternateIndexes []string // fallback index URLs (e.g. direct R2, community mirrors)
+	Vendor        string
+	GPUName       string
+	Backend       string
+	EffectiveCUDA string
+	IndexURL      string
+	Packages      []string
 }
 
 type installedProbe struct {
@@ -126,13 +125,6 @@ func InstallArgs(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 	if plan.IndexURL != "" {
 		args = append(args, "--index-url", plan.IndexURL)
 	}
-	// Append alternate mirrors as extra-index-url so uv falls back
-	// sequentially when the primary host refuses connections.
-	for _, alt := range plan.AlternateIndexes {
-		if alt != "" && alt != plan.IndexURL {
-			args = append(args, "--extra-index-url", alt)
-		}
-	}
 	return args
 }
 
@@ -155,7 +147,6 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 		plan.Backend = "cuda"
 		plan.EffectiveCUDA = targetCU
 		plan.IndexURL = whlURL + "cu" + strings.ReplaceAll(targetCU, ".", "")
-		plan.AlternateIndexes = alternatePyTorchIndexes(targetCU)
 		if targetCU == "12.1" {
 			plan.Packages = []string{"torch==2.4.1", "torchvision==0.19.1", "torchaudio==2.4.1"}
 		} else if targetCU == "12.8" {
@@ -268,25 +259,6 @@ func log(logf runutil.LogFunc, line string) {
 	if logf != nil {
 		logf(line)
 	}
-}
-
-// alternatePyTorchIndexes returns backup index URLs in priority order for
-// PyTorch wheels when the primary host fails (e.g., Cloudflare R2 TLS issues).
-// The first entry is always the official host; subsequent entries are
-// alternative endpoints within PyTorch's distribution infrastructure.
-// Note: These alternates assume the same wheel tree exists at each URL.
-// If all hosts fail, the installer logs the error and exits with status 2.
-func alternatePyTorchIndexes(cudaTarget string) []string {
-	base := strings.ReplaceAll(cudaTarget, ".", "")
-	mirrors := []string{}
-	// Direct R2 storage endpoint (bypasses any intermediate CNAME).
-	mirrors = append(mirrors, "https://download.r2.pytorch.org/whl/cu"+base)
-	// PyTorch nightly channel (shares stable wheel tree in some regions).
-	mirrors = append(mirrors, "https://download.pytorch.org/whl/nightly/cu"+base)
-	// Hugging Face mirror (community-maintained cache of PyTorch wheels).
-	// Requires HUGGINGFACE_TOKEN env var set by user for private model access.
-	mirrors = append(mirrors, "https://huggingface.co/pytorch/pytorch/resolve/main/whl/cu"+base)
-	return mirrors
 }
 
 // applyUvRuntimeEnv merges uv reliability-tuning environment variables into

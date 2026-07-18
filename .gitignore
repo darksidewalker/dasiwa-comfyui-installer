@@ -6,7 +6,6 @@ venv/
 .venv/
 
 # Installer Temps
-dist/
 .dasiwa/
 .dasiwa-app-plan.json
 
