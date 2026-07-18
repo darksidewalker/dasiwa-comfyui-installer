@@ -1,6 +1,7 @@
 package sage
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -139,9 +140,52 @@ func sourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, urls 
 	buildEnv = runutil.SetEnv(buildEnv, "EXT_PARALLEL", envDefault("DASIWA_SAGE_EXT_PARALLEL", "2"))
 	buildEnv = runutil.SetEnv(buildEnv, "NVCC_APPEND_FLAGS", envDefault("DASIWA_SAGE_NVCC_THREADS", "--threads 4"))
 	buildEnv = runutil.SetEnv(buildEnv, "TORCH_DONT_CHECK_COMPILER_ABI", "1")
+	if err := patchTorchHeaderForGCC14(ctx, venv, logf); err != nil {
+		return err
+	}
 	// Preserve the selected Torch/Triton stack; do not resolve dependencies while
 	// installing this local source tree.
 	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--no-deps", "--python", venv.Python, ".")
+}
+
+const (
+	torchListHeaderOld = "static_cast<typename decltype(impl_->list)::difference_type>"
+	torchListHeaderNew = "static_cast<typename c10::detail::ListImpl::list_type::difference_type>"
+)
+
+// patchTorchHeaderForGCC14 applies the upstream List_inl.h correction before
+// compiling CUDA extensions. The Torch 2.11 cu130 header form is rejected by
+// nvcc's GCC 14 host pass even though ordinary C++ accepts it.
+func patchTorchHeaderForGCC14(ctx context.Context, venv runutil.Venv, logf runutil.LogFunc) error {
+	out, err := runutil.Output(ctx, "", venv.Env, venv.Python, "-c", "import pathlib, torch; print(pathlib.Path(torch.__file__).parent / 'include' / 'ATen' / 'core' / 'List_inl.h')")
+	if err != nil {
+		return fmt.Errorf("could not locate the PyTorch List_inl.h header: %w", err)
+	}
+	path := strings.TrimSpace(out)
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("could not read PyTorch List_inl.h at %s: %w", path, err)
+	}
+	patched, changed := patchTorchListHeader(contents)
+	if !changed {
+		return nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("could not stat PyTorch List_inl.h at %s: %w", path, err)
+	}
+	if err := os.WriteFile(path, patched, info.Mode()); err != nil {
+		return fmt.Errorf("could not apply the PyTorch CUDA extension header compatibility patch: %w", err)
+	}
+	log(logf, "Patched PyTorch List_inl.h for the CUDA 13/GCC 14 SageAttention build.")
+	return nil
+}
+
+func patchTorchListHeader(contents []byte) ([]byte, bool) {
+	if !bytes.Contains(contents, []byte(torchListHeaderOld)) {
+		return contents, false
+	}
+	return bytes.Replace(contents, []byte(torchListHeaderOld), []byte(torchListHeaderNew), 1), true
 }
 
 func ProbeTorch(ctx context.Context, python string) (TorchProbe, error) {

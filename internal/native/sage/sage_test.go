@@ -42,3 +42,15 @@ func TestSkipCUDA13MinorMismatch(t *testing.T) {
 		}
 	}
 }
+
+func TestPatchTorchListHeaderForGCC14(t *testing.T) {
+	const old = "return {impl_->list.begin() + static_cast<typename decltype(impl_->list)::difference_type>(pos)};"
+	const want = "return {impl_->list.begin() + static_cast<typename c10::detail::ListImpl::list_type::difference_type>(pos)};"
+	got, changed := patchTorchListHeader([]byte(old))
+	if !changed {
+		t.Fatal("patchTorchListHeader() did not patch the known Torch 2.11 header expression")
+	}
+	if string(got) != want {
+		t.Fatalf("patchTorchListHeader() = %q, want %q", got, want)
+	}
+}
