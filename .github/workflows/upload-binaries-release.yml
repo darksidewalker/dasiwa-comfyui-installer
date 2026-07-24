@@ -6,6 +6,7 @@ on:
     paths:
       - 'dasiwa-installer-linux-amd64'
       - 'dasiwa-installer-windows-amd64.exe'
+  workflow_dispatch:
 
 jobs:
   upload:
