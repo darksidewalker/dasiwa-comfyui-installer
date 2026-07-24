@@ -52,31 +52,61 @@
         "version": "latest"
     },
     {
-        "name": "DaSiWa Hybrid C-WLTX App Workflow",
+        "name": "DaSiWa C-TI2I Image Workflows",
         "type": "user/default/workflows",
         "repo_path": "darksidewalker/dasiwa-comfyui-workflows",
-        "folder": "C-WLTX",
+        "folder": "C-TI2I",
         "version": "latest"
     },
     {
-        "name": "WAN 2.1 VAE",
+        "name": "WAN 2.1 VAE (for WAN 2.2 14b)",
         "type": "models/vae/WAN",
         "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     },
     {
-        "name": "T5 Encoder", 
+        "name": "WAN 2.2 T5 Encoder",
         "type": "models/text_encoders", 
         "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
     },
-        {
-        "name": "LTX23 Audio VAE", 
-        "type": "models/text_encoders", 
+    {
+        "name": "LTX 2.3 Gemma3 12b Text Encoder",
+        "type": "models/text_encoders",
+        "url": "https://huggingface.co/DreamFast/gemma-3-12b-it-heretic-v2/resolve/main/comfyui/gemma-3-12b-it-heretic-v2_int8.safetensors"
+    },
+    {
+        "name": "LTX 2.3 Text Projection",
+        "type": "models/text_encoders",
+        "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/text_encoders/ltx-2.3_text_projection_bf16.safetensors"
+    },
+    {
+        "name": "LTX 2.3 Audio VAE",
+        "type": "models/vae/LTX2/",
         "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_audio_vae_bf16.safetensors"
     },
     {
-        "name": "LTX23 Video VAE", 
-        "type": "models/text_encoders", 
+        "name": "LTX 2.3 Video VAE",
+        "type": "models/vae/LTX2/",
         "url": "https://huggingface.co/Kijai/LTX2.3_comfy/resolve/main/vae/LTX23_video_vae_bf16.safetensors"
+    },
+    {
+        "name": "LTX 2.3 DMD Distillation LoRA",
+        "type": "models/loras/LTX2/Dist/",
+        "url": "https://huggingface.co/darksidewalker/DaSiWa-LTX2.3/resolve/main/Lora/LTX2.3_DMD_v2_avgrank86_audio160_L80-D20.safetensors"
+    },
+    {
+        "name": "Krea2 Qwen3 VL 4b Text Encoder",
+        "type": "models/text_encoders",
+        "url": "https://huggingface.co/Comfy-Org/Qwen3-VL/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors"
+    },
+    {
+        "name": "ANIMA Qwen3 0.6b Text Encoder",
+        "type": "models/text_encoders",
+        "url": "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors"
+    },
+    {
+        "name": "Krea2 & ANIMA VAE",
+        "type": "models/vae/QwenImage/",
+        "url": "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors"
     },
     {
         "name": "Interpolation Model Rife 4.26",
