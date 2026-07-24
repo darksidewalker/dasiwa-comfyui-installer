@@ -1,0 +1,43 @@
+name: Upload Binaries to Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dasiwa-installer-linux-amd64'
+      - 'dasiwa-installer-windows-amd64.exe'
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure latest release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view latest --json id --quiet 2>/dev/null; then
+            gh release create latest \
+              --target main \
+              --title "latest" \
+              --notes "Auto-managed release for latest binaries" \
+              --prerelease
+          fi
+
+      - name: Upload binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Remove old assets with matching names
+          for asset in dasiwa-installer-linux-amd64 dasiwa-installer-windows-amd64.exe; do
+            gh release delete-assets latest "$asset" --yes 2>/dev/null || true
+          done
+
+          # Upload new ones (only if present)
+          [[ -f dasiwa-installer-linux-amd64 ]] && \
+            gh release upload latest dasiwa-installer-linux-amd64 --clobber
+          [[ -f dasiwa-installer-windows-amd64.exe ]] && \
+            gh release upload latest dasiwa-installer-windows-amd64.exe --clobber
