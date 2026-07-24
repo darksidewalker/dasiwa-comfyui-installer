@@ -63,15 +63,16 @@ it directly:
 
 On Windows, double-click `dasiwa-installer-windows-amd64.exe`.
 
-If you want a direct download from the latest GitHub release:
+If you want a direct download from GitHub:
 
 ```bash
 curl -L -o dasiwa-installer-linux-amd64 \
-  https://github.com/darksidewalker/dasiwa-comfyui-installer/releases/latest/download/dasiwa-installer-linux-amd64
+  https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/dasiwa-installer-linux-amd64
+chmod +x dasiwa-installer-linux-amd64
 ```
 
 ```powershell
-$u='https://github.com/darksidewalker/dasiwa-comfyui-installer/releases/latest/download/dasiwa-installer-windows-amd64.exe'; $o='dasiwa-installer-windows-amd64.exe'; if (Get-Command curl.exe -ErrorAction SilentlyContinue) { curl.exe -fL --retry 5 --retry-delay 2 -o $o $u } else { Start-BitsTransfer -Source $u -Destination $o }
+$u='https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/dasiwa-installer-windows-amd64.exe'; $o='dasiwa-installer-windows-amd64.exe'; if (Get-Command curl.exe -ErrorAction SilentlyContinue) { curl.exe -fL --retry 5 --retry-delay 2 -o $o $u } else { Start-BitsTransfer -Source $u -Destination $o }
 ```
 
 The app opens a local browser page and runs the native Go install engine. The
