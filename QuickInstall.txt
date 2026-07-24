@@ -1,18 +1,37 @@
 Quick Install
-The release binaries are the simplest path for most users. Download the file for your OS, put it in the folder where you want the installer state to live, and run it directly:
+=============
+Single binary, zero dependencies. Download, run, done.
 
-Linux: ./dasiwa-installer-linux-amd64
+Download
+--------
+Put the binary in the folder where you want the installer state to live.
 
-Windows: dasiwa-installer-windows-amd64.exe
+Linux:
 
-./dasiwa-installer-linux-amd64
-On Windows, double-click dasiwa-installer-windows-amd64.exe.
+    curl -L -o dasiwa-installer-linux-amd64 \
+      https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/dasiwa-installer-linux-amd64
+    chmod +x dasiwa-installer-linux-amd64
 
-If you want a direct download from GitHub:
+Windows (PowerShell):
 
-curl -L -o dasiwa-installer-linux-amd64 \
-  https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/dasiwa-installer-linux-amd64
-chmod +x dasiwa-installer-linux-amd64
-$u='https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/dasiwa-installer-windows-amd64.exe'; $o='dasiwa-installer-windows-amd64.exe'; if (Get-Command curl.exe -ErrorAction SilentlyContinue) { curl.exe -fL --retry 5 --retry-delay 2 -o $o $u } else { Start-BitsTransfer -Source $u -Destination $o }
-The app opens a local browser page and runs the native Go install engine. The UI, default config, placeholder assets, README, and license are embedded in the binary, so users do not need Python scripts, shell scripts, PowerShell scripts, config.json, a node-list text file, or a cloned copy of this repository next to the executable. On first run it creates a local .dasiwa/ bootstrap directory for uv, the managed Python runtime, and cache files, then keeps all ComfyUI packages inside ComfyUI/venv/.
+    $u='https://raw.githubusercontent.com/darksidewalker/dasiwa-comfyui-installer/main/dasiwa-installer-windows-amd64.exe'
+    $o='dasiwa-installer-windows-amd64.exe'
+    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+        curl.exe -fL --retry 5 --retry-delay 2 -o $o $u
+    } else {
+        Start-BitsTransfer -Source $u -Destination $o
+    }
 
+Run
+---
+Linux:     ./dasiwa-installer-linux-amd64
+Windows:   double-click dasiwa-installer-windows-amd64.exe
+
+What happens
+------------
+The app opens a local browser page and runs the native Go install engine.
+Everything -- UI, config, assets, README, license -- is embedded in the
+binary. No Python, no pip, no config.json, no cloned repo needed.
+
+On first run it creates a local .dasiwa/ directory for uv, the managed Python
+runtime, and cache files. All ComfyUI packages stay inside ComfyUI/venv/.
