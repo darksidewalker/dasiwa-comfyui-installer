@@ -26,7 +26,6 @@
         "https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes",
         "https://github.com/Lightricks/ComfyUI-LTXVideo",
         "https://github.com/WhatDreamsCost/WhatDreamsCost-ComfyUI",
-        "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
         "https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit"
     ],
     "optional_downloads": [
@@ -56,6 +55,13 @@
         "type": "user/default/workflows",
         "repo_path": "darksidewalker/dasiwa-comfyui-workflows",
         "folder": "C-TI2I",
+        "version": "latest"
+    },
+    {
+        "name": "DaSiWa MiniMax H3 C-MMH3 Workflows",
+        "type": "user/default/workflows",
+        "repo_path": "darksidewalker/dasiwa-comfyui-workflows",
+        "folder": "C-MMH3",
         "version": "latest"
     },
     {
