@@ -186,7 +186,7 @@
                     </section>
 
                     <section class="panel card compact">
-                        <div class="section-head row">
+                        <div class="section-head">
                             <div>
                                 <h2>4. Components</h2>
                                 <p class="hint">
@@ -194,16 +194,34 @@
                                     already present.
                                 </p>
                             </div>
-                            <button
-                                type="button"
-                                class="hint-q"
-                                title="ComfyUI ships a built-in attention backend (since v0.32.0) called Comfy Kitchen Attention — an advanced superset of Sage Attention. Enable it with --use-ck-attention or the ModelAttentionBackend node. Docs: docs.comfy.org/changelog"
-                                aria-label="Comfy Kitchen Attention hint"
-                            >
-                                ?
-                            </button>
                         </div>
                         <div class="choice-grid components">
+                            <div
+                                class="ck-hint"
+                                title="ComfyUI (v0.32.0+) ships Comfy Kitchen Attention built-in — an advanced, superset-style attention backend covering what SageAttention offers. Nothing to install here: enable it with the --use-ck-attention startup flag or the ModelAttentionBackend node. Docs: docs.comfy.org/changelog"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="ck_attention_info"
+                                    checked
+                                    disabled
+                                />
+                                <span
+                                    ><b>Comfy Kitchen Attention</b
+                                    ><small
+                                        >built into ComfyUI ≥ v0.32.0 — no install
+                                        needed</small
+                                    ></span
+                                >
+                                <button
+                                    type="button"
+                                    class="hint-q"
+                                    title="Open ComfyUI changelog (Comfy Kitchen Attention entry)"
+                                    aria-label="Comfy Kitchen Attention docs"
+                                >
+                                    ?
+                                </button>
+                            </div>
                             <label
                                 ><input type="checkbox" id="want_sage" /><span
                                     ><b>SageAttention</b

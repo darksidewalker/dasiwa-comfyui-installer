@@ -235,6 +235,24 @@ small {
     color: #fff3d1;
     border-color: rgba(255, 209, 102, 0.7);
 }
+.ck-hint {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid rgba(255, 209, 102, 0.45);
+    border-radius: 13px;
+    background: rgba(255, 209, 102, 0.08);
+}
+.ck-hint span {
+    min-width: 0;
+}
+.ck-hint .hint-q {
+    margin-left: auto;
+}
+.ck-hint input[type="checkbox"] {
+    accent-color: var(--warn);
+    opacity: 0.9;
+}
 .field-grid {
     display: grid;
     gap: 7px;
