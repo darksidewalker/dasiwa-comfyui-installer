@@ -186,7 +186,7 @@
                     </section>
 
                     <section class="panel card compact">
-                        <div class="section-head">
+                        <div class="section-head row">
                             <div>
                                 <h2>4. Components</h2>
                                 <p class="hint">
@@ -194,14 +194,18 @@
                                     already present.
                                 </p>
                             </div>
+                            <button
+                                type="button"
+                                class="hint-q"
+                                title="ComfyUI ships a built-in attention backend (since v0.32.0) called Comfy Kitchen Attention — an advanced superset of Sage Attention. Enable it with --use-ck-attention or the ModelAttentionBackend node. Docs: docs.comfy.org/changelog"
+                                aria-label="Comfy Kitchen Attention hint"
+                            >
+                                ?
+                            </button>
                         </div>
                         <div class="choice-grid components">
                             <label
-                                ><input
-                                    type="checkbox"
-                                    id="want_sage"
-                                    checked
-                                /><span
+                                ><input type="checkbox" id="want_sage" /><span
                                     ><b>SageAttention</b
                                     ><small
                                         >faster NVIDIA attention kernels</small

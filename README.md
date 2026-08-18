@@ -83,19 +83,29 @@ to the executable. On first run it creates a local `.dasiwa/` bootstrap director
 for `uv`, the managed Python runtime, and cache files, then keeps all ComfyUI
 packages inside `ComfyUI/venv/`.
 
-To build standalone app binaries:
+To build standalone app binaries, use the build script:
 
 ```bash
-go run ./cmd/build-release --version 2.0.0
+./build.sh            # version auto-detected via `git describe`
+./build.sh 2.0.0     # or pin a specific version
 ```
 
-This creates binaries in `dist/` and mirrors them to the repository root:
+This cross-builds the Windows and Linux installer binaries into `dist/` and
+mirrors each one to the repository (app) root, so the runnable binaries always
+sit at the top level:
 
 ```text
 dist/dasiwa-installer-windows-amd64.exe
 dist/dasiwa-installer-linux-amd64
 dasiwa-installer-windows-amd64.exe
 dasiwa-installer-linux-amd64
+```
+
+Equivalently, run the Go release builder directly (`--out` controls the
+primary output directory; the root mirror is a separate step in `build.sh`):
+
+```bash
+go run ./cmd/build-release --version 2.0.0
 ```
 
 Those binaries can be copied into an empty install folder and launched directly.

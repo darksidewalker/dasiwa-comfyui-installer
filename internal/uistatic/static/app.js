@@ -656,6 +656,10 @@ document.querySelector("#clearLog").addEventListener("click", () => {
   logEl.textContent = "";
 });
 
+document.querySelector(".hint-q").addEventListener("click", () => {
+  window.open("https://docs.comfy.org/changelog", "_blank", "noopener");
+});
+
 document.querySelector("#readmeBtn").addEventListener("click", async () => {
   try {
     await openDoc("README", "/api/readme");
