@@ -192,7 +192,8 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 
 func PriorityInstallArgs(wantSage bool, isWindows bool, pinTorch string, hw Hardware, cudaTarget string) []string {
 	packages := append([]string{}, PriorityPackages...)
-	if wantSage {
+	wantTriton := wantSage || (isWindows && strings.ToUpper(hw.Vendor) == "NVIDIA")
+	if wantTriton {
 		if isWindows {
 			packages = append(packages, windowsTritonSpec(pinTorch))
 		} else {
