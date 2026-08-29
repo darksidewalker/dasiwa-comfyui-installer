@@ -281,8 +281,20 @@
                             </button>
                         </div>
                     </div>
-                    <div id="downloadsList" class="downloads-list">
-                        <p class="hint">Loading optional downloads…</p>
+                    <div id="downloadsBody" class="downloads-body">
+                        <div id="downloadsList" class="downloads-list">
+                            <p class="hint">Loading optional downloads…</p>
+                        </div>
+                        <div class="downloads-fade" id="downloadsFade"></div>
+                        <button
+                            id="toggleDownloads"
+                            class="downloads-toggle"
+                            type="button"
+                            aria-expanded="false"
+                            title="Show all optional downloads"
+                        >
+                            <span class="toggle-arrow" aria-hidden="true">▾</span>
+                        </button>
                     </div>
                 </section>
 

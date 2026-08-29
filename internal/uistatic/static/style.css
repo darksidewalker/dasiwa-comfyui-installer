@@ -368,13 +368,78 @@ input[type="radio"] {
     color: var(--text);
     font-weight: 800;
 }
+.downloads-body {
+    position: relative;
+}
 .downloads-list {
+    position: relative;
     display: grid;
     grid-template-columns: 1fr;
     gap: 7px;
     max-height: calc(100vh - 188px);
     overflow: auto;
     padding-right: 2px;
+    transition: max-height 0.4s ease;
+}
+.downloads-list.collapsed {
+    max-height: 156px;
+    overflow: hidden;
+    padding-right: 0;
+}
+.downloads-list:not(.collapsed) {
+    padding-bottom: 34px; /* keep scrolled rows clear of the floating toggle */
+}
+.downloads-fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 30px;
+    height: 96px;
+    pointer-events: none;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        color-mix(in srgb, var(--panel) 55%, transparent) 45%,
+        var(--panel) 82%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.downloads-body.previewing .downloads-fade {
+    opacity: 1;
+}
+.downloads-toggle {
+    position: absolute;
+    left: 50%;
+    bottom: 6px;
+    transform: translateX(-50%);
+    z-index: 3;
+    width: 46px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--panel-2));
+    color: var(--text);
+    font-size: 13px;
+    box-shadow:
+        0 0 12px rgba(112, 225, 200, 0.35),
+        0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.downloads-toggle:hover {
+    background: var(--panel-3);
+    box-shadow:
+        0 0 16px rgba(112, 225, 200, 0.55),
+        0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.downloads-toggle .toggle-arrow {
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+.downloads-body:not(.previewing) .downloads-toggle .toggle-arrow {
+    transform: rotate(180deg);
 }
 .download-item {
     margin: 0;

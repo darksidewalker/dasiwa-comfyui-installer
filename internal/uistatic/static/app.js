@@ -5,6 +5,8 @@ const logEl = document.querySelector("#log");
 const startBtn = document.querySelector("#startBtn");
 const wipeConfirm = document.querySelector("#wipeConfirm");
 const downloadsList = document.querySelector("#downloadsList");
+const downloadsBody = document.querySelector("#downloadsBody");
+const downloadsToggle = document.querySelector("#toggleDownloads");
 const phasePreview = document.querySelector("#phasePreview");
 const planBadge = document.querySelector("#planBadge");
 const docDialog = document.querySelector("#docDialog");
@@ -182,6 +184,47 @@ function selectedDownloadChoices() {
   );
 }
 
+let downloadsExpanded = false;
+
+// Preview: N rows fully visible, the next row half-visible under a soft
+// fade; the chevron expands the list in place to show everything.
+function layoutDownloads() {
+  const items = downloadsList.querySelectorAll(".download-item");
+  const fade = document.querySelector("#downloadsFade");
+  const showToggle = items.length > 4;
+  downloadsToggle.classList.toggle("hidden", !showToggle);
+  if (!showToggle || downloadsExpanded) {
+    downloadsList.classList.remove("collapsed");
+    downloadsList.style.maxHeight = "";
+    downloadsBody.classList.remove("previewing");
+    return;
+  }
+  // Row step = one item height + grid gap (measured from the live DOM).
+  let step = 55; // fallback: 48px item + 7px gap
+  if (items[0]) {
+    if (items[1]) step = items[1].offsetTop - items[0].offsetTop;
+    else step = items[0].offsetHeight + 7;
+  }
+  const previewRows = 4;
+  const maxH = previewRows * step + step * 0.5; // last previewed row half cut
+  downloadsList.classList.add("collapsed");
+  downloadsList.style.maxHeight = `${maxH}px`;
+  fade.style.height = `${Math.round(step * 1.5)}px`;
+  fade.style.bottom = "33px";
+  downloadsBody.classList.add("previewing");
+}
+
+downloadsToggle.addEventListener("click", () => {
+  downloadsExpanded = !downloadsExpanded;
+  downloadsToggle.setAttribute("aria-expanded", String(downloadsExpanded));
+  downloadsToggle.title = downloadsExpanded
+    ? "Collapse optional downloads"
+    : "Show all optional downloads";
+  layoutDownloads();
+});
+
+window.addEventListener("resize", layoutDownloads);
+
 function deepClone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -303,6 +346,7 @@ function renderDownloads(items) {
   if (!items.length) {
     downloadsList.innerHTML =
       '<p class="hint">No optional downloads configured.</p>';
+    layoutDownloads();
     return;
   }
   items.forEach((item, index) => {
@@ -334,6 +378,7 @@ function renderDownloads(items) {
     label.append(input, text);
     downloadsList.append(label);
   });
+  layoutDownloads();
 }
 
 function applyDetectedHardware(report) {
