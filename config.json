@@ -26,7 +26,8 @@
         "https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes",
         "https://github.com/Lightricks/ComfyUI-LTXVideo",
         "https://github.com/WhatDreamsCost/WhatDreamsCost-ComfyUI",
-        "https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit"
+        "https://github.com/Artificial-Sweetener/comfyui-WhiteRabbit",
+        "https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler"
     ],
     "optional_downloads": [
     {
