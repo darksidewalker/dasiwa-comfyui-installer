@@ -124,6 +124,42 @@ func TestPinnedPriorityInstallUsesEffectiveCUDAIndexWithoutDeps(t *testing.T) {
 	}
 }
 
+func TestWindowsNVIDIAInstallsTritonWithoutSage(t *testing.T) {
+	// Fresh install, no Sage: Windows + NVIDIA must still get triton-windows
+	// (latest) so the comfy-kitchen triton backend is importable.
+	args := PriorityInstallArgs(false, true, "", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 4090"}, "13.2")
+	if !contains(args, "triton-windows") {
+		t.Fatalf("windows NVIDIA no-sage args = %v, want triton-windows", args)
+	}
+	// No Sage, no pin: must NOT carry a Sage torch pin.
+	if contains(args, "torch==") {
+		t.Fatalf("no-sage args = %v, must not pin torch", args)
+	}
+}
+
+func TestWindowsNVIDIAWithSageKeepsSageTritonSpec(t *testing.T) {
+	args := PriorityInstallArgs(true, true, "2.11.0", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 4090"}, "13.2")
+	if !contains(args, "triton-windows>=3.6,<3.7") {
+		t.Fatalf("windows NVIDIA sage args = %v, want Sage-compatible triton-windows range", args)
+	}
+}
+
+func TestWindowsAMDAndIntelNeverGetTriton(t *testing.T) {
+	for _, vendor := range []string{"AMD", "INTEL"} {
+		args := PriorityInstallArgs(false, true, "", Hardware{Vendor: vendor, Name: "GPU"}, "13.2")
+		if contains(args, "triton-windows") {
+			t.Fatalf("%s args = %v, must not install triton-windows", vendor, args)
+		}
+	}
+}
+
+func TestLinuxWithoutSageHasNoTriton(t *testing.T) {
+	args := PriorityInstallArgs(false, false, "", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 4090"}, "13.2")
+	if contains(args, "triton") {
+		t.Fatalf("linux no-sage args = %v, must not install triton (unchanged behavior)", args)
+	}
+}
+
 func contains(items []string, want string) bool {
 	for _, item := range items {
 		if item == want {
