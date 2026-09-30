@@ -618,7 +618,10 @@ function handleLogLine(line) {
   logEl.appendChild(span);
   logEl.scrollTop = logEl.scrollHeight;
 
-  if (line.includes("Installer finished successfully.")) {
+  if (line.includes("Installer finished with warnings.")) {
+    statusEl.textContent = "Install finished with warnings — incomplete components";
+    startBtn.disabled = false;
+  } else if (line.includes("Installer finished successfully.")) {
     statusEl.textContent = "Install finished";
     startBtn.disabled = false;
   } else if (line.startsWith("ERROR:") || line.includes("exited with error")) {

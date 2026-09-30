@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +34,7 @@ var defaultTargets = []target{
 
 func main() {
 	version := flag.String("version", "dev", "version string embedded into the installer app")
-	outDir := flag.String("out", "dist", "output directory")
+	outDir := flag.String("out", ".", "output directory (default: installer root)")
 	currentOnly := flag.Bool("current", false, "build only for the current GOOS/GOARCH")
 	checkCUDA := flag.String("check-cuda-migration", "13.2", "candidate CUDA target to verify before release; empty disables the check")
 	flag.Parse()
@@ -145,12 +144,7 @@ func build(target target, version, rootDir, outDir string) error {
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	rootOut := filepath.Join(rootDir, target.Name)
-	if samePath(outPath, rootOut) {
-		return nil
-	}
-	fmt.Printf("Copying %s -> %s\n", outPath, rootOut)
-	return copyFile(outPath, rootOut)
+	return nil
 }
 
 func repoRoot() (string, error) {
@@ -168,45 +162,6 @@ func repoRoot() (string, error) {
 		}
 		dir = parent
 	}
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	info, err := in.Stat()
-	if err != nil {
-		return err
-	}
-	out, err := os.CreateTemp(filepath.Dir(dst), "."+filepath.Base(dst)+".tmp-*")
-	if err != nil {
-		return err
-	}
-	tmpPath := out.Name()
-	defer os.Remove(tmpPath)
-	if err := out.Chmod(info.Mode()); err != nil {
-		_ = out.Close()
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		_ = out.Close()
-		return err
-	}
-	if err := out.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpPath, dst)
-}
-
-func samePath(a, b string) bool {
-	aa, errA := filepath.Abs(a)
-	bb, errB := filepath.Abs(b)
-	if errA == nil && errB == nil {
-		return aa == bb
-	}
-	return a == b
 }
 
 func fatal(err error) {

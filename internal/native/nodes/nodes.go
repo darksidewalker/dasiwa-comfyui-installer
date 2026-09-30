@@ -16,10 +16,11 @@ import (
 )
 
 type Stats struct {
-	Total   int
-	Success int
-	Failed  []string
-	Skipped int
+	Total          int
+	Success        int
+	Failed         []string
+	FailureDetails []string
+	Skipped        int
 }
 
 type nodeSpec struct {
@@ -58,9 +59,12 @@ func Sync(ctx context.Context, env []string, lines []string, comfyPath string, l
 			continue
 		}
 		nodePath := filepath.Join(nodesDir, name)
-		if err := syncOne(ctx, env, gitEnv, venvPython, nodePath, spec, name, logf); err != nil {
-			log(logf, fmt.Sprintf("Error syncing node %s: %v", name, err))
+		var output dependencyLog
+		if err := syncOne(ctx, env, gitEnv, venvPython, nodePath, spec, name, output.capture(logf)); err != nil {
+			detail := fmt.Sprintf("%s: %v. %s", name, err, dependencyFailure(output.text))
+			log(logf, "WARNING: Node installation incomplete: "+detail)
 			stats.Failed = append(stats.Failed, name)
+			stats.FailureDetails = append(stats.FailureDetails, detail)
 			continue
 		}
 		stats.Success++
@@ -136,7 +140,10 @@ func syncOne(ctx context.Context, env, gitEnv []string, venvPython, nodePath str
 	reqPath := filepath.Join(nodePath, spec.ReqFile)
 	if _, err := os.Stat(reqPath); err == nil {
 		log(logf, "Installing deps via "+spec.ReqFile+"...")
-		args := []string{"pip", "install", "--no-deps"}
+		if err := prepareLlama(ctx, env, venvPython, reqPath, logf); err != nil {
+			return err
+		}
+		args := []string{"pip", "install", "--python", venvPython, "--no-deps", "--only-binary", "llama-cpp-python"}
 		if spec.IsPkg {
 			args = append(args, "--no-build-isolation", "-e", ".")
 		}

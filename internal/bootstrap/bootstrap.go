@@ -33,6 +33,23 @@ type releaseResponse struct {
 }
 
 func PreparePython(root, pythonVersion string, logf func(string)) (*PythonRunner, error) {
+	return PreparePythonAt(root, root, pythonVersion, logf)
+}
+
+// PreparePythonAt keeps tooling/cache at toolRoot, but installs the runtime at
+// runtimeRoot. Call only after the ComfyUI checkout has been created.
+func PreparePythonAt(toolRoot, runtimeRoot, pythonVersion string, logf func(string)) (*PythonRunner, error) {
+	if logf == nil {
+		logf = func(string) {}
+	}
+	root, err := filepath.Abs(toolRoot)
+	if err != nil {
+		return nil, err
+	}
+	runtimeRoot, err = filepath.Abs(runtimeRoot)
+	if err != nil {
+		return nil, err
+	}
 	if pythonVersion == "" {
 		pythonVersion = "3.12"
 	}
@@ -47,19 +64,32 @@ func PreparePython(root, pythonVersion string, logf func(string)) (*PythonRunner
 		return nil, err
 	}
 	env := bootstrapEnv(root, binDir)
+	env = setEnv(env, "UV_PYTHON_INSTALL_DIR", filepath.Join(runtimeRoot, ".dasiwa", "python"))
 
 	logf(fmt.Sprintf("Ensuring Python %s via uv...", pythonVersion))
 	if err := runLogged(logf, env, uvPath, "python", "install", "--managed-python", "--no-bin", pythonVersion); err != nil {
 		return nil, err
 	}
 
-	pythonPath, err := outputLogged(env, uvPath, "python", "find", "--managed-python", pythonVersion)
+	pythonPath, err := outputLogged(env, uvPath, "python", "find", "--managed-python", "--system", "--no-project", "--no-config", pythonVersion)
 	if err != nil {
 		return nil, err
 	}
 	pythonPath = strings.TrimSpace(pythonPath)
 	if pythonPath == "" {
 		return nil, errors.New("uv did not return a Python interpreter path")
+	}
+	resolved, err := filepath.EvalSymlinks(pythonPath)
+	if err != nil {
+		return nil, err
+	}
+	managed, err := filepath.EvalSymlinks(filepath.Join(runtimeRoot, ".dasiwa", "python"))
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filepath.Rel(managed, resolved)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+		return nil, fmt.Errorf("uv selected interpreter outside ComfyUI managed runtime: %s", pythonPath)
 	}
 	logf("Using Python: " + pythonPath)
 	return &PythonRunner{Python: pythonPath, Env: env}, nil

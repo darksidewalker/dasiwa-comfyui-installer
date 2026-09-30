@@ -4,7 +4,7 @@ This project is now a standalone Go installer. The release artifact is a single
 binary per OS:
 
 - `dist/dasiwa-installer-windows-amd64.exe`
-- `dist/dasiwa-installer-linux-amd64`
+- `dasiwa-installer-linux-amd64`
 
 Users should not need Python scripts, shell scripts, PowerShell scripts, or a
 cloned repository next to the executable.

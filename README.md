@@ -79,9 +79,19 @@ The app opens a local browser page and runs the native Go install engine. The
 UI, default config, placeholder assets, README, and license are embedded in the
 binary, so users do not need Python scripts, shell scripts, PowerShell scripts,
 `config.json`, a node-list text file, or a cloned copy of this repository next
-to the executable. On first run it creates a local `.dasiwa/` bootstrap directory
-for `uv`, the managed Python runtime, and cache files, then keeps all ComfyUI
-packages inside `ComfyUI/venv/`.
+to the executable. Installer tools and caches live in its local `.dasiwa/`
+directory. The complete managed Python runtime, including its standard library,
+lives separately in `ComfyUI/.dasiwa/python/`; installed packages live in
+`ComfyUI/venv/`. After installation, starting ComfyUI does not require the
+installer executable or its state directory. Keep the ComfyUI-local runtime:
+removing `ComfyUI/.dasiwa/python/` would break its virtual environment.
+
+**Existing installations:** Choose **Update in place** to migrate a legacy venv
+to the ComfyUI-local runtime without clearing its packages. This also repairs a
+dangling Python link if the old installer runtime has already been removed.
+The existing Python major/minor version is preserved from `pyvenv.cfg`; unreadable
+or incompatible environments fail safely rather than being cleared. Refresh and
+full reinstall still deliberately rebuild the environment.
 
 To build standalone app binaries, use the build script:
 
@@ -90,19 +100,16 @@ To build standalone app binaries, use the build script:
 ./build.sh 2.0.0     # or pin a specific version
 ```
 
-This cross-builds the Windows and Linux installer binaries into `dist/` and
-mirrors each one to the repository (app) root, so the runnable binaries always
-sit at the top level:
+This cross-builds the Windows and Linux installer binaries directly into the
+repository (app) root. No duplicate binaries are created in `dist/`:
 
 ```text
-dist/dasiwa-installer-windows-amd64.exe
-dist/dasiwa-installer-linux-amd64
 dasiwa-installer-windows-amd64.exe
 dasiwa-installer-linux-amd64
 ```
 
-Equivalently, run the Go release builder directly (`--out` controls the
-primary output directory; the root mirror is a separate step in `build.sh`):
+Equivalently, run the Go release builder directly (`--out` optionally selects
+a different single output directory; it does not create a root mirror):
 
 ```bash
 go run ./cmd/build-release --version 2.0.0
@@ -238,6 +245,30 @@ https://github.com/user/node | sub | req:requirements-custom.txt
 
 After all nodes are installed, the **Enforcer** runs — a final `uv pip install --upgrade` pass over priority packages to ensure no node has silently downgraded a critical dependency.
 
+### Native dependencies and installation warnings
+
+When a node's requirements declare `llama-cpp-python`, the installer reads the
+CUDA version from Torch in the selected ComfyUI venv and uses the corresponding
+[official wheel index](https://abetlen.github.io/llama-cpp-python/whl/cu130/llama-cpp-python/).
+For CUDA 13.0, version 0.3.35 provides `py3-none-win_amd64` and
+`py3-none-manylinux_2_35_x86_64` wheels (the latter requires glibc 2.35 or newer).
+`uv` checks Python and platform compatibility and installs llama-cpp's runtime
+dependencies separately from the bulk node requirements. Existing llama-cpp
+installations are replaced with the selected backend's wheel. There is no
+automatic source build or silent CPU fallback when a CUDA wheel cannot be installed.
+Without a Torch CUDA backend, the installer uses the CPU wheel index; a missing
+compatible version is reported rather than compiled.
+
+Node installation failures do not prevent the remaining nodes and launchers
+from being processed. The final UI status is **Install finished with warnings —
+incomplete components**, not success. The log identifies the affected node,
+package/build error, and recognizable missing prerequisites such as `nmake`,
+a C/C++ compiler, a header, or a Python module. Unrecognized failures retain the
+original output without guessing which tool is missing. Failures in downloads,
+FFmpeg, Manager dependencies, priority packages, and FlashAttention also appear
+in the final warning summary.
+
+
 **To use your own node list:** open **Extra Settings** and replace the
 `custom_nodes` array, or paste a remote node-list URL in the GUI:
 
@@ -276,11 +307,13 @@ FFmpeg is needed by video nodes like VideoHelperSuite, MMAudio, and WhiteRabbit.
 
 ## Architecture: Zero Conflict
 
-Everything lives inside the `ComfyUI/` folder the installer creates. Nothing outside it is modified.
+The ComfyUI runtime and packages live inside the selected `ComfyUI/` folder.
+Installer tools and caches are separate; system Python is not modified.
 
 | What | Where | Notes |
 | :--- | :---- | :---- |
-| Python runtime | `ComfyUI/venv/` | Managed by `uv`, fully portable |
+| Python runtime + standard library | `ComfyUI/.dasiwa/python/` | Managed by `uv`; required to run ComfyUI |
+| Python environment + packages | `ComfyUI/venv/` | Uses the ComfyUI-local runtime |
 | ComfyUI itself | `ComfyUI/` | Pinned to a specific git tag or `master` |
 | Custom nodes | `ComfyUI/custom_nodes/` | Cloned and updated by the installer |
 | Portable FFmpeg | `ComfyUI/ffmpeg/bin/` | Windows only; injected into launcher PATH |

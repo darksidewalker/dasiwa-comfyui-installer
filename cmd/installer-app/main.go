@@ -19,7 +19,6 @@ import (
 
 	installer "github.com/darksidewalker/dasiwa-comfyui-installer"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/appconfig"
-	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/bootstrap"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/comfypath"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/folderpick"
 	gpuinfo "github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/gpuinfo"
@@ -378,17 +377,11 @@ func (s *server) handleQuit(w http.ResponseWriter, r *http.Request) {
 func (s *server) runInstaller(planPath string) {
 	defer s.setNotRunning()
 	s.logs.send("Starting installer...")
-	runner, err := bootstrap.PreparePython(s.root, s.pythonVersion(planPath), s.logs.send)
-	if err != nil {
-		s.logs.send("ERROR: " + err.Error())
-		return
-	}
-
 	ctx := context.Background()
-	s.runNativeInstaller(ctx, planPath, runner)
+	s.runNativeInstaller(ctx, planPath)
 }
 
-func (s *server) runNativeInstaller(ctx context.Context, planPath string, runner *bootstrap.PythonRunner) {
+func (s *server) runNativeInstaller(ctx context.Context, planPath string) {
 	data, err := os.ReadFile(planPath)
 	if err != nil {
 		s.logs.send("ERROR: " + err.Error())
@@ -400,7 +393,16 @@ func (s *server) runNativeInstaller(ctx context.Context, planPath string, runner
 		return
 	}
 	s.logs.send("Using native Go install engine...")
-	if err := nativeinstall.Run(ctx, s.root, choices, runner, s.logs.send); err != nil {
+	if err := nativeinstall.Run(ctx, s.root, choices, s.logs.send); err != nil {
+		var warnings *nativeinstall.WarningsError
+		if errors.As(err, &warnings) {
+			for _, detail := range warnings.Details {
+				s.logs.send("WARNING: Incomplete component: " + detail)
+			}
+			s.logs.send("Installer finished with warnings. Some components or dependencies are incomplete; see warnings above.")
+			_ = os.Remove(planPath)
+			return
+		}
 		s.logs.send("Native installer exited with error: " + err.Error())
 		return
 	}
@@ -542,39 +544,6 @@ func classifyGPUWeight(vendor string) int {
 	default:
 		return 0
 	}
-}
-
-func (s *server) pythonVersion(planPath string) string {
-	if version := pythonVersionFromPlan(planPath); version != "" {
-		return version
-	}
-	data, err := appconfig.LoadMergedJSONWithFallback(s.root, installer.Files)
-	if err != nil {
-		return "3.12"
-	}
-	var cfg appConfig
-	if err := json.Unmarshal(data, &cfg); err != nil || cfg.Python.DisplayName == "" {
-		return "3.12"
-	}
-	return cfg.Python.DisplayName
-}
-
-func pythonVersionFromPlan(planPath string) string {
-	data, err := os.ReadFile(planPath)
-	if err != nil {
-		return ""
-	}
-	var plan struct {
-		ConfigOverrides struct {
-			Python struct {
-				DisplayName string `json:"display_name"`
-			} `json:"python"`
-		} `json:"config_overrides"`
-	}
-	if err := json.Unmarshal(data, &plan); err != nil {
-		return ""
-	}
-	return plan.ConfigOverrides.Python.DisplayName
 }
 
 func openBrowser(url string) {

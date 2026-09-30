@@ -2,48 +2,40 @@ package main
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
-	"time"
 )
 
-func TestCopyFileReplacesRunningLinuxExecutable(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires a Linux executable")
+func TestBuildUsesOnlySelectedOutputDirectory(t *testing.T) {
+	root := t.TempDir()
+	app := filepath.Join(root, "cmd", "installer-app")
+	if err := os.MkdirAll(app, 0o755); err != nil {
+		t.Fatal(err)
 	}
-
-	dir := t.TempDir()
-	dst := filepath.Join(dir, "running")
-	data, err := os.ReadFile("/bin/sleep")
-	if err != nil {
-		t.Fatalf("read /bin/sleep: %v", err)
+	for path, content := range map[string]string{
+		filepath.Join(root, "go.mod"): "module buildtest\n\ngo 1.22\n",
+		filepath.Join(app, "main.go"): "package main\nvar version string\nfunc main() {}\n",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := os.WriteFile(dst, data, 0o755); err != nil {
-		t.Fatalf("write running executable: %v", err)
+	out := t.TempDir()
+	name := "installer"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
 	}
-	cmd := exec.Command(dst, "10")
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start executable: %v", err)
+	if err := build(target{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Name: name}, "test", root, out); err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
-	})
-	time.Sleep(50 * time.Millisecond)
-
-	src := filepath.Join(dir, "replacement")
-	if err := os.WriteFile(src, []byte("replacement"), 0o755); err != nil {
-		t.Fatalf("write replacement: %v", err)
+	if _, err := os.Stat(filepath.Join(out, name)); err != nil {
+		t.Fatalf("missing requested output: %v", err)
 	}
-	if err := copyFile(src, dst); err != nil {
-		t.Fatalf("copyFile() replacing running executable: %v", err)
+	if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
+		t.Fatalf("unexpected root mirror: %v", err)
 	}
-	got, err := os.ReadFile(dst)
-	if err != nil {
-		t.Fatalf("read replacement: %v", err)
-	}
-	if string(got) != "replacement" {
-		t.Fatalf("replacement content = %q, want %q", got, "replacement")
+	if _, err := os.Stat(filepath.Join(root, "dist")); !os.IsNotExist(err) {
+		t.Fatalf("unexpected dist directory: %v", err)
 	}
 }

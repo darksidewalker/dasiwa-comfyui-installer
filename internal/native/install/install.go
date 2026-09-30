@@ -16,9 +16,9 @@ import (
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/comfyui"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/downloader"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/ffmpeg"
+	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/flashattn"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/launcher"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/nodes"
-	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/flashattn"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/radial"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/runutil"
 	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/sage"
@@ -33,42 +33,42 @@ func validatePythonVersion(pythonPath string, hw torch.Hardware, logf runutil.Lo
 	if err != nil {
 		return fmt.Errorf("could not determine Python version: %w", err)
 	}
-	
+
 	versionStr := strings.TrimSpace(versionOutput)
 	parts := strings.Split(versionStr, ".")
 	if len(parts) < 2 {
 		return fmt.Errorf("could not parse Python version: %s", versionStr)
 	}
-	
+
 	major := parts[0]
 	minor := parts[1]
-	
+
 	// Convert to int for comparison
 	var majorInt, minorInt int
 	fmt.Sscanf(major, "%d", &majorInt)
 	fmt.Sscanf(minor, "%d", &minorInt)
-	
+
 	vendor := strings.ToUpper(hw.Vendor)
-	
+
 	// Windows + AMD ROCm: PyTorch ROCm wheels are Linux-only (manylinux)
 	// Even with --pre flag on nightly indexes, no functional Windows wheels exist
 	if runtime.GOOS == "windows" && vendor == "AMD" {
-		errMsg := fmt.Sprintf("Windows + AMD ROCm is not supported: PyTorch ROCm wheels are Linux-only (manylinux_2_28_x86_64).\n"+
-			"You cannot use AMD GPUs with ComfyUI on Windows via PyTorch.\n"+
-			"Options:\n"+
-			"  1. Install WSL2 (Ubuntu) and run ComfyUI inside WSL2\n"+
-			"  2. Switch to NVIDIA GPU (CUDA is fully supported on Windows)\n"+
+		errMsg := fmt.Sprintf("Windows + AMD ROCm is not supported: PyTorch ROCm wheels are Linux-only (manylinux_2_28_x86_64).\n" +
+			"You cannot use AMD GPUs with ComfyUI on Windows via PyTorch.\n" +
+			"Options:\n" +
+			"  1. Install WSL2 (Ubuntu) and run ComfyUI inside WSL2\n" +
+			"  2. Switch to NVIDIA GPU (CUDA is fully supported on Windows)\n" +
 			"  3. Use Intel Arc GPU with XPU backend (experimental)")
 		return fmt.Errorf("%s", errMsg)
 	}
-	
+
 	// Python 3.12+ on AMD ROCm: Limited support in nightly wheels
 	if vendor == "AMD" && majorInt == 3 && minorInt >= 12 {
 		logf("Warning: Python 3.12 detected. AMD ROCm nightly wheels may have limited 3.12 support.")
 		logf("If installation fails, downgrade to Python 3.11 and retry.")
 		// Don't block - some nightly builds may work
 	}
-	
+
 	return nil
 }
 
@@ -107,7 +107,8 @@ type Choices struct {
 	ConfigOverrides map[string]any `json:"config_overrides"`
 }
 
-func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.PythonRunner, logf runutil.LogFunc) error {
+func Run(ctx context.Context, root string, choices Choices, logf runutil.LogFunc) error {
+	var warnings []string
 	cfg, err := loadConfig(root, choices)
 	if err != nil {
 		return err
@@ -136,26 +137,17 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 	if err := comfyui.Sync(ctx, comfyPath, targetVersion, fallback, logf); err != nil {
 		return err
 	}
-	venv := runutil.EnvWithVenv(comfyPath, runner.Env)
-	needVenv := choices.InstallMode == "fresh" || choices.InstallMode == "refresh" || choices.InstallMode == "wipe" || !fileExists(venv.Python)
-	if needVenv {
-		py := cfg.Python.DisplayName
-		if py == "" {
-			py = "3.12"
-		}
-		log(logf, "Creating venv with Python "+py+"...")
-		if err := runutil.Command(ctx, logf, root, runner.Env, "uv", "venv", venv.Root, "--python", py, "--clear"); err != nil {
-			return err
-		}
-	} else {
-		log(logf, "Reusing existing virtual environment.")
+	venv, pythonVersion, err := prepareVenv(ctx, root, comfyPath, choices.InstallMode, cfg.Python.DisplayName, logf, bootstrap.PreparePythonAt)
+	if err != nil {
+		return err
 	}
-	venv = runutil.EnvWithVenv(comfyPath, runner.Env)
+	cfg.Python.DisplayName = pythonVersion
 	selected := selectedDownloads(cfg.OptionalDownloads, choices, comfyPath)
 	if len(selected) > 0 {
 		if err := downloader.InstallSelectedWithFS(selected, comfyPath, root, installer.Files, func(s string) { log(logf, s) }); err != nil {
-		log(logf, "Download error: "+err.Error())
-	}
+			warnings = append(warnings, "Downloads: "+err.Error())
+			log(logf, "WARNING: Download error: "+err.Error())
+		}
 	}
 	cudaTarget := choices.CUDATarget
 	if cudaTarget == "" {
@@ -178,20 +170,29 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 	}
 	if choices.WantFFmpeg {
 		if err := ffmpeg.Install(ctx, comfyPath, cfg.URLs["ffmpeg_windows"], logf); err != nil {
-			log(logf, "FFmpeg install error: "+err.Error())
+			warnings = append(warnings, "FFmpeg: "+err.Error())
+			log(logf, "WARNING: FFmpeg install error: "+err.Error())
 		}
 	}
 	nodeLines, err := resolveNodeLines(cfg)
 	if err != nil {
-		log(logf, "Could not fetch remote node list: "+err.Error())
+		warnings = append(warnings, "Remote node list: "+err.Error())
+		log(logf, "WARNING: Could not fetch remote node list: "+err.Error())
 	}
 	stats := nodes.Sync(ctx, venv.Env, nodeLines, comfyPath, logf)
+	warnings = append(warnings, stats.FailureDetails...)
 	log(logf, fmt.Sprintf("Custom nodes: %d ok, %d failed, %d skipped", stats.Success, len(stats.Failed), stats.Skipped))
 	managerReq := filepath.Join(comfyPath, "manager_requirements.txt")
 	if fileExists(managerReq) {
-		_ = runutil.Command(ctx, logf, comfyPath, venv.Env, "uv", "pip", "install", "-r", managerReq)
+		if err := runutil.Command(ctx, logf, comfyPath, venv.Env, "uv", "pip", "install", "-r", managerReq); err != nil {
+			warnings = append(warnings, "Manager dependencies: "+err.Error())
+			log(logf, "WARNING: Manager dependencies incomplete: "+err.Error())
+		}
 	}
-	_ = runutil.Command(ctx, logf, comfyPath, venv.Env, "uv", torch.PriorityInstallArgs(choices.WantSage, runtime.GOOS == "windows", pinTorch, choices.HW, cudaTarget)...)
+	if err := runutil.Command(ctx, logf, comfyPath, venv.Env, "uv", torch.PriorityInstallArgs(choices.WantSage, runtime.GOOS == "windows", pinTorch, choices.HW, cudaTarget)...); err != nil {
+		warnings = append(warnings, "Priority packages (including Triton where selected): "+err.Error())
+		log(logf, "WARNING: Priority package installation incomplete: "+err.Error())
+	}
 	if err := torch.Reassert(ctx, venv.Env, venv.Python, choices.HW, cudaTarget, torch.CUDAConfig{Global: cfg.CUDA.Global, MinCUDAFor50x: cfg.CUDA.MinCUDAFor50x}, pinTorch, logf); err != nil {
 		return err
 	}
@@ -207,11 +208,15 @@ func Run(ctx context.Context, root string, choices Choices, runner *bootstrap.Py
 	}
 	if choices.WantFlash {
 		if err := flashattn.Install(ctx, venv.Env, comfyPath, cfg.URLs, logf); err != nil {
-			log(logf, "FlashAttention install error: "+err.Error())
+			warnings = append(warnings, "FlashAttention: "+err.Error())
+			log(logf, "WARNING: FlashAttention install error: "+err.Error())
 		}
 	}
 	if err := launcher.Create(comfyPath); err != nil {
 		return err
+	}
+	if len(warnings) > 0 {
+		return &WarningsError{Details: warnings}
 	}
 	log(logf, "Native Go install flow complete.")
 	return nil
