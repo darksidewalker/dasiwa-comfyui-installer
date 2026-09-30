@@ -20,7 +20,6 @@
         "ffmpeg_windows": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
     },
     "custom_nodes": [
-        "https://github.com/rgthree/rgthree-comfy",
         "https://github.com/kijai/ComfyUI-KJNodes",
         "https://github.com/city96/ComfyUI-GGUF",
         "https://github.com/darksidewalker/ComfyUI-DaSiWa-Nodes",
