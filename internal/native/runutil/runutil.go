@@ -67,6 +67,19 @@ func SetEnv(env []string, key, value string) []string {
 	return append(out, prefix+value)
 }
 
+// UnsetEnv removes all occurrences without changing the parent environment.
+func UnsetEnv(env []string, key string) []string {
+	out := make([]string, 0, len(env))
+	for _, item := range env {
+		name, _, _ := strings.Cut(item, "=")
+		if name == key || (runtime.GOOS == "windows" && strings.EqualFold(name, key)) {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
 func GetEnv(env []string, key string) string {
 	prefix := key + "="
 	for _, item := range env {

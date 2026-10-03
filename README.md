@@ -86,6 +86,13 @@ lives separately in `ComfyUI/.dasiwa/python/`; installed packages live in
 installer executable or its state directory. Keep the ComfyUI-local runtime:
 removing `ComfyUI/.dasiwa/python/` would break its virtual environment.
 
+Before preparing Python, the installer checks GitHub for the latest stable `uv`
+release. An existing local or PATH-provided `uv` is reused only if its reported
+version matches; otherwise the installer downloads and validates a replacement
+under its own `.dasiwa/bin/`. System-installed tools are never updated or replaced.
+If the release check or download fails, installation stops with an explicit error
+rather than silently using an unverified older version.
+
 **Existing installations:** Choose **Update in place** to migrate a legacy venv
 to the ComfyUI-local runtime without clearing its packages. This also repairs a
 dangling Python link if the old installer runtime has already been removed.

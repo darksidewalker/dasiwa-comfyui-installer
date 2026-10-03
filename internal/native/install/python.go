@@ -94,10 +94,10 @@ func prepareVenv(ctx context.Context, toolRoot, comfyPath, mode, configured stri
 	if actual != abi {
 		return empty, "", fmt.Errorf("managed Python ABI %s does not match venv ABI %s; packages were not changed", actual, abi)
 	}
-	// Inherited uv defaults must not turn --allow-existing into a destructive
-	// clear or seed packages into the environment during a runtime-only repair.
-	runner.Env = runutil.SetEnv(runner.Env, "UV_VENV_CLEAR", "false")
-	runner.Env = runutil.SetEnv(runner.Env, "UV_VENV_SEED", "false")
+	// Older uv versions treat even false-valued defaults as conflicting flags.
+	// Remove them entirely so runtime migration neither clears nor seeds packages.
+	runner.Env = runutil.UnsetEnv(runner.Env, "UV_VENV_CLEAR")
+	runner.Env = runutil.UnsetEnv(runner.Env, "UV_VENV_SEED")
 	venv = runutil.EnvWithVenv(comfyPath, runner.Env)
 	args := []string{"venv", venv.Root, "--python", runner.Python, "--relocatable", "--no-project", "--no-config", "--no-python-downloads"}
 	rollback := func() error { return nil }

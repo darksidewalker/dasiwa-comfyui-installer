@@ -14,9 +14,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const uvLatestAPI = "https://api.github.com/repos/astral-sh/uv/releases/latest"
+
+var uvHTTPClient = &http.Client{Timeout: 90 * time.Second}
 
 type PythonRunner struct {
 	Python string
@@ -24,11 +27,13 @@ type PythonRunner struct {
 }
 
 type releaseAsset struct {
-	Name string `json:"name"`
-	URL  string `json:"browser_download_url"`
+	Name    string `json:"name"`
+	URL     string `json:"browser_download_url"`
+	Version string `json:"-"`
 }
 
 type releaseResponse struct {
+	Tag    string         `json:"tag_name"`
 	Assets []releaseAsset `json:"assets"`
 }
 
@@ -98,30 +103,50 @@ func PreparePythonAt(toolRoot, runtimeRoot, pythonVersion string, logf func(stri
 func ensureUV(binDir string, logf func(string)) (string, error) {
 	uvName := executableName("uv")
 	localUV := filepath.Join(binDir, uvName)
-	if fileExists(localUV) {
-		logf("Using bundled uv: " + localUV)
+	logf("Checking latest uv release...")
+	asset, err := findUVAsset()
+	if err != nil {
+		return "", fmt.Errorf("cannot verify latest uv release: %w", err)
+	}
+	if uvMatchesVersion(localUV, asset.Version) {
+		logf("Using current local uv " + asset.Version + ": " + localUV)
 		return localUV, nil
 	}
-	if path, err := exec.LookPath(uvName); err == nil {
-		logf("Using uv from PATH: " + path)
+	if path, err := exec.LookPath(uvName); err == nil && uvMatchesVersion(path, asset.Version) {
+		// Remove a stale local copy: bootstrapEnv puts binDir first in PATH.
+		if err := os.Remove(localUV); err != nil && !os.IsNotExist(err) {
+			return "", err
+		}
+		logf("Using current uv " + asset.Version + " from PATH: " + path)
 		return path, nil
 	}
-	logf("uv not found; downloading a local uv binary...")
-	if err := downloadUV(binDir); err != nil {
+	logf("Downloading local uv " + asset.Version + " (system uv is left unchanged)...")
+	stage, err := os.MkdirTemp(binDir, "uv-update-*")
+	if err != nil {
 		return "", err
 	}
-	if !fileExists(localUV) {
-		return "", errors.New("uv download completed but uv binary was not found")
+	defer os.RemoveAll(stage)
+	if err := downloadUV(stage, asset); err != nil {
+		return "", err
+	}
+	stagedUV := filepath.Join(stage, uvName)
+	if !uvMatchesVersion(stagedUV, asset.Version) {
+		return "", errors.New("downloaded uv did not report the expected release version")
+	}
+	if err := os.Rename(stagedUV, localUV); err != nil {
+		return "", fmt.Errorf("cannot replace local uv: %w", err)
 	}
 	return localUV, nil
 }
 
-func downloadUV(binDir string) error {
-	asset, err := findUVAsset()
-	if err != nil {
-		return err
-	}
-	resp, err := http.Get(asset.URL)
+func uvMatchesVersion(path, version string) bool {
+	out, err := exec.Command(path, "--version").Output()
+	fields := strings.Fields(string(out))
+	return err == nil && len(fields) >= 2 && fields[0] == "uv" && fields[1] == version
+}
+
+func downloadUV(binDir string, asset *releaseAsset) error {
+	resp, err := uvHTTPClient.Get(asset.URL)
 	if err != nil {
 		return err
 	}
@@ -156,7 +181,7 @@ func findUVAsset() (*releaseAsset, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "DaSiWa-Installer-App/1.0")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := uvHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -169,9 +194,14 @@ func findUVAsset() (*releaseAsset, error) {
 		return nil, err
 	}
 	target := uvTargetToken()
+	version := strings.TrimPrefix(release.Tag, "v")
+	if version == "" {
+		return nil, errors.New("uv release response is missing its version")
+	}
 	for _, asset := range release.Assets {
 		name := asset.Name
 		if strings.Contains(name, target) && (strings.HasSuffix(name, ".zip") || strings.HasSuffix(name, ".tar.gz")) {
+			asset.Version = version
 			return &asset, nil
 		}
 	}

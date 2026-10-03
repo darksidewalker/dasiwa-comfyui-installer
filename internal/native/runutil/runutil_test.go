@@ -30,6 +30,21 @@ func TestCommandResolvesExecutableFromEnvPath(t *testing.T) {
 	}
 }
 
+func TestUnsetEnvRemovesAllOccurrencesAndPreservesInput(t *testing.T) {
+	env := []string{"UV_VENV_CLEAR=1", "KEEP=value", "UV_VENV_CLEAR=false", "UV_VENV_SEED=1", "uv_venv_clear=1"}
+	got := UnsetEnv(UnsetEnv(env, "UV_VENV_CLEAR"), "UV_VENV_SEED")
+	want := "KEEP=value\nuv_venv_clear=1"
+	if runtime.GOOS == "windows" {
+		want = "KEEP=value"
+	}
+	if strings.Join(got, "\n") != want {
+		t.Fatalf("unexpected environment: %v", got)
+	}
+	if env[0] != "UV_VENV_CLEAR=1" || len(env) != 5 {
+		t.Fatal("parent environment changed")
+	}
+}
+
 func TestSetAndGetEnvAreCaseInsensitiveOnWindows(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Windows env keys are case-insensitive")

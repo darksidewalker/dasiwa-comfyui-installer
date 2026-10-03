@@ -116,6 +116,37 @@ func TestUpdateABIAndRollback(t *testing.T) {
 	}
 }
 
+func TestMigrationRemovesInheritedUVDefaults(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture is POSIX-only")
+	}
+	for _, value := range []string{"1", "false"} {
+		t.Run(value, func(t *testing.T) {
+			root := t.TempDir()
+			v := runutil.EnvWithVenv(root, nil)
+			putTestFile(t, filepath.Join(v.Root, "pyvenv.cfg"), "version = 3.12.12\n", 0644)
+			putTestFile(t, v.Python, "#!/bin/sh\nprintf '3.12\\n'\n", 0755)
+			tools := filepath.Join(root, "tools")
+			putTestFile(t, filepath.Join(tools, "uv"), "#!/bin/sh\n[ -z \"${UV_VENV_CLEAR+x}\" ] || exit 20\n[ -z \"${UV_VENV_SEED+x}\" ] || exit 21\nprintf checked > \"$2/checked\"\n", 0755)
+			t.Setenv("UV_VENV_CLEAR", value)
+			t.Setenv("UV_VENV_SEED", value)
+			_, _, err := prepareVenv(context.Background(), root, root, "update", "3.12", nil,
+				func(string, string, string, func(string)) (*bootstrap.PythonRunner, error) {
+					return &bootstrap.PythonRunner{Python: v.Python, Env: runutil.SetEnv(os.Environ(), "PATH", tools)}, nil
+				})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if data, err := os.ReadFile(filepath.Join(v.Root, "checked")); err != nil || string(data) != "checked" {
+				t.Fatalf("uv was not called with sanitized environment: %q %v", data, err)
+			}
+			if os.Getenv("UV_VENV_CLEAR") != value || os.Getenv("UV_VENV_SEED") != value {
+				t.Fatal("parent environment changed")
+			}
+		})
+	}
+}
+
 func TestRunSyncBeforeRuntimeAndAfterWipe(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell fault injection is POSIX-only")
