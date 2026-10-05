@@ -270,7 +270,25 @@ function buildConfigOverrides() {
   return mergeConfig(extraSettingsConfig || {}, formConfigOverrides());
 }
 
+function syncHardwareOptions() {
+  const vendor = document.querySelector("#vendor").value;
+  const nvidia = vendor === "NVIDIA";
+  for (const id of ["want_sage", "want_radial", "want_flash"]) {
+    const input = document.querySelector(`#${id}`);
+    input.disabled = !nvidia;
+    if (!nvidia) input.checked = false;
+  }
+  document.querySelector("#cuda_target").disabled = !nvidia;
+  const hint = document.querySelector("#backendHint");
+  hint.textContent = vendor === "AMD"
+    ? "AMD ROCm 10.0: Python 3.12/3.13; Windows 11 25H2 + Adrenalin 26.8.1+, or compatible Linux driver/device access. Enter an exact supported GPU model or gfx target. CUDA components are unavailable."
+    : nvidia
+      ? "NVIDIA uses CUDA. Sage/Radial/Flash are optional NVIDIA components."
+      : "Intel uses XPU. CUDA components are unavailable.";
+}
+
 function buildPlan() {
+  syncHardwareOptions();
   const comfyPath = document.querySelector("#comfy_path").value.trim();
   const targetVersion = document.querySelector("#target_version").value.trim();
   const cudaTarget = document.querySelector("#cuda_target").value.trim();

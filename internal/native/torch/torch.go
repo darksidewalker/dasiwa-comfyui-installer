@@ -26,12 +26,15 @@ type InstallPlan struct {
 	EffectiveCUDA string
 	IndexURL      string
 	Packages      []string
+	Err           error
 }
 
 type installedProbe struct {
-	TorchVersion string
-	CUDA         string
-	HIP          string
+	VisionVersion string
+	AudioVersion  string
+	TorchVersion  string
+	CUDA          string
+	HIP           string
 }
 
 var PriorityPackages = []string{
@@ -46,6 +49,9 @@ var PriorityPackages = []string{
 var cuda130Packages = []string{"torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"}
 
 func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string, logf runutil.LogFunc) error {
+	if plan := PlanInstall(hw, cudaTarget, cfg, pinTorch); plan.Err != nil {
+		return plan.Err
+	}
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)
 	log(logf, fmt.Sprintf("Installing Torch for %s (%s)...", hw.Vendor, strings.ToUpper(hw.Name)))
 	env = applyUvRuntimeEnv(env)
@@ -54,6 +60,9 @@ func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, 
 
 func Reassert(ctx context.Context, env []string, python string, hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string, logf runutil.LogFunc) error {
 	plan := PlanInstall(hw, cudaTarget, cfg, pinTorch)
+	if plan.Err != nil {
+		return plan.Err
+	}
 	if ok, detail := CurrentInstallSatisfies(ctx, env, python, plan, pinTorch); ok {
 		log(logf, "Torch backend already matches selection: "+detail)
 		return nil
@@ -67,6 +76,9 @@ func Reassert(ctx context.Context, env []string, python string, hw Hardware, cud
 }
 
 func CurrentInstallSatisfies(ctx context.Context, env []string, python string, plan InstallPlan, pinTorch string) (bool, string) {
+	if plan.Err != nil {
+		return false, plan.Err.Error()
+	}
 	if python == "" {
 		return false, "venv Python path is empty"
 	}
@@ -84,7 +96,7 @@ func CurrentInstallSatisfies(ctx context.Context, env []string, python string, p
 }
 
 func probeInstalled(ctx context.Context, env []string, python string) (installedProbe, error) {
-	script := "import json, torch, torchvision, torchaudio; print(json.dumps({'torch': torch.__version__, 'cuda': torch.version.cuda or '', 'hip': getattr(torch.version, 'hip', '') or ''}))"
+	script := "import json, torch, torchvision, torchaudio; print(json.dumps({'torch': torch.__version__, 'vision': torchvision.__version__, 'audio': torchaudio.__version__, 'cuda': torch.version.cuda or '', 'hip': getattr(torch.version, 'hip', '') or ''}))"
 	out, err := runutil.Output(ctx, "", env, python, "-c", script)
 	if err != nil {
 		return installedProbe{}, fmt.Errorf("torch import probe failed: %w", err)
@@ -94,9 +106,11 @@ func probeInstalled(ctx context.Context, env []string, python string) (installed
 
 func parseInstalledProbe(out string) (installedProbe, error) {
 	var raw struct {
-		Torch string `json:"torch"`
-		CUDA  string `json:"cuda"`
-		HIP   string `json:"hip"`
+		Vision string `json:"vision"`
+		Audio  string `json:"audio"`
+		Torch  string `json:"torch"`
+		CUDA   string `json:"cuda"`
+		HIP    string `json:"hip"`
 	}
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &raw); err != nil {
 		return installedProbe{}, fmt.Errorf("could not parse torch import probe: %w", err)
@@ -105,9 +119,11 @@ func parseInstalledProbe(out string) (installedProbe, error) {
 		return installedProbe{}, fmt.Errorf("torch import probe did not report a torch version")
 	}
 	return installedProbe{
-		TorchVersion: strings.TrimSpace(raw.Torch),
-		CUDA:         strings.TrimSpace(raw.CUDA),
-		HIP:          strings.TrimSpace(raw.HIP),
+		VisionVersion: strings.TrimSpace(raw.Vision),
+		AudioVersion:  strings.TrimSpace(raw.Audio),
+		TorchVersion:  strings.TrimSpace(raw.Torch),
+		CUDA:          strings.TrimSpace(raw.CUDA),
+		HIP:           strings.TrimSpace(raw.HIP),
 	}, nil
 }
 
@@ -116,7 +132,7 @@ func installedSatisfiesPlan(probe installedProbe, plan InstallPlan) bool {
 	case "cuda":
 		return sameMajorMinor(probe.CUDA, plan.EffectiveCUDA)
 	case "rocm":
-		return probe.HIP != ""
+		return probe.HIP != "" && probe.CUDA == "" && probe.TorchVersion == "2.13.0+rocm10.0.0" && probe.VisionVersion == "0.28.0+rocm10.0.0" && probe.AudioVersion == "2.11.0.2+rocm10.0.0"
 	default:
 		return true
 	}
@@ -133,7 +149,7 @@ func InstallArgs(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 }
 
 func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string) InstallPlan {
-	vendor := strings.ToUpper(hw.Vendor)
+	vendor := strings.ToUpper(strings.TrimSpace(hw.Vendor))
 	gpuName := strings.ToUpper(hw.Name)
 	whlURL := "https://download.pytorch.org/whl/"
 	plan := InstallPlan{Vendor: vendor, GPUName: gpuName, Backend: "default"}
@@ -163,22 +179,7 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 		return plan
 	}
 	if vendor == "AMD" {
-		plan.Backend = "rocm"
-		switch {
-		case strings.Contains(gpuName, "GFX110") || strings.Contains(gpuName, "RX 7000"):
-			plan.IndexURL = "https://rocm.nightlies.amd.com/v2/gfx110X-all/"
-			plan.Packages = []string{"--pre", "torch", "torchvision", "torchaudio"}
-		case strings.Contains(gpuName, "GFX1151") || strings.Contains(gpuName, "STRIX"):
-			plan.IndexURL = "https://rocm.nightlies.amd.com/v2/gfx1151/"
-			plan.Packages = []string{"--pre", "torch", "torchvision", "torchaudio"}
-		case strings.Contains(gpuName, "GFX120") || strings.Contains(gpuName, "RX 9000"):
-			plan.IndexURL = "https://rocm.nightlies.amd.com/v2/gfx120X-all/"
-			plan.Packages = []string{"--pre", "torch", "torchvision", "torchaudio"}
-		default:
-			plan.IndexURL = "https://rocm.nightlies.amd.com/v2/gfx110X-all/"
-			plan.Packages = []string{"--pre", "torch", "torchvision", "torchaudio"}
-		}
-		return plan
+		return amdInstallPlan(hw)
 	}
 	if vendor == "INTEL" {
 		plan.Backend = "xpu"
@@ -192,7 +193,7 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 
 func PriorityInstallArgs(wantSage bool, isWindows bool, pinTorch string, hw Hardware, cudaTarget string) []string {
 	packages := append([]string{}, PriorityPackages...)
-	wantTriton := wantSage || (isWindows && strings.ToUpper(hw.Vendor) == "NVIDIA")
+	wantTriton := strings.EqualFold(strings.TrimSpace(hw.Vendor), "NVIDIA") && (wantSage || isWindows)
 	if wantTriton {
 		if isWindows {
 			packages = append(packages, windowsTritonSpec(pinTorch))

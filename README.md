@@ -133,7 +133,7 @@ extra file.
 
 | Requirement | Notes |
 | :---------- | :---- |
-| **GPU** | NVIDIA (GTX 10-series or newer), AMD (RX 6000+), or Intel Arc |
+| **GPU** | NVIDIA (GTX 10-series or newer), a listed AMD model/target below, or Intel Arc |
 | **Internet** | Active connection; ~20 GB free disk space for a full install with models |
 | **Git** | Auto-installed on Windows if missing (fetches the latest release automatically). Required on Linux: `sudo apt install git` |
 | **Admin rights** | Not required |
@@ -169,12 +169,58 @@ GPU detection is automatic. If detection fails, you get a manual selection menu 
 | **NVIDIA** | RTX 20 / 30 / 40 | CUDA 12.8 + Torch 2.9.1 + torchaudio 2.9.1 (configurable) |
 | **NVIDIA** | RTX 50 (Blackwell) | CUDA 12.8 + Torch 2.9.1 + torchaudio 2.9.1 |
 | **NVIDIA** | GTX 10 / Pascal | CUDA 12.1 + Torch 2.4.1 (locked) |
-| **AMD** | RX 7000 / GFX110x | ROCm nightly `gfx110X-all` |
-| **AMD** | RX 9000 / GFX120x | ROCm nightly `gfx120X-all` |
-| **AMD** | Other Radeon | ROCm 7.1 stable |
+| **AMD** | RX 6800 / XT, 6900 XT, 6950 XT; PRO W6800 | ROCm 10.0, `gfx1030` |
+| **AMD** | RX 7900 XT / XTX; PRO W7800 / W7900 | ROCm 10.0, `gfx1100` |
+| **AMD** | RX 7700 XT / 7800 XT | ROCm 10.0, `gfx1101` |
+| **AMD** | RX 7600 / XT | ROCm 10.0, `gfx1102` |
+| **AMD** | Radeon 8040S / 8050S / 8060S (Strix Halo) | ROCm 10.0, `gfx1151` |
+| **AMD** | RX 9060 / XT | ROCm 10.0, `gfx1200` |
+| **AMD** | RX 9070 / XT; Radeon AI PRO R9700 | ROCm 10.0, `gfx1201` |
 | **Intel** | Arc / iGPU | XPU wheel |
 
 Detection uses `nvidia-smi` and `lspci` (Linux) or `Win32_VideoController` (Windows), with a weighted sort that ensures a discrete GPU always wins over an integrated one sharing the same system.
+
+---
+
+## AMD ROCm installation
+
+The installer has a native AMD path on **Windows and Linux x86_64**. It uses
+AMD's stable multi-architecture wheel index, not the old per-family nightly
+indexes. The package set is pinned to **Torch 2.13.0, torchvision 0.28.0 and
+torchaudio 2.11.0.2**, all with the `+rocm10.0.0` suffix. GPU-specific device
+extras install the matching runtime and kernels inside the ComfyUI venv; no
+system-wide ROCm/HIP SDK installation is performed.
+
+- **Windows:** Windows 11 **25H2** (build 26200+) and AMD Adrenalin **26.8.1 or
+  newer**. The Windows build is checked before installation; the graphics-driver
+  version remains a user prerequisite. No driver or Windows security settings
+  are changed by the installer.
+- **Linux:** A compatible amdgpu driver, supported distribution/runtime and
+  permission to access `/dev/kfd` and `/dev/dri`. Drivers and device permissions
+  are not modified by the installer. See AMD's release compatibility matrix.
+- **Python:** CPython **3.12 or 3.13**. Update preserves the existing venv ABI;
+  incompatible existing Python versions fail before migration instead of being
+  silently upgraded. Refresh intentionally rebuilds the environment.
+- **Selection:** Use an exact listed model or a recognized `gfx` target in the
+  GPU-name field. Unknown, conflicting and unlisted mobile GPU names are rejected
+  before checkout or wipe; there is no generic AMD-to-RDNA3 fallback.
+- **Components:** SageAttention, RadialAttention and FlashAttention options in
+  this installer are NVIDIA-only. The UI disables/unchecks them for AMD/Intel,
+  and the backend rejects incompatible requests.
+- **Verification:** The installer checks the pinned Torch stack and performs a
+  synchronized GPU matrix multiplication on the selected architecture, both
+  immediately after Torch installation and before reporting completion.
+- **Dependencies:** Subsequent uv operations inherit AMD version constraints
+  and the stable index. Custom-node failures remain visible as warnings; CUDA-only
+  nodes, quantization kernels and FP8 workflows are not guaranteed portable.
+
+Package resolution has been verified for Windows/Linux with Python 3.12/3.13,
+including current ComfyUI core requirements. **End-to-end AMD hardware acceptance
+is still pending**; available wheels and resolver success are not a hardware test.
+
+References: [AMD ROCm 10.0 compatibility](https://rocm.docs.amd.com/en/docs-10.0.0/compatibility/compatibility-matrix.html),
+[AMD multi-architecture packages](https://github.com/ROCm/TheRock/blob/main/RELEASES.md),
+[ComfyUI AMD instructions](https://github.com/Comfy-Org/ComfyUI#amd-gpus-windows-rocm-100).
 
 ---
 

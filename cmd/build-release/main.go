@@ -86,9 +86,9 @@ func checkCUDAMigration(candidate string) error {
 	cuTag := "cu" + strings.ReplaceAll(nvidiaCUDA, ".", "")
 	cases := []cudaMigrationCase{
 		{Name: "AMD RDNA2/ROCm stable", HW: torch.Hardware{Vendor: "AMD", Name: "Radeon RX 6800 XT"}, WantBackend: "rocm", WantIndexPart: "rocm"},
-		{Name: "AMD RDNA3/GFX110 nightly", HW: torch.Hardware{Vendor: "AMD", Name: "Radeon RX 7900 XTX GFX1100"}, WantBackend: "rocm", WantIndexPart: "gfx110X-all"},
-		{Name: "AMD RDNA3.5/GFX1151 nightly", HW: torch.Hardware{Vendor: "AMD", Name: "Radeon 8060S GFX1151 Strix"}, WantBackend: "rocm", WantIndexPart: "gfx1151"},
-		{Name: "AMD RDNA4/GFX120 nightly", HW: torch.Hardware{Vendor: "AMD", Name: "Radeon RX 9070 XT GFX1201"}, WantBackend: "rocm", WantIndexPart: "gfx120X-all"},
+		{Name: "AMD RDNA3/GFX110 stable", HW: torch.Hardware{Vendor: "AMD", Name: "Radeon RX 7900 XTX GFX1100"}, WantBackend: "rocm", WantIndexPart: "stable.repo.amd.com/rocm/whl-next"},
+		{Name: "AMD RDNA3.5/GFX1151 stable", HW: torch.Hardware{Vendor: "AMD", Name: "Radeon 8060S GFX1151 Strix"}, WantBackend: "rocm", WantIndexPart: "stable.repo.amd.com/rocm/whl-next"},
+		{Name: "AMD RDNA4/GFX120 stable", HW: torch.Hardware{Vendor: "AMD", Name: "Radeon RX 9070 XT GFX1201"}, WantBackend: "rocm", WantIndexPart: "stable.repo.amd.com/rocm/whl-next"},
 		{Name: "Intel Arc/XPU", HW: torch.Hardware{Vendor: "INTEL", Name: "Intel Arc B580"}, WantBackend: "xpu", WantIndexPart: "/xpu"},
 		{Name: "NVIDIA GTX 10/Pascal legacy", HW: torch.Hardware{Vendor: "NVIDIA", Name: "GeForce GTX 1080 Ti"}, WantBackend: "cuda", WantCUDA: "12.1", WantIndexPart: "cu121"},
 		{Name: "NVIDIA RTX 20/Turing", HW: torch.Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 2080 Ti"}, WantBackend: "cuda", WantCUDA: nvidiaCUDA, WantIndexPart: cuTag},
@@ -100,6 +100,10 @@ func checkCUDAMigration(candidate string) error {
 	var errs []string
 	for _, tc := range cases {
 		plan := torch.PlanInstall(tc.HW, "", cfg, "")
+		if plan.Err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", tc.Name, plan.Err))
+			continue
+		}
 		if plan.Backend != tc.WantBackend {
 			errs = append(errs, fmt.Sprintf("%s: backend %q, want %q", tc.Name, plan.Backend, tc.WantBackend))
 		}
