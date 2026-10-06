@@ -1,10 +1,29 @@
 package torch
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/darksidewalker/dasiwa-comfyui-installer/internal/native/runutil"
 )
+
+// ROCm is source-only and uses setuptools.build_meta. Torch installation disables
+// build isolation, so this must precede both initial installation and repair.
+func prepareAMDBuild(ctx context.Context, env []string, logf runutil.LogFunc) error {
+	log(logf, "Ensuring setuptools for the AMD ROCm source-package build...")
+	if err := runutil.Command(ctx, logf, "", env, "uv", amdBuildInstallArgs()...); err != nil {
+		return fmt.Errorf("prepare AMD ROCm build dependencies: %w", err)
+	}
+	return nil
+}
+
+func amdBuildInstallArgs() []string {
+	// Use the normal package index, not AMD's Torch index; install only the
+	// declared build prerequisite into the selected ComfyUI venv.
+	return []string{"pip", "install", "--only-binary", "setuptools", "--no-deps", "setuptools>=70.2.0"}
+}
 
 const AMDIndexURL = "https://stable.repo.amd.com/rocm/whl-next/"
 

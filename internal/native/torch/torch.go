@@ -55,6 +55,11 @@ func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, 
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)
 	log(logf, fmt.Sprintf("Installing Torch for %s (%s)...", hw.Vendor, strings.ToUpper(hw.Name)))
 	env = applyUvRuntimeEnv(env)
+	if strings.EqualFold(strings.TrimSpace(hw.Vendor), "AMD") {
+		if err := prepareAMDBuild(ctx, env, logf); err != nil {
+			return err
+		}
+	}
 	return runutil.Command(ctx, logf, "", env, "uv", args...)
 }
 
@@ -72,6 +77,11 @@ func Reassert(ctx context.Context, env []string, python string, hw Hardware, cud
 	args := InstallArgs(hw, cudaTarget, cfg, pinTorch)
 	log(logf, fmt.Sprintf("Reasserting Torch backend for %s (%s)...", hw.Vendor, strings.ToUpper(hw.Name)))
 	env = applyUvRuntimeEnv(env)
+	if strings.EqualFold(strings.TrimSpace(hw.Vendor), "AMD") {
+		if err := prepareAMDBuild(ctx, env, logf); err != nil {
+			return err
+		}
+	}
 	return runutil.Command(ctx, logf, "", env, "uv", args...)
 }
 
