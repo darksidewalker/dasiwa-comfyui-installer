@@ -45,6 +45,9 @@ func PlanWindowsTorch(pythonDisplay, cudaTarget string) (string, string) {
 		cuMM = "13.0"
 	}
 	cuTag := "cu" + strings.ReplaceAll(cuMM, ".", "")
+	if cuMM == "13.0" {
+		return "2.14.1", cuTag
+	}
 	pyMM := strings.Join(firstN(strings.Split(pythonDisplay, "."), 2), ".")
 	fallback := map[string]string{
 		"3.12|13.0": "2.11.0", "3.13|13.0": "2.11.0",
@@ -145,7 +148,12 @@ func sourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, urls 
 	}
 	// Preserve the selected Torch/Triton stack; do not resolve dependencies while
 	// installing this local source tree.
-	return runutil.Command(ctx, logf, dir, buildEnv, "uv", "pip", "install", "--no-build-isolation", "--no-deps", "--python", venv.Python, ".")
+	return runutil.Command(ctx, logf, dir, buildEnv, "uv", sourceInstallArgs(venv.Python)...)
+}
+
+// Local wheel caches do not encode the active Torch ABI; rebuild for this venv.
+func sourceInstallArgs(python string) []string {
+	return []string{"pip", "install", "--no-cache", "--no-build-isolation", "--no-deps", "--python", python, "."}
 }
 
 const (
@@ -232,7 +240,7 @@ func TritonSpec(torchVersion string) string {
 	pairs := []struct {
 		major, minor int
 		spec         string
-	}{{2, 12, "triton-windows>=3.7,<3.8"}, {2, 11, "triton-windows>=3.6,<3.7"}, {2, 10, "triton-windows>=3.6,<3.7"}, {2, 9, "triton-windows>=3.5,<3.6"}, {2, 8, "triton-windows>=3.4,<3.5"}, {2, 7, "triton-windows>=3.3,<3.4"}}
+	}{{2, 14, "triton-windows>=3.8,<3.9"}, {2, 12, "triton-windows>=3.7,<3.8"}, {2, 11, "triton-windows>=3.6,<3.7"}, {2, 10, "triton-windows>=3.6,<3.7"}, {2, 9, "triton-windows>=3.5,<3.6"}, {2, 8, "triton-windows>=3.4,<3.5"}, {2, 7, "triton-windows>=3.3,<3.4"}}
 	parts := strings.Split(torchVersion, ".")
 	maj, min := 0, 0
 	if len(parts) > 0 {

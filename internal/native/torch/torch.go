@@ -42,11 +42,10 @@ var PriorityPackages = []string{
 	"setuptools==81.0.0",
 }
 
-// PyTorch 2.11 is the newest stable cu130 release with a matching torchaudio
-// wheel on both Python 3.12 and 3.13. Newer cu130/cu132 Torch releases do not
-// publish a matching torchaudio package, so selecting them produces a mixed,
-// unsupported stack for ComfyUI audio nodes.
-var cuda130Packages = []string{"torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"}
+// TorchAudio 2.11 uses the stable Torch ABI and supports Torch 2.11 and later:
+// https://docs.pytorch.org/audio/stable/installation.html
+// These versions publish cu130 wheels for Python 3.12/3.13 on Linux and Windows.
+var cuda130Packages = []string{"torch==2.14.1", "torchvision==0.29.1", "torchaudio==2.11.0"}
 
 func Install(ctx context.Context, env []string, hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string, logf runutil.LogFunc) error {
 	if plan := PlanInstall(hw, cudaTarget, cfg, pinTorch); plan.Err != nil {
@@ -82,7 +81,13 @@ func Reassert(ctx context.Context, env []string, python string, hw Hardware, cud
 			return err
 		}
 	}
-	return runutil.Command(ctx, logf, "", env, "uv", args...)
+	if err := runutil.Command(ctx, logf, "", env, "uv", args...); err != nil {
+		return err
+	}
+	if ok, detail := CurrentInstallSatisfies(ctx, env, python, plan, pinTorch); !ok {
+		return fmt.Errorf("Torch backend verification after repair failed: %s", detail)
+	}
+	return nil
 }
 
 func CurrentInstallSatisfies(ctx context.Context, env []string, python string, plan InstallPlan, pinTorch string) (bool, string) {
@@ -100,7 +105,7 @@ func CurrentInstallSatisfies(ctx context.Context, env []string, python string, p
 		return false, fmt.Sprintf("torch %s != pinned %s", probe.TorchVersion, pinTorch)
 	}
 	if !installedSatisfiesPlan(probe, plan) {
-		return false, fmt.Sprintf("torch %s cuda=%q hip=%q does not match %s %s", probe.TorchVersion, probe.CUDA, probe.HIP, plan.Backend, plan.EffectiveCUDA)
+		return false, fmt.Sprintf("torch %s vision=%s audio=%s cuda=%q hip=%q does not match %s %s %v", probe.TorchVersion, probe.VisionVersion, probe.AudioVersion, probe.CUDA, probe.HIP, plan.Backend, plan.EffectiveCUDA, plan.Packages)
 	}
 	return true, fmt.Sprintf("torch %s cuda=%q hip=%q", probe.TorchVersion, probe.CUDA, probe.HIP)
 }
@@ -140,7 +145,17 @@ func parseInstalledProbe(out string) (installedProbe, error) {
 func installedSatisfiesPlan(probe installedProbe, plan InstallPlan) bool {
 	switch plan.Backend {
 	case "cuda":
-		return sameMajorMinor(probe.CUDA, plan.EffectiveCUDA)
+		if !sameMajorMinor(probe.CUDA, plan.EffectiveCUDA) {
+			return false
+		}
+		versions := map[string]string{"torch": probe.TorchVersion, "torchvision": probe.VisionVersion, "torchaudio": probe.AudioVersion}
+		for _, spec := range plan.Packages {
+			parts := strings.SplitN(spec, "==", 2)
+			if len(parts) == 2 && !pinnedVersionMatches(versions[parts[0]], parts[1]) {
+				return false
+			}
+		}
+		return true
 	case "rocm":
 		return probe.HIP != "" && probe.CUDA == "" && probe.TorchVersion == "2.13.0+rocm10.0.0" && probe.VisionVersion == "0.28.0+rocm10.0.0" && probe.AudioVersion == "2.11.0.2+rocm10.0.0"
 	default:
@@ -203,10 +218,16 @@ func PlanInstall(hw Hardware, cudaTarget string, cfg CUDAConfig, pinTorch string
 
 func PriorityInstallArgs(wantSage bool, isWindows bool, pinTorch string, hw Hardware, cudaTarget string) []string {
 	packages := append([]string{}, PriorityPackages...)
-	wantTriton := strings.EqualFold(strings.TrimSpace(hw.Vendor), "NVIDIA") && (wantSage || isWindows)
+	wantTriton := strings.EqualFold(strings.TrimSpace(hw.Vendor), "NVIDIA") && !isGTX10(hw) && (wantSage || isWindows)
 	if wantTriton {
+		tritonTorch := pinTorch
+		if tritonTorch == "" && !isGTX10(hw) && effectiveNVIDIACUDA(cudaTarget) == "13.0" {
+			tritonTorch = "2.14.1"
+		}
 		if isWindows {
-			packages = append(packages, windowsTritonSpec(pinTorch))
+			packages = append(packages, windowsTritonSpec(tritonTorch))
+		} else if strings.HasPrefix(tritonTorch, "2.14.") {
+			packages = append(packages, "triton>=3.8,<3.9.dev0")
 		} else {
 			packages = append(packages, "triton>=3.7,<3.8")
 		}
@@ -216,7 +237,7 @@ func PriorityInstallArgs(wantSage bool, isWindows bool, pinTorch string, hw Hard
 	}
 	args := append([]string{"pip", "install", "--upgrade", "--no-deps"}, packages...)
 	if pinTorch != "" && strings.ToUpper(hw.Vendor) == "NVIDIA" && cudaTarget != "" {
-		cudaTarget = effectiveNVIDIACUDA(cudaTarget)
+		cudaTarget = PlanInstall(hw, cudaTarget, CUDAConfig{}, pinTorch).EffectiveCUDA
 		args = append(args,
 			"--extra-index-url", "https://download.pytorch.org/whl/cu"+strings.ReplaceAll(cudaTarget, ".", ""),
 			"--index-strategy", "unsafe-best-match",
@@ -238,6 +259,8 @@ func effectiveNVIDIACUDA(target string) string {
 
 func windowsTritonSpec(torchVersion string) string {
 	switch {
+	case strings.HasPrefix(torchVersion, "2.14."):
+		return "triton-windows>=3.8,<3.9"
 	case strings.HasPrefix(torchVersion, "2.9."):
 		return "triton-windows>=3.5,<3.6"
 	case strings.HasPrefix(torchVersion, "2.10."), strings.HasPrefix(torchVersion, "2.11."):

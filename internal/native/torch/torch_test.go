@@ -71,11 +71,11 @@ func TestRTX50UsesLatestCompleteCUDA130TorchStack(t *testing.T) {
 	if plan.IndexURL != "https://download.pytorch.org/whl/cu130" {
 		t.Fatalf("RTX 50 index URL = %q, want official cu130", plan.IndexURL)
 	}
-	wantPackages := []string{"torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"}
+	wantPackages := []string{"torch==2.14.1", "torchvision==0.29.1", "torchaudio==2.11.0"}
 	if !reflect.DeepEqual(plan.Packages, wantPackages) {
 		t.Fatalf("RTX 50 packages = %v, want %v", plan.Packages, wantPackages)
 	}
-	wantPrefix := []string{"pip", "install", "torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0", "--index-url", plan.IndexURL}
+	wantPrefix := []string{"pip", "install", "torch==2.14.1", "torchvision==0.29.1", "torchaudio==2.11.0", "--index-url", plan.IndexURL}
 	got := InstallArgs(hw, "", cfg, "")
 	if !reflect.DeepEqual(got, wantPrefix) {
 		t.Fatalf("RTX 50 install args = %v, want %v", got, wantPrefix)
@@ -89,7 +89,7 @@ func TestModernNVIDIAUsesLatestCompleteCUDA130TorchStack(t *testing.T) {
 	if plan.IndexURL != "https://download.pytorch.org/whl/cu130" {
 		t.Fatalf("RTX 40 index URL = %q, want official cu130", plan.IndexURL)
 	}
-	wantPackages := []string{"torch==2.11.0", "torchvision==0.26.0", "torchaudio==2.11.0"}
+	wantPackages := []string{"torch==2.14.1", "torchvision==0.29.1", "torchaudio==2.11.0"}
 	if !reflect.DeepEqual(plan.Packages, wantPackages) {
 		t.Fatalf("RTX 40 packages = %v, want %v", plan.Packages, wantPackages)
 	}
@@ -103,8 +103,8 @@ func TestPriorityInstallDoesNotResolveTorchDependencies(t *testing.T) {
 	if contains(args, "torch") || contains(args, "torchvision") || contains(args, "torchaudio") {
 		t.Fatalf("priority install args = %v, should not install unpinned Torch packages", args)
 	}
-	if !contains(args, "triton>=3.7,<3.8") {
-		t.Fatalf("priority install args = %v, want triton 3.7 range instead of exact downgrade pin", args)
+	if !contains(args, "triton>=3.8,<3.9.dev0") {
+		t.Fatalf("priority install args = %v, want Torch 2.14-compatible Triton 3.8 range", args)
 	}
 }
 
@@ -126,9 +126,9 @@ func TestPinnedPriorityInstallUsesEffectiveCUDAIndexWithoutDeps(t *testing.T) {
 
 func TestWindowsNVIDIAInstallsTritonWithoutSage(t *testing.T) {
 	// Fresh install, no Sage: Windows + NVIDIA must still get triton-windows
-	// (latest) so the comfy-kitchen triton backend is importable.
+	// (Torch-compatible range) so the comfy-kitchen triton backend is importable.
 	args := PriorityInstallArgs(false, true, "", Hardware{Vendor: "NVIDIA", Name: "GeForce RTX 4090"}, "13.2")
-	if !contains(args, "triton-windows") {
+	if !contains(args, "triton-windows>=3.8,<3.9") {
 		t.Fatalf("windows NVIDIA no-sage args = %v, want triton-windows", args)
 	}
 	// No Sage, no pin: must NOT carry a Sage torch pin.

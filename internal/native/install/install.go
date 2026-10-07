@@ -124,7 +124,7 @@ func Run(ctx context.Context, root string, choices Choices, logf runutil.LogFunc
 	pinTorch := ""
 	if choices.WantSage && strings.EqualFold(choices.HW.Vendor, "NVIDIA") {
 		var cuTag string
-		pinTorch, cuTag = torchPlanForSage(cfg.Python.DisplayName, cudaTarget)
+		pinTorch, cuTag = sageTorchPlan(choices.HW, cfg.Python.DisplayName, cudaTarget, torch.CUDAConfig{Global: cfg.CUDA.Global, MinCUDAFor50x: cfg.CUDA.MinCUDAFor50x})
 		log(logf, "Using Torch "+pinTorch+" with "+cuTag+" for the SageAttention install plan.")
 	}
 	if strings.EqualFold(strings.TrimSpace(choices.HW.Vendor), "AMD") {
@@ -134,6 +134,20 @@ func Run(ctx context.Context, root string, choices Choices, logf runutil.LogFunc
 		venv.Env, err = torch.AMDDependencyEnv(venv.Env, comfyPath)
 		if err != nil {
 			return err
+		}
+	}
+	if strings.EqualFold(strings.TrimSpace(choices.HW.Vendor), "NVIDIA") {
+		// Metadata remains readable even when an old compiled extension cannot import.
+		old, probeErr := runutil.Output(ctx, "", venv.Env, venv.Python, "-c", "import importlib.metadata as m\ntry: print(m.version('torch'))\nexcept m.PackageNotFoundError: print('')")
+		if probeErr != nil {
+			return fmt.Errorf("read Torch metadata before upgrade: %w", probeErr)
+		}
+		plan := torch.PlanInstall(choices.HW, cudaTarget, torch.CUDAConfig{Global: cfg.CUDA.Global, MinCUDAFor50x: cfg.CUDA.MinCUDAFor50x}, pinTorch)
+		if args := attentionResetArgs(strings.TrimSpace(old), plan); len(args) > 0 {
+			log(logf, "Torch ABI changes: removing existing SageAttention/FlashAttention before upgrade; selected extensions will be reinstalled.")
+			if err := runutil.Command(ctx, logf, "", venv.Env, "uv", append(args, "--python", venv.Python)...); err != nil {
+				return err
+			}
 		}
 	}
 	if err := torch.Install(ctx, venv.Env, choices.HW, cudaTarget, torch.CUDAConfig{Global: cfg.CUDA.Global, MinCUDAFor50x: cfg.CUDA.MinCUDAFor50x}, pinTorch, logf); err != nil {
@@ -194,6 +208,12 @@ func Run(ctx context.Context, root string, choices Choices, logf runutil.LogFunc
 	if strings.EqualFold(strings.TrimSpace(choices.HW.Vendor), "AMD") {
 		if err := torch.VerifyAMD(ctx, venv.Env, venv.Python, choices.HW, logf); err != nil {
 			return err
+		}
+	}
+	if strings.EqualFold(strings.TrimSpace(choices.HW.Vendor), "NVIDIA") {
+		plan := torch.PlanInstall(choices.HW, cudaTarget, torch.CUDAConfig{Global: cfg.CUDA.Global, MinCUDAFor50x: cfg.CUDA.MinCUDAFor50x}, pinTorch)
+		if ok, detail := torch.CurrentInstallSatisfies(ctx, venv.Env, venv.Python, plan, pinTorch); !ok {
+			return fmt.Errorf("final Torch backend verification failed: %s", detail)
 		}
 	}
 	if err := launcher.Create(comfyPath); err != nil {
@@ -262,9 +282,6 @@ func resolveNodeLines(cfg Config) ([]string, error) {
 }
 
 func fileExists(path string) bool { _, err := os.Stat(path); return err == nil }
-func torchPlanForSage(pythonDisplay, cudaTarget string) (string, string) {
-	return sage.PlanWindowsTorch(pythonDisplay, cudaTarget)
-}
 func log(logf runutil.LogFunc, line string) {
 	if logf != nil {
 		logf(line)

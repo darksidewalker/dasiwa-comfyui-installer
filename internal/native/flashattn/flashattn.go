@@ -202,7 +202,7 @@ func trySourceBuild(ctx context.Context, venv runutil.Venv, comfyPath string, ur
 }
 
 func sourceInstallArgs(python string) []string {
-	return []string{"pip", "install", "--no-build-isolation", "--no-deps", "--python", python, "."}
+	return []string{"pip", "install", "--no-cache", "--no-build-isolation", "--no-deps", "--python", python, "."}
 }
 
 func sourceCloneArgs(repoURL, tag, dir string) []string {

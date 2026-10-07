@@ -170,8 +170,8 @@ GPU detection is automatic, but review the vendor and editable GPU-name field be
 
 | Vendor | Series | PyTorch Build |
 | :----- | :----- | :------------ |
-| **NVIDIA** | RTX 20 / 30 / 40 | Default CUDA 13.0: Torch 2.11.0, torchvision 0.26.0, torchaudio 2.11.0 |
-| **NVIDIA** | RTX 50 (Blackwell) | Default CUDA 13.0: Torch 2.11.0, torchvision 0.26.0, torchaudio 2.11.0 |
+| **NVIDIA** | RTX 20 / 30 / 40 | Default CUDA 13.0: Torch 2.14.1, torchvision 0.29.1, torchaudio 2.11.0 |
+| **NVIDIA** | RTX 50 (Blackwell) | Default CUDA 13.0: Torch 2.14.1, torchvision 0.29.1, torchaudio 2.11.0 |
 | **NVIDIA** | GTX 10 / Pascal | CUDA 12.1 + Torch 2.4.1 (locked) |
 | **AMD** | RX 6800 / XT, 6900 XT, 6950 XT; PRO W6800 | ROCm 10.0, `gfx1030` |
 | **AMD** | RX 7900 XT / XTX; PRO W7800 / W7900 | ROCm 10.0, `gfx1100` |
@@ -242,7 +242,29 @@ The current Windows path is wheel-only. No SageAttention source-build fallback i
 Tries the precompiled SageAttention wheel path first. If no compatible wheel exists, the installer attempts a source build only when `nvcc` and a compatible `g++`/`clang++` host compiler are available. Missing or incompatible compilers skip SageAttention instead of failing the whole ComfyUI install.
 
 **CUDA Wheel Selection**
-For modern NVIDIA cards, requested CUDA 13.x targets (including the configured default `13.2`) map to `https://download.pytorch.org/whl/cu130` with Torch 2.11.0, torchvision 0.26.0 and torchaudio 2.11.0. This keeps the audio package aligned with Torch rather than mixing it with newer Torch-only wheel sets. GTX 10 / Pascal remains locked to CUDA 12.1, Torch 2.4.1, torchvision 0.19.1 and torchaudio 2.4.1. SageAttention requires newer Torch and is not compatible with that legacy stack.
+For modern NVIDIA cards, requested CUDA 13.x targets (including the configured default `13.2`) map to `https://download.pytorch.org/whl/cu130` with Torch 2.14.1, torchvision 0.29.1 and torchaudio 2.11.0. TorchAudio 2.11 uses [PyTorch’s stable ABI](https://docs.pytorch.org/audio/stable/installation.html) and officially supports Torch 2.11 and all later versions; its version need not match Torch 2.14.1. GTX 10 / Pascal remains locked to CUDA 12.1, Torch 2.4.1, torchvision 0.19.1 and torchaudio 2.4.1. SageAttention requires newer Torch and is not compatible with that legacy stack.
+
+Torch 2.14 uses Triton 3.8: Linux Sage installs `triton>=3.8,<3.9.dev0`,
+Windows uses `triton-windows>=3.8,<3.9` with or without Sage. On Linux without
+Sage, Torch supplies its own Triton dependency. Earlier explicitly selected
+Torch 2.9–2.12 Windows mappings are unchanged. GTX 10 / Pascal does not receive
+a modern priority Triton override; its pinned Torch dependencies remain in charge.
+
+When updating an existing NVIDIA environment to a different Torch/CUDA ABI,
+the installer removes old `sageattention` and `flash-attn` distributions before
+upgrading Torch. Selected extensions are installed again; unselected ones remain
+removed rather than leaving stale compiled kernels behind. Source reinstalls bypass
+uv’s old wheel cache so an earlier Torch ABI build cannot be reused. Import checks alone
+do not prove GPU-kernel compatibility. Linux CUDA 13 Sage skips the CUDA 12 HF
+wheels and requires a compatible source-build toolchain; FlashAttention remains
+Linux-only and may be skipped when no matching wheel/toolchain is available.
+The final backend check imports Torch, torchvision and torchaudio and verifies
+all selected exact package versions plus CUDA, including after backend repair.
+
+Packaging has been checked with real uv Python 3.12 Linux/Windows dry-runs,
+including current ComfyUI requirements. This is not a Windows runtime or GPU
+attention-kernel test; test the installer on the target GPU before relying on
+optional accelerators.
 
 ---
 
